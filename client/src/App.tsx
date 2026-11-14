@@ -1,36 +1,21 @@
-import { Languages, Satellite, Wifi, WifiOff } from 'lucide-react';
-import { Dashboard } from './components/Dashboard';
-import { DesignView } from './components/DesignView';
-import { ExtrasPanel } from './components/ExtrasPanel';
-import { Landing } from './components/Landing';
-import { ReportView } from './components/ReportView';
-import { SimulationView } from './components/SimulationView';
-import { TeamPanel } from './components/TeamPanel';
-import { ControlBar, HelpOverlay, Toast } from './components/GameControls';
-import { useGameInput } from './input/useGameInput';
-import { useGame } from './store';
-import { useTeam } from './teamStore';
+import { lazy, Suspense, useEffect, useState } from 'react';
 
+const Adventure = lazy(() => import('./world/Adventure'));
+
+function initialLang(): 'es' | 'en' {
+  try { const v = localStorage.getItem('frontier-lang'); if (v === 'es' || v === 'en') return v; } catch { /* private mode */ }
+  return navigator.language?.toLowerCase().startsWith('es') ? 'es' : 'en';
+}
+
+/** The whole game is one open world: it starts on Earth and goes straight to playing. */
 export function App() {
-  const game = useGame();
-  const team = useTeam();
-  const connected = team.connection === 'connected';
-  useGameInput();
-  const overlays = <><ControlBar/><HelpOverlay/><Toast/></>;
-  if (game.screen === 'home') return <><Landing />{overlays}</>;
-  return <div className="app-shell">
-    <header className="topbar">
-      <button className="brand" onClick={() => {team.leave();game.setScreen('home');}} aria-label="GameTechMx Frontier home"><span className="brand-mark"><Satellite size={20}/></span><span><b>GameTechMx</b> Frontier<small>{game.language==="es"?"Laboratorio de misiones":"Mission design lab"}</small></span></button>
-      <div className="top-actions">
-        {game.mode !== 'solo' && <span className={`status-pill ${connected?'online':''}`}>{connected?<Wifi size={13}/>:<WifiOff size={13}/>} {team.room?.code ?? (game.language==='es'?'Sin sala':'No room')}</span>}
-        <ExtrasPanel />
-        <button className="language" onClick={() => game.setLanguage(game.language==='es'?'en':'es')}><Languages size={15}/>{game.language==='es'?'EN':'ES'}</button>
-      </div>
-    </header>
-    <div className="mission-strip"><span>GTX / {game.design.name}</span><span>{({design:["Diseño","Design"],simulation:["Simulación","Simulation"],report:["Informe","Report"]} as Record<string,string[]>)[game.screen]?.[game.language==="es"?0:1] ?? game.screen}</span><span>{game.language==="es"?"Semilla":"Seed"} {game.seed}</span></div>
-    {game.screen === 'design' && <div className="workspace"><DesignView/><aside className="dashboard-rail"><Dashboard/><TeamPanel/></aside></div>}
-    {game.screen === 'simulation' && <div className="workspace simulation-workspace"><SimulationView/><aside className="dashboard-rail"><Dashboard/><TeamPanel/></aside></div>}
-    {game.screen === 'report' && <div className="workspace report-workspace"><ReportView/><aside className="dashboard-rail"><Dashboard/><TeamPanel/></aside></div>}
-    {overlays}
-  </div>;
+  const [lang, setLang] = useState<'es' | 'en'>(initialLang);
+  const [run, setRun] = useState(0);
+  useEffect(() => { document.documentElement.lang = lang; try { localStorage.setItem('frontier-lang', lang); } catch { /* private mode */ } }, [lang]);
+  return <>
+    <Suspense fallback={<div className="app-loading">{lang === 'es' ? 'Cargando…' : 'Loading…'}</div>}>
+      <Adventure key={run} es={lang === 'es'} onExit={() => setRun(r => r + 1)} />
+    </Suspense>
+    <button className="lang-btn" onClick={() => setLang(l => (l === 'es' ? 'en' : 'es'))} aria-label="Language">{lang === 'es' ? 'EN' : 'ES'}</button>
+  </>;
 }

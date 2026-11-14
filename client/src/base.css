@@ -1,0 +1,16 @@
+/* Low-poly colorful look: warm flat colors, chunky shapes, solid shadows, no glow. */
+@import '@fontsource-variable/nunito';
+:root{--bg:#2a1f3d;--panel:#3a2c52;--panel2:#46365f;--line:#5d4a7c;--text:#fff4e6;--muted:#cdb9e0;--cyan:#ffc857;--orange:#ff7a59;--green:#5ee6a8;
+  font-family:'Nunito Variable',Nunito,ui-rounded,'Trebuchet MS',system-ui,sans-serif;color:var(--text);background:var(--bg);font-synthesis:none}
+*{box-sizing:border-box}
+html,body,#root{margin:0;height:100%;overflow:hidden;background:#8fd3ff}
+body{font-weight:600;font-size:16px;-webkit-tap-highlight-color:transparent}
+button,input,select{font-family:inherit;color:inherit;cursor:pointer}
+*:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+.button{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border-radius:14px;padding:.8rem 1.3rem;border:2px solid #1b1230;font-weight:900;font-size:1rem;box-shadow:0 4px 0 #1b1230;transition:transform .08s,box-shadow .08s}
+.button:hover{transform:translateY(-1px)}
+.button:active{transform:translateY(3px);box-shadow:0 1px 0 #1b1230}
+.button-primary{background:var(--cyan);color:#2a1f3d}
+.button-secondary{background:var(--panel2);color:var(--text)}
+.lang-btn{position:fixed;top:12px;right:12px;z-index:400;border-radius:14px;border:3px solid #1b1230;background:#fff4e6;color:#2a1f3d;font-weight:900;padding:.5rem .8rem;box-shadow:0 4px 0 #1b1230}
+.app-loading{position:fixed;inset:0;display:grid;place-items:center;background:#2a1f3d;font-weight:900;font-size:1.4rem}
