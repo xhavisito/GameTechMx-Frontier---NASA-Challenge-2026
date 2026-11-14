@@ -25,3 +25,6 @@
 @keyframes adv-bar{from{width:0}to{width:100%}}
 @media (prefers-reduced-motion:reduce){.adv-stars{animation:none}}
 .adv-next{font-size:.9rem}
+.jup-mapbox{position:absolute;right:14px;bottom:14px;background:#3a2c52;border:3px solid #1b1230;border-radius:16px;padding:.5rem .6rem;box-shadow:0 4px 0 #1b1230;display:flex;flex-direction:column;gap:.3rem;font-size:.85rem}
+.jup-map{width:260px;height:130px;border-radius:8px;display:block;max-width:60vw}
+@media (pointer:coarse){.jup-mapbox{bottom:auto;top:84px}}
