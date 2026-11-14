@@ -6,7 +6,7 @@ import type { MissionDesign, MissionTimeline } from '../../../shared/types';
 import { cameraAxes, cameraImpulse } from '../input/inputStore';
 import { Spacecraft, type Labels, type ShipFx } from './Spacecraft';
 import { buildShipSpec, flightStateAt, orbitShapes, type FlightState, type OrbitShape, type ShipSpec } from './spacecraftModel';
-import { planetTexture } from './textures';
+import { lowPolyBodyGeometry } from './lowpoly';
 
 export type SceneMode = 'hangar' | 'launcher' | 'orbit' | 'flight' | 'showcase';
 
@@ -44,23 +44,23 @@ function Planet({ kind, radius = 1, stations = 0, spin = 0.04, aurora = 0 }: { k
   const group = useRef<THREE.Group>(null);
   const clouds = useRef<THREE.Mesh>(null);
   const glow = useRef<THREE.MeshBasicMaterial>(null);
-  const map = useMemo(() => planetTexture(kind), [kind]);
-  const cloudMap = useMemo(() => (kind === 'earth' ? planetTexture('clouds') : null), [kind]);
+  const geo = useMemo(() => lowPolyBodyGeometry(kind, radius, 3), [kind, radius]);
+  const cloudMap = null as null | THREE.Texture;
   useFrame((_, dt) => {
     if (group.current) group.current.rotation.y += dt * spin;
     if (clouds.current) clouds.current.rotation.y += dt * spin * 0.35;
-    if (glow.current) { glow.current.color.set(aurora > 0 ? '#7dffb2' : kind === 'mars' ? '#ffb38a' : '#6cc8ff'); glow.current.opacity = (kind === 'moon' ? 0 : 0.22) + aurora * 0.3; }
+    if (glow.current) { glow.current.color.set(aurora > 0 ? '#7dffb2' : kind === 'mars' ? '#ffb38a' : '#6cc8ff'); glow.current.opacity = (kind === 'moon' ? 0 : 0.1) + aurora * 0.3; }
   });
   const atmosphere = kind !== 'moon';
   return <group>
     <group ref={group}>
-      <mesh receiveShadow><sphereGeometry args={[radius, 96, 64]} /><meshStandardMaterial map={map} roughness={kind === 'earth' ? 0.75 : 0.95} metalness={0} /></mesh>
+      <mesh receiveShadow geometry={geo}><meshStandardMaterial vertexColors flatShading roughness={1} metalness={0} /></mesh>
       {Array.from({ length: stations }, (_, i) => {
         const lat = [0.35, -0.5, 0.75][i]!, lon = [0.4, 2.6, 4.4][i]!;
         const p = new THREE.Vector3().setFromSphericalCoords(radius * 1.005, Math.PI / 2 - lat, lon);
         return <group key={i} position={p} quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), p.clone().normalize())}>
-          <mesh position={[0, 0.02, 0]}><coneGeometry args={[0.02, 0.05, 8]} /><meshBasicMaterial color="#5be4e8" /></mesh>
-          <mesh position={[0, 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.03, 0.045, 24]} /><meshBasicMaterial color="#5be4e8" transparent opacity={0.6} side={THREE.DoubleSide} /></mesh>
+          <mesh position={[0, 0.02, 0]}><coneGeometry args={[0.02, 0.05, 8]} /><meshBasicMaterial color="#ffc857" /></mesh>
+          <mesh position={[0, 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.03, 0.045, 24]} /><meshBasicMaterial color="#ffc857" transparent opacity={0.9} side={THREE.DoubleSide} /></mesh>
         </group>;
       })}
     </group>
@@ -144,7 +144,7 @@ function CameraRig({ defaults, target, resetKey, reducedMotion }: { defaults: Ca
 // ── Hangar: the assembly bay where design changes appear instantly ───────────
 function Hangar({ spec, labels, launcherView }: { spec: ShipSpec; labels: Labels; launcherView: boolean }) {
   const ring = useRef<THREE.MeshBasicMaterial>(null);
-  const color = spec.readiness === 'ok' ? '#5be4e8' : spec.readiness === 'warn' ? '#ff9f5b' : '#ff4d5e';
+  const color = spec.readiness === 'ok' ? '#ffc857' : spec.readiness === 'warn' ? '#ff9f5b' : '#ff4d5e';
   useFrame(({ clock }) => { if (ring.current) ring.current.opacity = 0.55 + 0.25 * Math.sin(clock.elapsedTime * 2); });
   const floor = launcherView ? 0 : -spec.bus.size[1] / 2 - 1.4;
   const ship = <Spacecraft spec={spec} labels={labels} showLabels={!launcherView} fx={{ deploy: launcherView ? 0.05 : 1, lights: 1, storage: 0.4 }} />;
@@ -182,7 +182,7 @@ function OrbitOverview({ spec, shape, stations, target }: { spec: ShipSpec; shap
     <Planet kind={shape.body} stations={stations} />
     {shape.companion === 'earth' && <group position={[-9, 1.5, -6]} scale={1.6}><Planet kind="earth" spin={0.02} /></group>}
     {shape.companion === 'sun-line' && <Line points={[SUN_DIR.clone().multiplyScalar(-8), SUN_DIR.clone().multiplyScalar(6)]} color="#ffbf5e" dashed dashSize={0.2} gapSize={0.2} lineWidth={1} transparent opacity={0.5} />}
-    <Line points={points} color="#5be4e8" lineWidth={1.5} transparent opacity={0.75} />
+    <Line points={points} color="#ffc857" lineWidth={1.5} transparent opacity={0.75} />
     <group ref={marker} scale={SHIP_SCALE * 1.3}><Spacecraft spec={spec} fx={{ lights: 1 }} /></group>
   </group>;
 }
@@ -332,7 +332,7 @@ function Flight({ spec, timeline, day, ascent, target, onFlightState, reducedMot
   return <group>
     <Planet kind={body} stations={body === 'earth' ? stations : 0} aurora={storm ? 1 : 0} />
     {stage === 'orbit' && shape.companion === 'earth' && <group position={[-9, 1.5, -6]} scale={1.6}><Planet kind="earth" spin={0.02} /></group>}
-    {stage === 'orbit' && <Line points={points} color="#5be4e8" lineWidth={1} transparent opacity={0.35} />}
+    {stage === 'orbit' && <Line points={points} color="#ffc857" lineWidth={1} transparent opacity={0.35} />}
     {storm && <StormParticles />}
     <group ref={rocket}><group scale={0.045}><Rocket spec={spec} thrust={stage === 'launch' && ascent > 0.02 && ascent < 1 ? 1 : ascent === 0 ? 0 : 0.6} /></group>
       {stage === 'launch' && !flight.launched && (ascent >= 0.5 || day > 0) && <Sparks3 />}</group>
@@ -395,12 +395,12 @@ export default function MissionScene({ mode, design, timeline, day = 0, ascent =
 
   return <Canvas dpr={[1, 1.75]} camera={{ fov: 45, near: 0.01, far: 400, position: [0, 2, 8] }} gl={{ antialias: true, powerPreference: 'high-performance' }}
     onCreated={({ gl }) => { gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; }}>
-    <color attach="background" args={['#04080f']} />
+    <color attach="background" args={['#1d1530']} />
     <ambientLight intensity={mode === 'hangar' || mode === 'launcher' ? 0.55 : 0.12} />
     <hemisphereLight args={['#bfe9ff', '#0a1220', mode === 'hangar' || mode === 'launcher' ? 0.6 : 0.15]} />
     <directionalLight position={SUN_DIR.clone().multiplyScalar(10)} intensity={2.6} color="#fff4df" />
-    {(mode === 'hangar' || mode === 'launcher') && <pointLight position={[-4, 3, 4]} intensity={18} color="#5be4e8" distance={14} />}
-    <Stars radius={120} depth={60} count={reducedMotion ? 1500 : 3500} factor={4} saturation={0} fade speed={reducedMotion ? 0 : 0.6} />
+    {(mode === 'hangar' || mode === 'launcher') && <pointLight position={[-4, 3, 4]} intensity={18} color="#ffc857" distance={14} />}
+    <Stars radius={120} depth={60} count={reducedMotion ? 1500 : 3500} factor={4} saturation={0.6} fade speed={reducedMotion ? 0 : 0.6} />
     {mode !== 'hangar' && mode !== 'launcher' && <Sun />}
     {(mode === 'hangar' || mode === 'launcher') && <Hangar spec={spec} labels={labels} launcherView={mode === 'launcher'} />}
     {(mode === 'orbit' || mode === 'showcase') && <OrbitOverview spec={spec} shape={mode === 'showcase' ? orbitShapes.sso : shape} stations={stations} target={target} />}

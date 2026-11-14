@@ -23,12 +23,12 @@ function FlightScene({ progress, phase, paused, title }: { progress: number; pha
   return <svg className={`sim-flight-scene ${paused ? 'is-paused' : ''}`} viewBox="0 0 640 310" role="img" aria-label={title}>
     <defs>
       <radialGradient id={`${id}-earth`} cx="33%" cy="25%"><stop stopColor="#357b9a"/><stop offset=".5" stopColor="#153e61"/><stop offset="1" stopColor="#071321"/></radialGradient>
-      <radialGradient id={`${id}-atmosphere`}><stop offset=".75" stopColor="#59e1e8" stopOpacity="0"/><stop offset=".85" stopColor="#59e1e8" stopOpacity=".18"/><stop offset="1" stopColor="#59e1e8" stopOpacity="0"/></radialGradient>
+      <radialGradient id={`${id}-atmosphere`}><stop offset=".75" stopColor="#ffc857" stopOpacity="0"/><stop offset=".85" stopColor="#ffc857" stopOpacity=".18"/><stop offset="1" stopColor="#ffc857" stopOpacity="0"/></radialGradient>
       <clipPath id={`${id}-clip`}><circle cx="320" cy="156" r="90"/></clipPath>
     </defs>
     {Array.from({length:32},(_,i)=><circle key={i} cx={(i*127+29)%640} cy={(i*i*43+17)%300} r={i%5===0?1.3:.7} fill="#92b9d2" opacity={.2+(i%4)*.13}/>)}
     <path d="M0 156H640M320 0V310" stroke="#254259" strokeDasharray="3 9" opacity=".55"/>
-    <ellipse cx="320" cy="158" rx="221" ry="76" fill="none" stroke="#59e1e8" opacity=".2"/>
+    <ellipse cx="320" cy="158" rx="221" ry="76" fill="none" stroke="#ffc857" opacity=".2"/>
     <ellipse cx="320" cy="158" rx="254" ry="99" fill="none" stroke="#24455e" strokeDasharray="3 6"/>
     <circle cx="320" cy="156" r="109" fill={`url(#${id}-atmosphere)`}/>
     <circle cx="320" cy="156" r="90" fill={`url(#${id}-earth)`} stroke="#69cfdf" strokeOpacity=".45"/>
@@ -38,17 +38,17 @@ function FlightScene({ progress, phase, paused, title }: { progress: number; pha
       <path d="m259 102 29-20 23 8 4 19 25 11-8 20-16 9-12 29-21-1-17-25-19-12 12-14Zm94 61 29-19 17 15-12 13 9 22-17 21-21-12 6-21Z" fill="#68ad9d" fillOpacity=".25" strokeOpacity=".4"/>
       <path d="M322 66C282 128 293 209 341 246" stroke="#c4f3ed" strokeOpacity=".13" strokeWidth="20"/>
     </g>
-    <path d="M99 158a221 76 0 0 0 442 0" fill="none" stroke="#59e1e8" strokeOpacity=".45"/>
+    <path d="M99 158a221 76 0 0 0 442 0" fill="none" stroke="#ffc857" strokeOpacity=".45"/>
     {phase==='launch' ? <g transform="translate(320 62)">
       <path className="sim-engine-flame" d="M-5 25 0 43 5 25" fill="#ffad6b"/><path d="M0-20C-12-8-12 6-8 24H8C12 6 12-8 0-20Z" fill="#e5f8ff"/>
-      <path d="M-8 8-18 23H-8M8 8 18 23H8" fill="#59e1e8"/><circle cy="-3" r="4" fill="#17354b"/>
+      <path d="M-8 8-18 23H-8M8 8 18 23H8" fill="#ffc857"/><circle cy="-3" r="4" fill="#17354b"/>
     </g> : <g transform={`translate(${x} ${y}) rotate(${progress*720})`} className="sim-satellite">
-      <circle r="21" fill="#59e1e8" fillOpacity=".06"/><rect x="-28" y="-10" width="19" height="20" rx="1" fill="#163b54" stroke="#59e1e8"/>
-      <rect x="9" y="-10" width="19" height="20" rx="1" fill="#163b54" stroke="#59e1e8"/><path d="M-22-10V10M-16-10V10M15-10V10M22-10V10M-28 0H28" stroke="#59e1e8" strokeOpacity=".4"/>
+      <circle r="21" fill="#ffc857" fillOpacity=".06"/><rect x="-28" y="-10" width="19" height="20" rx="1" fill="#163b54" stroke="#ffc857"/>
+      <rect x="9" y="-10" width="19" height="20" rx="1" fill="#163b54" stroke="#ffc857"/><path d="M-22-10V10M-16-10V10M15-10V10M22-10V10M-28 0H28" stroke="#ffc857" strokeOpacity=".4"/>
       <rect x="-8" y="-10" width="16" height="20" rx="2" fill="#e4f5fa"/><path d="M0-10V-18M-4-19Q0-14 4-19" fill="none" stroke="#ffad6b" strokeWidth="2"/>
     </g>}
-    <text x="22" y="286" fill="#7e9aaf" fontSize="9" fontFamily="monospace">FRONTIER / FLIGHT DYNAMICS</text>
-    <text x="618" y="286" textAnchor="end" fill="#59e1e8" fontSize="10" fontFamily="monospace">{Math.round(progress*100).toString().padStart(3,'0')}%</text>
+    <text x="22" y="286" fill="#7e9aaf" fontSize="9" fontFamily="sans-serif">FRONTIER / FLIGHT DYNAMICS</text>
+    <text x="618" y="286" textAnchor="end" fill="#ffc857" fontSize="10" fontFamily="sans-serif">{Math.round(progress*100).toString().padStart(3,'0')}%</text>
   </svg>;
 }
 

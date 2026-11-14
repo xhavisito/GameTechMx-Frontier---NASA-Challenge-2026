@@ -12,14 +12,14 @@ type ReportCopy = typeof en;
 type ScoreCategory = keyof ScoreBreakdown['max'];
 const categories: ScoreCategory[] = ['objective','science','efficiency','robustness','collaboration'];
 const categoryLabel = (key: ScoreCategory, copy: ReportCopy) => key==='science'?copy.scoreScience:copy[key];
-const colors = ['#59e1e8','#ab9fff','#ffad6b','#91d5af','#e898c5'];
+const colors = ['#ffc857','#ab9fff','#ffad6b','#91d5af','#e898c5'];
 const finite = (value:number) => Number.isFinite(value)?value:0;
 
 function ResourceChart({timeline, copy, lang}: {timeline:MissionTimeline; copy:ReportCopy; lang:string}) {
   const id = useId().replace(/:/g,'');
   const { days, resources } = timeline;
   const series = [
-    {name:copy.healthSeries,color:'#59e1e8',dash:undefined,value:(d:TimelineDay)=>finite(d.health*100)},
+    {name:copy.healthSeries,color:'#ffc857',dash:undefined,value:(d:TimelineDay)=>finite(d.health*100)},
     {name:copy.storageSeries,color:'#ab9fff',dash:'6 4',value:(d:TimelineDay)=>finite(d.storedGB/Math.max(resources.storageGB,1)*100)},
     {name:copy.budgetSeries,color:'#ffad6b',dash:'2 5',value:(d:TimelineDay)=>finite(d.spentM/Math.max(resources.budgetM,0.01)*100)},
   ];
@@ -51,19 +51,19 @@ async function downloadSummary(timeline:MissionTimeline, score:ScoreBreakdown, c
   ctx.fillStyle='#080e18';ctx.fillRect(0,0,1400,1080);
   ctx.strokeStyle='#243246';ctx.lineWidth=1;
   for(let y=0;y<1080;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(1400,y);ctx.stroke();}
-  ctx.fillStyle='#59e1e8';ctx.font='bold 20px monospace';ctx.fillText('GAMETECHMX FRONTIER / MISSION REPORT',64,72);
+  ctx.fillStyle='#ffc857';ctx.font='bold 20px sans-serif';ctx.fillText('GAMETECHMX FRONTIER / MISSION REPORT',64,72);
   ctx.fillStyle='#e7edf7';ctx.font='bold 44px sans-serif';ctx.fillText(timeline.design.name.slice(0,42),64,143);
-  ctx.fillStyle=timeline.success?'#91d5af':'#ffad6b';ctx.font='bold 18px monospace';ctx.fillText(timeline.success?copy.success:copy.failure,64,188);
-  ctx.fillStyle='#93a4bc';ctx.font='18px monospace';ctx.fillText(`${copy.seed}: ${timeline.seed.slice(0,70)}`,64,224);
+  ctx.fillStyle=timeline.success?'#91d5af':'#ffad6b';ctx.font='bold 18px sans-serif';ctx.fillText(timeline.success?copy.success:copy.failure,64,188);
+  ctx.fillStyle='#93a4bc';ctx.font='18px sans-serif';ctx.fillText(`${copy.seed}: ${timeline.seed.slice(0,70)}`,64,224);
   ctx.fillStyle='#101c2a';ctx.fillRect(64,263,1272,230);
-  ctx.fillStyle='#e7edf7';ctx.font='bold 100px monospace';ctx.fillText(String(score.total),96,386);
-  ctx.fillStyle='#93a4bc';ctx.font='20px monospace';ctx.fillText(`/ 100 · ${copy.grade} ${score.grade}`,96,435);
+  ctx.fillStyle='#e7edf7';ctx.font='bold 100px sans-serif';ctx.fillText(String(score.total),96,386);
+  ctx.fillStyle='#93a4bc';ctx.font='20px sans-serif';ctx.fillText(`/ 100 · ${copy.grade} ${score.grade}`,96,435);
   categories.forEach((key,index)=>{
     const top=295+index*37;
     ctx.font='16px sans-serif';ctx.fillStyle='#c9d7e6';ctx.fillText(categoryLabel(key,copy),395,top);
     ctx.fillStyle='#243246';ctx.fillRect(620,top-13,570,12);
     ctx.fillStyle=colors[index];ctx.fillRect(620,top-13,570*(score[key]/Math.max(1,score.max[key])),12);
-    ctx.fillStyle='#e7edf7';ctx.font='16px monospace';ctx.fillText(`${score[key]}/${score.max[key]}`,1210,top);
+    ctx.fillStyle='#e7edf7';ctx.font='16px sans-serif';ctx.fillText(`${score[key]}/${score.max[key]}`,1210,top);
   });
   const metrics=[
     [copy.downlinked,`${f(timeline.totalDataGB)} GB`],
@@ -71,9 +71,9 @@ async function downloadSummary(timeline:MissionTimeline, score:ScoreBreakdown, c
     [copy.cost,`${f(timeline.finalCostM,2)} M$`],
     [copy.finalHealth,`${f(timeline.finalHealth*100)}%`],
   ];
-  metrics.forEach(([label,value],index)=>{const left=64+index*322;ctx.fillStyle='#93a4bc';ctx.font='17px sans-serif';ctx.fillText(label,left,547);ctx.fillStyle='#e7edf7';ctx.font='bold 30px monospace';ctx.fillText(value,left,592);});
+  metrics.forEach(([label,value],index)=>{const left=64+index*322;ctx.fillStyle='#93a4bc';ctx.font='17px sans-serif';ctx.fillText(label,left,547);ctx.fillStyle='#e7edf7';ctx.font='bold 30px sans-serif';ctx.fillText(value,left,592);});
   ctx.fillStyle='#e7edf7';ctx.font='bold 24px sans-serif';ctx.fillText(copy.requirements,64,654);
-  timeline.requirementResults.slice(0,7).forEach((r,index)=>{const top=695+index*35;ctx.fillStyle=r.passed?'#91d5af':'#ffad6b';ctx.font='bold 17px monospace';ctx.fillText(r.passed?'✓':'×',64,top);ctx.fillStyle='#c9d7e6';ctx.font='18px sans-serif';ctx.fillText(r.label[lang==='es'?'es':'en'].slice(0,65),96,top);ctx.fillStyle='#93a4bc';ctx.font='17px monospace';ctx.fillText(`${f(r.actual)} / ${f(r.required)}`,1040,top);});
+  timeline.requirementResults.slice(0,7).forEach((r,index)=>{const top=695+index*35;ctx.fillStyle=r.passed?'#91d5af':'#ffad6b';ctx.font='bold 17px sans-serif';ctx.fillText(r.passed?'✓':'×',64,top);ctx.fillStyle='#c9d7e6';ctx.font='18px sans-serif';ctx.fillText(r.label[lang==='es'?'es':'en'].slice(0,65),96,top);ctx.fillStyle='#93a4bc';ctx.font='17px monospace';ctx.fillText(`${f(r.actual)} / ${f(r.required)}`,1040,top);});
   ctx.fillStyle='#93a4bc';ctx.font='16px sans-serif';ctx.fillText(copy.simulationDisclaimer,64,1023,1272);
   const blob = await new Promise<Blob>((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error('PNG export failed')),'image/png'));
   const url=URL.createObjectURL(blob); const link=document.createElement('a');link.href=url;link.download=`frontier-report-${timeline.seed.replace(/[^a-z0-9_-]/gi,'-').slice(0,40)}.png`;link.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000);
