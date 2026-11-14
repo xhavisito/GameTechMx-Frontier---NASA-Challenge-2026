@@ -8,7 +8,7 @@ export type SampleKind = 'regolith' | 'basalt' | 'hematite' | 'ice';
 export interface SampleSite { id: number; kind: SampleKind; x: number; z: number; /** ice is buried: only radar reveals it */ buried: boolean; }
 export interface Rock { x: number; z: number; s: number; r: number; tint: number; }
 export interface Crater { x: number; z: number; r: number; depth: number; }
-export interface MarsWorldData { seed: number; craters: Crater[]; rocks: Rock[]; samples: SampleSite[]; }
+export interface MarsWorldData { seed: number; amp?: number; craters: Crater[]; rocks: Rock[]; samples: SampleSite[]; }
 
 export function createWorld(cfg: WorldConfig): MarsWorldData {
   const rand = rng(cfg.seed ^ 0x9e3779b9);
@@ -32,7 +32,7 @@ export function createWorld(cfg: WorldConfig): MarsWorldData {
 }
 
 /** Terrain height in metres. Flat around the lander, rolling dunes elsewhere, bowl-shaped craters. */
-export function heightAt(w: Pick<MarsWorldData, 'seed' | 'craters'>, x: number, z: number): number {
+export function heightAt(w: Pick<MarsWorldData, 'seed' | 'craters' | 'amp'>, x: number, z: number): number {
   let h = (fbm2(w.seed, x * 0.018, z * 0.018, 4) - 0.5) * 16 + Math.sin(x * 0.07 + fbm2(w.seed + 3, z * 0.03, 0, 2) * 6) * 0.8;
   for (const c of w.craters) {
     const d = Math.hypot(x - c.x, z - c.z) / c.r;
@@ -40,10 +40,10 @@ export function heightAt(w: Pick<MarsWorldData, 'seed' | 'craters'>, x: number, 
   }
   const dl = Math.hypot(x, z);
   const flat = Math.min(1, Math.max(0, (dl - LANDER_R) / 22));
-  return h * flat * flat * (3 - 2 * flat);
+  return h * (w.amp ?? 1) * flat * flat * (3 - 2 * flat);
 }
 
-export function normalAt(w: Pick<MarsWorldData, 'seed' | 'craters'>, x: number, z: number): [number, number, number] {
+export function normalAt(w: Pick<MarsWorldData, 'seed' | 'craters' | 'amp'>, x: number, z: number): [number, number, number] {
   const e = 0.6, hx = heightAt(w, x + e, z) - heightAt(w, x - e, z), hz = heightAt(w, x, z + e) - heightAt(w, x, z - e);
   const nx = -hx / (2 * e), nz = -hz / (2 * e), l = Math.hypot(nx, 1, nz);
   return [nx / l, 1 / l, nz / l];
@@ -59,7 +59,7 @@ export function newRover(cfg: WorldConfig): RoverState {
 }
 
 /** One physics step. Pure: returns a new state. Energy drains with motion and recharges from solar when still. */
-export function stepRover(w: Pick<MarsWorldData, 'seed' | 'craters'>, cfg: WorldConfig, s: RoverState, input: DriveInput, dt: number, dust = 0): RoverState {
+export function stepRover(w: Pick<MarsWorldData, 'seed' | 'craters' | 'amp'>, cfg: WorldConfig, s: RoverState, input: DriveInput, dt: number, dust = 0): RoverState {
   dt = Math.min(dt, 0.05);
   const fx = Math.max(-1, Math.min(1, input.throttle)), fs = Math.max(-1, Math.min(1, input.steer));
   const hasPower = s.energy > 0;

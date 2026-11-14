@@ -22,7 +22,9 @@ interface Game {
 interface Hud { energy: number; health: number; boost: number; taken: SampleKind[]; reach: SampleKind | null; atLander: boolean; heading: number; x: number; z: number; dist: number; bearing: number; msg: string; scan: number; visible: { x: number; z: number; kind: SampleKind }[]; dust: number; speed: number }
 
 // ── Terrain ────────────────────────────────────────────────────────────────
-function Terrain({ world }: { world: MarsWorldData }) {
+export interface Palette { low: string; mid: string; high: string; pale: string; pad: string }
+const MARS_PALETTE: Palette = { low: '#b9533a', mid: '#e07a4d', high: '#f5b27a', pale: '#ffd9a8', pad: '#c9694a' };
+export function Terrain({ world, palette = MARS_PALETTE }: { world: MarsWorldData; palette?: Palette }) {
   const geo = useMemo(() => {
     const seg = 128;
     const g = new THREE.PlaneGeometry(HALF * 2, HALF * 2, seg, seg);
@@ -32,19 +34,19 @@ function Terrain({ world }: { world: MarsWorldData }) {
     const ng = g.toNonIndexed();
     const pos = ng.attributes.position as THREE.BufferAttribute;
     const cols = new Float32Array(pos.count * 3);
-    const low = new THREE.Color('#b9533a'), mid = new THREE.Color('#e07a4d'), high = new THREE.Color('#f5b27a'), pale = new THREE.Color('#ffd9a8'), c = new THREE.Color();
+    const low = new THREE.Color(palette.low), mid = new THREE.Color(palette.mid), high = new THREE.Color(palette.high), pale = new THREE.Color(palette.pale), c = new THREE.Color();
     for (let i = 0; i < pos.count; i += 3) {
       const cx = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3, cz = (pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3, cy = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3;
-      const t = Math.max(0, Math.min(1, (cy + 7) / 14)), n = fbm2(world.seed + 9, cx * 0.12, cz * 0.12, 2);
+      const t = Math.max(0, Math.min(1, (cy / (world.amp ?? 1) + 7) / 14)), n = fbm2(world.seed + 9, cx * 0.12, cz * 0.12, 2);
       c.copy(t < 0.45 ? low.clone().lerp(mid, t / 0.45) : mid.clone().lerp(t < 0.75 ? high : pale, (t - 0.45) / 0.55));
       c.offsetHSL(0, 0, (n - 0.5) * 0.12);
-      if (Math.hypot(cx, cz) < LANDER_R + 1) c.set('#c9694a'); // landing pad
+      if (Math.hypot(cx, cz) < LANDER_R + 1) c.set(palette.pad); // landing pad
       for (let k = 0; k < 3; k++) { cols[(i + k) * 3] = c.r; cols[(i + k) * 3 + 1] = c.g; cols[(i + k) * 3 + 2] = c.b; }
     }
     ng.setAttribute('color', new THREE.BufferAttribute(cols, 3));
     ng.computeVertexNormals();
     return ng;
-  }, [world]);
+  }, [world, palette]);
   return <mesh geometry={geo}><meshStandardMaterial vertexColors flatShading roughness={1} /></mesh>;
 }
 
@@ -75,7 +77,7 @@ function Lander() {
   </group>;
 }
 
-function RoverModel({ cfg, wheelRef }: { cfg: WorldConfig; wheelRef: React.RefObject<THREE.Group[]> }) {
+export function RoverModel({ cfg, wheelRef }: { cfg: WorldConfig; wheelRef: React.RefObject<THREE.Group[]> }) {
   const wheels: [number, number][] = [[-1, 0.95], [1, 0.95], [-1, 0], [1, 0], [-1, -0.95], [1, -0.95]];
   return <group>
     <mesh position={[0, 0.65, 0]}><boxGeometry args={[1.5, 0.55, 2.3]} /><meshStandardMaterial color="#fff4e6" flatShading /></mesh>
@@ -279,7 +281,7 @@ function Minimap({ hud, world, cfg }: { hud: React.MutableRefObject<Hud>; world:
   return <canvas ref={ref} className="w-minimap" width={170} height={170} aria-label="minimap" />;
 }
 
-function Joystick({ input }: { input: React.MutableRefObject<WorldInput> }) {
+export function Joystick({ input }: { input: React.MutableRefObject<WorldInput> }) {
   const base = useRef<HTMLDivElement>(null), knob = useRef<HTMLDivElement>(null);
   const set = (e: React.PointerEvent) => {
     const b = base.current!.getBoundingClientRect(), r = b.width / 2;
