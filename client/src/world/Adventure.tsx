@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { X, Sun, BatteryFull, Camera, FlaskConical, Radar, Rocket } from 'lucide-react';
+import { X, Sun, BatteryFull, Camera, FlaskConical, Radar, Rocket, Orbit, Waves } from 'lucide-react';
 import { heightAt, newRover, normalAt, stepRover, type MarsResult, type MarsWorldData, type RoverState, type WorldConfig } from './marsWorld';
 import { RoverModel, Terrain, Joystick, type Palette } from './MarsWorld';
 import { useWorldInput, type WorldInput } from './worldInput';
@@ -10,34 +10,38 @@ import './world.css';
 import './adventure.css';
 
 const MarsWorld = lazy(() => import('./MarsWorld'));
+const JupiterOrbit = lazy(() => import('./JupiterOrbit'));
 
 const EARTH: Palette = { low: '#4fae5d', mid: '#6cc56a', high: '#9bdc7a', pale: '#d8f0a8', pad: '#cfd3dc' };
 const HANGAR = new THREE.Vector3(-34, 0, 26), ROCKET = new THREE.Vector3(34, 0, -22), NEAR = 7;
 
 type Power = 'solar' | 'battery';
 type Tool = 'camera' | 'spectrometer' | 'radar';
+type Dest = 'mars' | 'jupiter';
 interface Loadout { power: Power; tool: Tool }
 type Phase = 'earth' | 'hangar' | 'launch' | 'travel' | 'mars' | 'end';
 
 const T = {
   es: {
     q0: 'Ve al hangar y prepara tu nave', q1: 'Ve al cohete y despega', arrive: 'Llegaste', hangar: 'Hangar', rocket: 'Cohete',
-    enterHangar: 'Entrar al hangar', launchNow: 'Despegar', hangarTitle: 'Prepara tu nave', hangarSub: 'Elige 2 cosas. Cambian lo que podrás hacer en Marte.',
+    enterHangar: 'Entrar al hangar', launchNow: 'Despegar', hangarTitle: 'Prepara tu nave', hangarSub: 'Elige tu destino y 2 cosas. Cambian lo que podrás hacer allá.',
+    dest: '¿A dónde vas?', mars: 'Marte', marsD: 'Explora y recolecta muestras', jupiter: 'Júpiter', jupiterD: 'Escanea su atmósfera desde órbita', miller: 'Miller', millerD: 'Próximamente',
     power: '¿Cómo tendrá energía?', tool: '¿Qué herramienta llevará?',
     solar: 'Paneles solares', solarD: 'Se recarga con el sol', battery: 'Batería grande', batteryD: 'Dura más, pero no se recarga rápido',
     camera: 'Cámara', cameraD: 'Ves las muestras desde más lejos', spectrometer: 'Analizador', spectrometerD: 'Tus muestras valen más puntos', radar: 'Radar', radarD: 'Encuentra hielo escondido bajo la arena',
-    ready: '¡Listo para despegar!', count: ['3', '2', '1', '¡Despegue!'], travel: 'Viaje a Marte', travelD: 'Tu nave cruza el espacio…', skip: 'Saltar',
-    endTitle: 'Misión cumplida', again: 'Jugar otra vez', next: 'Próximas misiones: Júpiter y Miller (en construcción)', quit: 'Salir',
+    ready: '¡Listo para despegar!', count: ['3', '2', '1', '¡Despegue!'], travel: 'Viaje', travelD: 'Tu nave cruza el espacio…', skip: 'Saltar',
+    endTitle: 'Misión cumplida', again: 'Jugar otra vez', next: 'Próxima misión: Miller (en construcción)', quit: 'Salir',
     help: 'Muévete con WASD o las flechas · E para interactuar', helpPad: 'Stick para moverte · A para interactuar', helpTouch: 'Joystick para moverte · botón E para interactuar',
   },
   en: {
     q0: 'Go to the hangar and build your ship', q1: 'Go to the rocket and launch', arrive: 'Arrived', hangar: 'Hangar', rocket: 'Rocket',
-    enterHangar: 'Enter hangar', launchNow: 'Launch', hangarTitle: 'Build your ship', hangarSub: 'Pick 2 things. They change what you can do on Mars.',
+    enterHangar: 'Enter hangar', launchNow: 'Launch', hangarTitle: 'Build your ship', hangarSub: 'Pick a destination and 2 things. They change what you can do there.',
+    dest: 'Where to?', mars: 'Mars', marsD: 'Explore and collect samples', jupiter: 'Jupiter', jupiterD: 'Scan its atmosphere from orbit', miller: 'Miller', millerD: 'Coming soon',
     power: 'How will it get power?', tool: 'Which tool will it carry?',
     solar: 'Solar panels', solarD: 'Recharges in the sun', battery: 'Big battery', batteryD: 'Lasts longer, recharges slowly',
     camera: 'Camera', cameraD: 'Spot samples from farther away', spectrometer: 'Analyzer', spectrometerD: 'Your samples are worth more points', radar: 'Radar', radarD: 'Finds ice hidden under the sand',
-    ready: 'Ready to launch!', count: ['3', '2', '1', 'Liftoff!'], travel: 'Trip to Mars', travelD: 'Your ship is crossing space…', skip: 'Skip',
-    endTitle: 'Mission complete', again: 'Play again', next: 'Coming next: Jupiter and Miller (under construction)', quit: 'Exit',
+    ready: 'Ready to launch!', count: ['3', '2', '1', 'Liftoff!'], travel: 'Trip', travelD: 'Your ship is crossing space…', skip: 'Skip',
+    endTitle: 'Mission complete', again: 'Play again', next: 'Coming next: Miller (under construction)', quit: 'Exit',
     help: 'Move with WASD or arrows · E to interact', helpPad: 'Stick to move · A to interact', helpTouch: 'Joystick to move · E button to interact',
   },
 } as const;
@@ -156,6 +160,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const L = T[es ? 'es' : 'en'];
   const [phase, setPhase] = useState<Phase>('earth');
   const [quest, setQuest] = useState(0);
+  const [dest, setDest] = useState<Dest>('mars');
   const [load, setLoad] = useState<Loadout>({ power: 'solar', tool: 'camera' });
   const [count, setCount] = useState(0);
   const [result, setResult] = useState<MarsResult | null>(null);
@@ -186,7 +191,9 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const reset = () => { setPhase('earth'); setQuest(0); setResult(null); setRun(r => r + 1); lift.current = 0; };
 
   if (phase === 'mars') return <Suspense fallback={<div className="w-root adv-center">…</div>}>
-    <MarsWorld cfg={cfg} es={es} onDone={r => { setResult(r); setPhase('end'); }} onExit={onExit} />
+    {dest === 'jupiter'
+      ? <JupiterOrbit tool={load.tool} es={es} onDone={r => { setResult(r); setPhase('end'); }} onExit={onExit} />
+      : <MarsWorld cfg={cfg} es={es} onDone={r => { setResult(r); setPhase('end'); }} onExit={onExit} />}
   </Suspense>;
 
   const opt = (key: string, icon: React.ReactNode, active: boolean, pick: () => void) => <button key={key} className={`adv-opt ${active ? 'on' : ''}`} onClick={pick} aria-pressed={active}>
@@ -211,6 +218,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
 
     {phase === 'hangar' && <div className="adv-modal"><div className="adv-card">
       <h2>{L.hangarTitle}</h2><p>{L.hangarSub}</p>
+      <h3>{L.dest}</h3><div className="adv-row">{opt('mars', <Rocket size={30} />, dest === 'mars', () => setDest('mars'))}{opt('jupiter', <Orbit size={30} />, dest === 'jupiter', () => setDest('jupiter'))}<button className="adv-opt" disabled style={{ opacity: .5 }}><span className="adv-ico"><Waves size={30} /></span><b>{L.miller}</b><small>{L.millerD}</small></button></div>
       <h3>{L.power}</h3><div className="adv-row">{opt('solar', <Sun size={30} />, load.power === 'solar', () => setLoad(l => ({ ...l, power: 'solar' })))}{opt('battery', <BatteryFull size={30} />, load.power === 'battery', () => setLoad(l => ({ ...l, power: 'battery' })))}</div>
       <h3>{L.tool}</h3><div className="adv-row">{opt('camera', <Camera size={30} />, load.tool === 'camera', () => setLoad(l => ({ ...l, tool: 'camera' })))}{opt('spectrometer', <FlaskConical size={30} />, load.tool === 'spectrometer', () => setLoad(l => ({ ...l, tool: 'spectrometer' })))}{opt('radar', <Radar size={30} />, load.tool === 'radar', () => setLoad(l => ({ ...l, tool: 'radar' })))}</div>
       <button className="button button-primary" autoFocus onClick={() => { setQuest(1); setPhase('earth'); }}><Rocket size={18} /> {L.ready}</button>

@@ -33,3 +33,29 @@ export function lowPolyBodyGeometry(kind: BodyKind, radius = 1, detail = 3): THR
   g.computeVertexNormals();
   return g;
 }
+
+/** Jupiter: horizontal cloud bands in flat colors plus a Great Red Spot (lat/lon in radians). */
+export const SPOT = { lat: -0.3, lon: 0.9 };
+export function jupiterGeometry(radius = 1): THREE.BufferGeometry {
+  const g = new THREE.IcosahedronGeometry(radius, 4).toNonIndexed();
+  const pos = g.attributes.position as THREE.BufferAttribute;
+  const cols = new Float32Array(pos.count * 3);
+  const bands = ['#f2dfc0', '#d9a066', '#f5e6cc', '#b9703f', '#efd2a0', '#c98a55', '#f2dfc0', '#a8693f'].map(c => new THREE.Color(c));
+  const tri = new THREE.Vector3(), c = new THREE.Color();
+  for (let i = 0; i < pos.count; i += 3) {
+    tri.set(0, 0, 0);
+    for (let k = 0; k < 3; k++) tri.add(new THREE.Vector3().fromBufferAttribute(pos, i + k));
+    tri.normalize();
+    const lat = Math.asin(tri.y), lon = Math.atan2(tri.x, tri.z);
+    const wob = (fbm2(3, lon * 2 + 4, lat * 6, 3) - 0.5) * 0.22;
+    const idx = Math.floor(((lat + wob) / Math.PI + 0.5) * bands.length * 1.5) % bands.length;
+    c.copy(bands[Math.abs(idx)]!);
+    const dl = Math.hypot(lat - SPOT.lat, (Math.atan2(Math.sin(lon - SPOT.lon), Math.cos(lon - SPOT.lon))) * Math.cos(lat) * 0.7);
+    if (dl < 0.2) c.set(dl < 0.11 ? '#c8402e' : '#e0714c');
+    c.offsetHSL(0, 0, (fbm2(9, lon * 8, lat * 8, 2) - 0.5) * 0.06);
+    for (let k = 0; k < 3; k++) { cols[(i + k) * 3] = c.r; cols[(i + k) * 3 + 1] = c.g; cols[(i + k) * 3 + 2] = c.b; }
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  g.computeVertexNormals();
+  return g;
+}
