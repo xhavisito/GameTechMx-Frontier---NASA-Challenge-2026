@@ -8,3 +8,6 @@ coverage/
 .DS_Store
 playwright-report/
 test-results/
+java-mars/build/
+java-mars/.gradle/
+client/public/java/
