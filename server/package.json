@@ -1,0 +1,1 @@
+{"name":"@frontier/server","version":"1.0.0","private":true,"type":"module","scripts":{"dev":"tsx watch src/start.ts","build":"tsc -p tsconfig.json","start":"node dist/server/src/start.js"},"dependencies":{"socket.io":"^4.8.1"}}

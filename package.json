@@ -1,0 +1,17 @@
+{
+  "name": "gametechmx-frontier",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["client", "server", "shared"],
+  "engines": {"node": ">=20"},
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "npm run build -w client && npm run build -w server",
+    "typecheck": "tsc -p client/tsconfig.json && tsc -p server/tsconfig.json --noEmit",
+    "preview": "npm run preview -w client"
+  },
+  "devDependencies": {"@types/node":"^22.10.0","concurrently":"^9.1.0","tsx":"^4.19.2","typescript":"~5.7.2","vitest":"^3.2.4"}
+}
