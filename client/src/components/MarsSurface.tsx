@@ -51,7 +51,7 @@ export function MarsSurfaceCard({ timeline }: { timeline: MissionTimeline }) {
   };
 
   return <section className={`panel mars-card ${arrived ? '' : 'is-locked'}`} aria-labelledby="mars-card-title">
-    <div className="mars-card-art" aria-hidden="true"><span className="mars-planet" /><span className="mars-rover">▣</span></div>
+    <div className="mars-card-art" aria-hidden="true"><span className="mars-planet" /></div>
     <div className="mars-card-body">
       <p className="eyebrow accent">{es ? 'Misión Marte · mundo abierto' : 'Mars mission · open world'}</p>
       <h2 id="mars-card-title">{es ? 'Explora la superficie' : 'Explore the surface'}</h2>

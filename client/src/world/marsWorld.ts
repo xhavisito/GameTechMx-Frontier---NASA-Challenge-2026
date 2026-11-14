@@ -55,7 +55,7 @@ export interface DriveInput { throttle: number; steer: number; boost: boolean }
 export const MAX_SPEED = 7, BOOST_SPEED = 12;
 
 export function newRover(cfg: WorldConfig): RoverState {
-  return { x: 0, z: LANDER_R + 3, heading: Math.PI, speed: 0, steer: 0, energy: cfg.battery, health: cfg.health, boost: 1 };
+  return { x: 0, z: LANDER_R + 3, heading: 0, speed: 0, steer: 0, energy: cfg.battery, health: cfg.health, boost: 1 };
 }
 
 /** One physics step. Pure: returns a new state. Energy drains with motion and recharges from solar when still. */

@@ -27,3 +27,33 @@ h1,h2,h3,.brand strong{font-weight:900;letter-spacing:-.01em}
 .mars-planet{background:#d9714a!important;box-shadow:inset -14px -10px 0 #a94b33,0 5px 0 #1b1230!important}
 .mars-start{background:var(--orange)!important;border-color:#1b1230!important;color:#fff!important}
 *:focus-visible{outline:3px solid var(--cyan)!important;outline-offset:2px}
+
+/* Quality pass: readable type, one surface language, no micro-caps labels. */
+.eyebrow,.catalog-stat span,.stage-badge,.mission-strip{text-transform:none!important;letter-spacing:0!important}
+.eyebrow{font-size:.82rem!important;font-weight:800!important;color:var(--muted)}
+.hero-copy h1{font-size:clamp(2.6rem,5.4vw,5rem)!important}
+.hero-kicker{font-size:.85rem!important;font-weight:800}
+.hero-tags span{font-size:.82rem!important;border:2px solid var(--line)!important;background:var(--panel)}
+.hero-viewport,.viewport3d,.viewport,.design-stage .viewport-root{border:3px solid #1b1230!important;border-radius:22px!important;box-shadow:0 6px 0 #1b1230;overflow:hidden}
+.mode-card{background:var(--panel2)!important;border:2px solid #1b1230!important;border-radius:16px!important;box-shadow:0 4px 0 #1b1230;transition:transform .08s}
+.mode-card:hover{transform:translateY(-2px)}
+.mode-card.is-selected{background:#5a4378!important;border-color:var(--cyan)!important;box-shadow:0 4px 0 var(--cyan2)}
+.mode-card strong{font-size:1.05rem!important}
+.mode-card>span{font-size:.85rem!important;color:#e3d4f0!important}
+.segmented{border:2px solid #1b1230!important;border-radius:14px!important;background:var(--panel2)!important}
+.segmented button{font-weight:800!important;font-size:.85rem!important}
+.segmented .active,.segmented [aria-pressed=true]{background:var(--cyan)!important;color:#2a1f3d!important;border-radius:10px}
+.orbit-intro{padding:1rem 1.3rem!important}
+.orbit-intro h2{font-size:1.3rem;margin:0 0 .2rem}
+.orbit-intro p{font-size:.95rem;color:#e3d4f0;margin:0}
+.workspace{padding-bottom:7rem!important}
+.control-bar{background:var(--panel)!important;border:3px solid #1b1230!important;border-radius:20px!important;box-shadow:0 5px 0 #1b1230!important;backdrop-filter:none!important}
+.hud-chip,.hud-gauge{background:var(--panel)!important;border:2px solid #1b1230!important;border-radius:12px!important}
+.dashboard-rail .panel h2{font-size:1.15rem}
+body{font-size:16px}
+.landing-footer{font-size:.85rem}
+.sim-seed{font-family:inherit!important}
+.hud-banner,.part-alert{text-transform:none!important;letter-spacing:0!important;font-weight:900}
+.panel p,.panel li{line-height:1.55}
+.report-view .panel{background:var(--panel)!important}
+.bar-btn.primary{background:var(--cyan)!important;color:#2a1f3d!important;border:2px solid #1b1230!important;box-shadow:0 3px 0 #1b1230;border-radius:12px!important}
