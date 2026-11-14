@@ -24,3 +24,15 @@ Todo está en `client/` (React + TypeScript + Vite + Three.js, estilo low-poly):
 GitHub Actions ejecuta pruebas y build en cada push. En `main` publica `client/dist` en GitHub Pages (Settings → Pages → Source: GitHub Actions).
 
 > `docs/` conserva notas del diseño anterior (simulador técnico) y puede estar desactualizado.
+
+
+## Niveles de dificultad / Difficulty levels
+
+| Nivel | Decisiones | Pruebas antes de despegar | Misión |
+|---|---|---|---|
+| Fácil | destino + 1 herramienta | ninguna | 3 hallazgos, sin tiempo |
+| Medio | + cohete y energía | 1 (combustible) | 4 hallazgos, más peligros |
+| Difícil | + presupuesto y hasta 3 instrumentos | 4 (Δv, masa, costo, energía) | 5 hallazgos, 1 evento en el viaje, tiempo límite, combustible limitado en Júpiter |
+| Experto | paneles, batería y escudo térmico en números | 7 con márgenes | 6 hallazgos, 2 eventos, poco tiempo, el casco del submarino aguanta menos |
+
+Miller es un océano: el submarino (modelo CAD `sub`) sube y baja (Espacio/Q y C/Z, gatillos del control, botones ▲▼ en touch). El rover en Tierra y Marte es el ensamble CAD `rover_assem`. Los modelos están en `client/public/models/` (convertidos de STEP a GLB de pocos polígonos).

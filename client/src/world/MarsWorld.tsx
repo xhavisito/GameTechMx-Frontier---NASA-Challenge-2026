@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { X, Zap, Heart, Compass, Gamepad2, Keyboard, Hand } from 'lucide-react';
+import { modsFor, type Mods } from './levels';
 import { createWorld, heightAt, normalAt, newRover, stepRover, visibleSamples, sampleInReach, scoreRun, HALF, LANDER_R, REQUIRED_SAMPLES, detectRange,
   type MarsResult, type MarsWorldData, type RoverState, type SampleKind, type WorldConfig } from './marsWorld';
 import { fbm2, rng } from '../three/noise';
 import { useWorldInput, type WorldInput } from './worldInput';
+import { RoverGLB } from './models';
 import './world.css';
 
 const KIND_COLOR: Record<SampleKind, string> = { regolith: '#ffd166', basalt: '#b39ddb', hematite: '#ff7a59', ice: '#7fdcff' };
@@ -19,7 +21,7 @@ interface Game {
   rover: RoverState; taken: Set<number>; kinds: SampleKind[]; time: number; scanT: number; dust: number;
   meteors: Meteor[]; nextMeteor: number; msg: string; msgT: number; ended: boolean; stuck: number; result: MarsResult | null; shake: number;
 }
-interface Hud { energy: number; health: number; boost: number; taken: SampleKind[]; reach: SampleKind | null; atLander: boolean; heading: number; x: number; z: number; dist: number; bearing: number; msg: string; scan: number; visible: { x: number; z: number; kind: SampleKind }[]; dust: number; speed: number }
+interface Hud { energy: number; health: number; boost: number; taken: SampleKind[]; reach: SampleKind | null; atLander: boolean; heading: number; x: number; z: number; dist: number; bearing: number; msg: string; scan: number; visible: { x: number; z: number; kind: SampleKind }[]; dust: number; speed: number; left: number }
 
 // ── Terrain ────────────────────────────────────────────────────────────────
 export interface Palette { low: string; mid: string; high: string; pale: string; pad: string }
@@ -77,32 +79,13 @@ function Lander() {
   </group>;
 }
 
-export function RoverModel({ cfg, wheelRef }: { cfg: WorldConfig; wheelRef: React.RefObject<THREE.Group[]> }) {
-  const wheels: [number, number][] = [[-1, 0.95], [1, 0.95], [-1, 0], [1, 0], [-1, -0.95], [1, -0.95]];
-  return <group>
-    <mesh position={[0, 0.65, 0]}><boxGeometry args={[1.5, 0.55, 2.3]} /><meshStandardMaterial color="#fff4e6" flatShading /></mesh>
-    <mesh position={[0, 0.95, -0.1]}><boxGeometry args={[1.56, 0.12, 1.4]} /><meshStandardMaterial color="#ff7a59" flatShading /></mesh>
-    <mesh position={[0, 1.08, -0.6]} rotation={[-0.22, 0, 0]}><boxGeometry args={[2.6, 0.07, 1.3]} /><meshStandardMaterial color="#5b6ee1" flatShading /></mesh>
-    <mesh position={[0.5, 1.45, 0.8]}><cylinderGeometry args={[0.06, 0.06, 1, 5]} /><meshStandardMaterial color="#cdb9e0" /></mesh>
-    <mesh position={[0.5, 2, 0.85]}><boxGeometry args={[0.5, 0.32, 0.36]} /><meshStandardMaterial color="#ffc857" flatShading /></mesh>
-    {cfg.radar && <mesh position={[-0.5, 1.15, 0.8]} rotation={[0.5, 0, 0]}><cylinderGeometry args={[0.35, 0.05, 0.3, 8]} /><meshStandardMaterial color="#7fdcff" flatShading /></mesh>}
-    {cfg.spectrometer && <mesh position={[0, 0.5, 1.3]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.12, 0.12, 0.5, 6]} /><meshStandardMaterial color="#b39ddb" flatShading /></mesh>}
-    {wheels.map(([sx, z], i) => <group key={i} position={[sx * 0.95, 0.38, z]} ref={g => { if (g && wheelRef.current) wheelRef.current[i] = g; }}>
-      <mesh rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.38, 0.38, 0.32, 8]} /><meshStandardMaterial color="#3a2c52" flatShading /></mesh>
-      <mesh rotation={[0, 0, Math.PI / 2]} position={[sx * 0.17, 0, 0]}><cylinderGeometry args={[0.18, 0.18, 0.05, 6]} /><meshStandardMaterial color="#ffc857" flatShading /></mesh>
-    </group>)}
-    <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}><circleGeometry args={[1.8, 8]} /><meshBasicMaterial color="#6b2f2a" transparent opacity={0.35} /></mesh>
-  </group>;
-}
-
 // ── Scene ──────────────────────────────────────────────────────────────────
-function Scene({ cfg, world, es, g, hud, input, poll, onFinish }: {
-  cfg: WorldConfig; world: MarsWorldData; es: boolean; g: React.MutableRefObject<Game>; hud: React.MutableRefObject<Hud>;
+function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
+  cfg: WorldConfig; mods: Mods; need: number; world: MarsWorldData; es: boolean; g: React.MutableRefObject<Game>; hud: React.MutableRefObject<Hud>;
   input: React.MutableRefObject<WorldInput>; poll: (dt: number) => void; onFinish: (r: MarsResult) => void;
 }) {
   const { camera, scene } = useThree();
   const roverRef = useRef<THREE.Group>(null);
-  const wheels = useRef<THREE.Group[]>([]);
   const sampleRefs = useRef<(THREE.Group | null)[]>([]);
   const meteorRefs = useRef<(THREE.Group | null)[]>([]);
   const fog = useMemo(() => new THREE.Fog('#f7b98a', 70, 300), []);
@@ -119,6 +102,7 @@ function Scene({ cfg, world, es, g, hud, input, poll, onFinish }: {
     poll(dt);
     if (s.ended) return;
     s.time += dt;
+    if (mods.timeLimit && s.time >= mods.timeLimit) { say(es ? 'Se acabó el tiempo' : 'Time is up'); finish(false); return; }
     s.dust = Math.max(0, Math.sin(s.time * 0.03 - 0.7)) ** 2;
     const prev = s.rover;
     let r = stepRover(world, cfg, prev, { throttle: i.throttle, steer: i.steer, boost: i.boost }, dt, s.dust);
@@ -147,7 +131,7 @@ function Scene({ cfg, world, es, g, hud, input, poll, onFinish }: {
         Object.assign(slot, { active: true, hit: false, t: 3.2, x: r.x + Math.sin(r.heading) * r.speed * 2.2 + Math.cos(a) * d, z: r.z + Math.cos(r.heading) * r.speed * 2.2 + Math.sin(a) * d });
         say(es ? '¡Meteorito entrante! Sal del círculo rojo' : 'Incoming meteor! Leave the red circle');
       }
-      s.nextMeteor = 9 + rand() * 8 - Math.min(3, s.time / 120);
+      s.nextMeteor = mods.hazardGap[0] + rand() * (mods.hazardGap[1] - mods.hazardGap[0]);
     }
     s.meteors.forEach((m, idx) => {
       const node = meteorRefs.current[idx]; if (!node) return;
@@ -164,7 +148,7 @@ function Scene({ cfg, world, es, g, hud, input, poll, onFinish }: {
       (ring.material as THREE.MeshBasicMaterial).opacity = m.t > 0 ? 0.55 : Math.max(0, 0.7 + m.t * 1.4);
       if (m.t <= 0 && !m.hit) {
         m.hit = true;
-        if (Math.hypot(r.x - m.x, r.z - m.z) < 5) { r = { ...r, health: Math.max(0, r.health - 18), speed: r.speed * 0.3 }; s.shake = 0.8; say(es ? '¡Impacto de meteorito! −18 de salud' : 'Meteor strike! −18 health'); }
+        if (Math.hypot(r.x - m.x, r.z - m.z) < 5) { r = { ...r, health: Math.max(0, r.health - mods.hazardDmg), speed: r.speed * 0.3 }; s.shake = 0.8; say(es ? `¡Impacto de meteorito! −${mods.hazardDmg} de salud` : `Meteor strike! −${mods.hazardDmg} health`); }
         else say(es ? '¡Lo esquivaste!' : 'Dodged it!');
       }
       if (m.t < -0.8) m.active = false;
@@ -208,7 +192,6 @@ function Scene({ cfg, world, es, g, hud, input, poll, onFinish }: {
       rv.position.set(r.x, y + 0.05 + Math.sin(s.time * 40) * 0.01 * Math.min(1, Math.abs(r.speed)), r.z);
       q.n.set(n[0], n[1], n[2]); q.a.setFromUnitVectors(q.up, q.n); q.b.setFromAxisAngle(q.up, r.heading);
       rv.quaternion.slerp(q.a.multiply(q.b), Math.min(1, dt * 8));
-      wheels.current.forEach(w => { if (w) w.rotation.x += (r.speed * dt) / 0.38; });
     }
     // chase camera
     const yaw = r.heading + i.camYaw + Math.PI, dist = 10 + Math.min(3, Math.abs(r.speed) * 0.3), pitch = i.camPitch;
@@ -223,14 +206,14 @@ function Scene({ cfg, world, es, g, hud, input, poll, onFinish }: {
     // HUD snapshot
     const h = hud.current;
     h.energy = r.energy / cfg.battery; h.health = r.health / 100; h.boost = r.boost; h.taken = s.kinds.slice(); h.reach = reach?.kind ?? null; h.atLander = atLander;
-    h.heading = r.heading; h.x = r.x; h.z = r.z; h.dist = dl; h.bearing = Math.atan2(-r.x, -r.z); h.msg = s.msgT > 0 ? s.msg : ''; h.scan = s.scanT; h.dust = s.dust; h.speed = Math.abs(r.speed);
+    h.heading = r.heading; h.x = r.x; h.z = r.z; h.dist = dl; h.bearing = Math.atan2(-r.x, -r.z); h.msg = s.msgT > 0 ? s.msg : ''; h.scan = s.scanT; h.dust = s.dust; h.speed = Math.abs(r.speed); h.left = mods.timeLimit ? Math.max(0, mods.timeLimit - s.time) : 0;
     h.visible = vis.map(v => ({ x: v.x, z: v.z, kind: v.kind }));
   });
 
   function finish(returned: boolean, quit = false) {
     const s = g.current; if (s.ended) return;
     s.ended = true;
-    s.result = scoreRun(cfg, s.kinds, returned && !quit, s.rover, s.time);
+    s.result = scoreRun(cfg, s.kinds, returned && !quit, s.rover, s.time, need);
     onFinish(s.result);
   }
 
@@ -239,7 +222,7 @@ function Scene({ cfg, world, es, g, hud, input, poll, onFinish }: {
     <directionalLight position={[60, 90, 30]} intensity={1.9} color="#fff1d6" />
     <Terrain world={world} /><Rocks world={world} /><Lander />
     <mesh position={[-120, 70, -160]}><icosahedronGeometry args={[14, 1]} /><meshBasicMaterial color="#fff3c4" fog={false} /></mesh>
-    <group ref={roverRef} position={[0, 0, LANDER_R + 3]}><RoverModel cfg={cfg} wheelRef={wheels} /></group>
+    <group ref={roverRef} position={[0, 0, LANDER_R + 3]}><RoverGLB radar={cfg.radar} spectrometer={cfg.spectrometer} /></group>
     {world.samples.map((sm, idx) => <group key={sm.id} ref={n => { sampleRefs.current[idx] = n; }} visible={false}>
       <mesh><octahedronGeometry args={[0.55, 0]} /><meshStandardMaterial color={KIND_COLOR[sm.kind]} emissive={KIND_COLOR[sm.kind]} emissiveIntensity={0.5} flatShading /></mesh>
       <mesh position={[0, 6, 0]}><cylinderGeometry args={[0.12, 0.12, 12, 5]} /><meshBasicMaterial color={KIND_COLOR[sm.kind]} transparent opacity={0.35} fog={false} /></mesh>
@@ -293,11 +276,12 @@ export function Joystick({ input }: { input: React.MutableRefObject<WorldInput> 
 }
 
 // ── Root ───────────────────────────────────────────────────────────────────
-export default function MarsWorld({ cfg, es, onDone, onExit }: { cfg: WorldConfig; es: boolean; onDone: (r: MarsResult) => void; onExit: () => void }) {
+export default function MarsWorld({ cfg, es, mods = modsFor('easy'), onDone, onExit }: { cfg: WorldConfig; es: boolean; mods?: Mods; onDone: (r: MarsResult) => void; onExit: () => void }) {
   const world = useMemo(() => createWorld(cfg), [cfg]);
+  const need = Math.min(mods.required, cfg.radar ? 6 : 5);
   const { inp, poll } = useWorldInput();
   const g = useRef<Game>({ rover: newRover(cfg), taken: new Set(), kinds: [], time: 0, scanT: 0, dust: 0, meteors: Array.from({ length: 3 }, () => ({ t: 0, x: 0, z: 0, active: false, hit: false })), nextMeteor: 7, msg: '', msgT: 0, ended: false, stuck: 0, result: null, shake: 0 });
-  const hud = useRef<Hud>({ energy: 1, health: 1, boost: 1, taken: [], reach: null, atLander: false, heading: 0, x: 0, z: 0, dist: 0, bearing: 0, msg: '', scan: 0, visible: [], dust: 0, speed: 0 });
+  const hud = useRef<Hud>({ energy: 1, health: 1, boost: 1, taken: [], reach: null, atLander: false, heading: 0, x: 0, z: 0, dist: 0, bearing: 0, msg: '', scan: 0, visible: [], dust: 0, speed: 0, left: 0 });
   const [snap, setSnap] = useState<Hud>(hud.current);
   useEffect(() => { if (new URLSearchParams(location.search).has('debug')) (window as unknown as Record<string, unknown>).__frontierMars = { g: g.current, world }; }, [world]);
   const [result, setResult] = useState<MarsResult | null>(null);
@@ -308,15 +292,15 @@ export default function MarsWorld({ cfg, es, onDone, onExit }: { cfg: WorldConfi
 
   const drag = useRef<{ x: number; y: number } | null>(null);
   const L = es
-    ? { energy: 'Energía', health: 'Casco', boost: 'Turbo', samples: 'Muestras', goal: `Recolecta ${REQUIRED_SAMPLES} y regresa al módulo`, collect: 'Recolectar', deposit: 'Entregar muestras y terminar', scan: 'Escanear', quit: 'Salir', done: 'Misión terminada', dust: 'Tormenta de polvo', home: 'Módulo', radarNo: 'Sin radar: el hielo enterrado no se detecta', again: 'Cerrar' }
-    : { energy: 'Power', health: 'Hull', boost: 'Boost', samples: 'Samples', goal: `Collect ${REQUIRED_SAMPLES} and return to the lander`, collect: 'Collect', deposit: 'Deliver samples and finish', scan: 'Scan', quit: 'Exit', done: 'Mission complete', dust: 'Dust storm', home: 'Lander', radarNo: 'No radar: buried ice cannot be detected', again: 'Close' };
+    ? { energy: 'Energía', health: 'Casco', boost: 'Turbo', samples: 'Muestras', goal: `Recolecta ${need} y regresa al módulo`, collect: 'Recolectar', deposit: 'Entregar muestras y terminar', scan: 'Escanear', quit: 'Salir', done: 'Misión terminada', dust: 'Tormenta de polvo', home: 'Módulo', radarNo: 'Sin radar: el hielo enterrado no se detecta', again: 'Cerrar' }
+    : { energy: 'Power', health: 'Hull', boost: 'Boost', samples: 'Samples', goal: `Collect ${need} and return to the lander`, collect: 'Collect', deposit: 'Deliver samples and finish', scan: 'Scan', quit: 'Exit', done: 'Mission complete', dust: 'Dust storm', home: 'Lander', radarNo: 'No radar: buried ice cannot be detected', again: 'Close' };
 
   return <div className="w-root" data-input={inp.current.usingPad ? 'gamepad' : undefined}
     onPointerDown={e => { if ((e.target as HTMLElement).tagName === 'CANVAS') drag.current = { x: e.clientX, y: e.clientY }; }}
     onPointerMove={e => { const d = drag.current; if (!d) return; inp.current.camYaw -= (e.clientX - d.x) * 0.006; inp.current.camPitch = Math.max(0.1, Math.min(1.1, inp.current.camPitch + (e.clientY - d.y) * 0.004)); drag.current = { x: e.clientX, y: e.clientY }; }}
     onPointerUp={() => { drag.current = null; }}>
     <Canvas dpr={[1, 1.6]} camera={{ fov: 62, near: 0.1, far: 500, position: [0, 6, 25] }} gl={{ antialias: true }}>
-      <Scene cfg={cfg} world={world} es={es} g={g} hud={hud} input={inp} poll={poll} onFinish={r => setResult(r)} />
+      <Suspense fallback={null}><Scene cfg={cfg} mods={mods} need={need} world={world} es={es} g={g} hud={hud} input={inp} poll={poll} onFinish={r => setResult(r)} /></Suspense>
     </Canvas>
 
     <button className="w-btn w-exit" onClick={() => { inp.current.exitPulse = true; }} aria-label={L.quit}><X size={20} /></button>
@@ -329,8 +313,9 @@ export default function MarsWorld({ cfg, es, onDone, onExit }: { cfg: WorldConfi
       </div>
       <div className="w-goal">
         <b>{L.goal}</b>
-        <div className="w-chips">{Array.from({ length: Math.max(REQUIRED_SAMPLES, snap.taken.length) }, (_, i) => <span key={i} className="w-chip" style={{ background: snap.taken[i] ? KIND_COLOR[snap.taken[i]!] : 'transparent' }}>{snap.taken[i] ? KIND_NAME[es ? 'es' : 'en'][snap.taken[i]!] : '?'}</span>)}</div>
+        <div className="w-chips">{Array.from({ length: Math.max(need, snap.taken.length) }, (_, i) => <span key={i} className="w-chip" style={{ background: snap.taken[i] ? KIND_COLOR[snap.taken[i]!] : 'transparent' }}>{snap.taken[i] ? KIND_NAME[es ? 'es' : 'en'][snap.taken[i]!] : '?'}</span>)}</div>
         {!cfg.radar && <small>{L.radarNo}</small>}
+        {mods.timeLimit > 0 && <small className="w-warn">⏱ {Math.floor(snap.left / 60)}:{String(Math.floor(snap.left % 60)).padStart(2, '0')}</small>}
         {snap.dust > 0.35 && <small className="w-warn">{L.dust}</small>}
       </div>
     </div>
