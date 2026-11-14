@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { AlertTriangle, ArrowRight, Check, CirclePause, Play, Radio, Satellite, Timer } from 'lucide-react';
 import type { MissionPhase } from '../../../shared/types';
 import { useGame } from '../store';
@@ -6,6 +6,12 @@ import { useI18n } from '../i18n';
 import en from '../locales/simulation.en.json';
 import es from '../locales/simulation.es.json';
 import './simulation.css';
+import { Viewport3D } from './Viewport3D';
+import { useGameCopy } from '../gameCopy';
+import { speeds, useInput } from '../input/inputStore';
+import type { FlightState } from '../three/spacecraftModel';
+
+const COUNTDOWN = 0.3; // share of the launch sequence spent counting down on the pad
 
 const phases: MissionPhase[] = ['launch', 'insertion', 'operations', 'end-of-life'];
 
@@ -46,6 +52,47 @@ function FlightScene({ progress, phase, paused, title }: { progress: number; pha
   </svg>;
 }
 
+function FlightHud({ flight, ascent, pending, launched, g }: { flight: FlightState | null; ascent: number; pending: boolean; launched: boolean; g: ReturnType<typeof useGameCopy> }) {
+  if (!flight) return null;
+  const ev = flight.event;
+  let banner: { text: string; tone: '' | 'warn' | 'alert'; big?: string } | null = null;
+  if (!launched && flight.day > 0) banner = { text: g.launchFailed, tone: 'alert' };
+  else if (flight.day === 0) {
+    if (pending) banner = { text: g.hold, tone: 'warn' };
+    else if (ascent < COUNTDOWN) banner = { text: g.countdown, tone: '', big: `T−${Math.max(1, Math.ceil((1 - ascent / COUNTDOWN) * 3))}` };
+    else if (!launched && ascent > COUNTDOWN + (1 - COUNTDOWN) * 0.5) banner = { text: g.launchFailed, tone: 'alert' };
+    else banner = { text: g.liftoff, tone: '' };
+  } else if (!flight.inserted && flight.launched) banner = { text: g.insertionFailed, tone: 'alert' };
+  else if (ev) {
+    const t = ev.type, ch = ev.choice;
+    if (t === 'solar-storm') banner = ch === 'protect' ? { text: g.fxStormSafe, tone: 'warn' } : { text: g.fxStorm, tone: 'alert' };
+    else if (t === 'wheel-failure') banner = ch === 'repair' ? { text: g.fxWheelFixed, tone: '' } : { text: g.fxWheel, tone: ev.responded ? 'warn' : 'alert' };
+    else if (t === 'debris') banner = !ev.responded ? { text: g.fxDebris, tone: 'alert' } : ch === 'protect' ? { text: g.fxDebrisDodge, tone: 'warn' } : { text: g.fxDebrisHit, tone: 'alert' };
+    else if (t === 'battery-degradation') banner = { text: g.fxBattery, tone: 'warn' };
+    else if (t === 'budget-cut') banner = { text: g.fxBudget, tone: 'warn' };
+    else if (t === 'launch-delay') banner = null;
+  } else if (flight.phase === 'insertion') banner = { text: g.separation, tone: '' };
+  else if (flight.phase === 'end-of-life') banner = { text: flight.health > 0.05 && flight.inserted ? g.fxReentry : g.fxDisposal, tone: '' };
+  else if (flight.health < 0.25 && flight.inserted) banner = { text: g.fxLowHealth, tone: 'alert' };
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
+  const tone = (v: number) => (v < 0.25 ? 'bad' : v < 0.55 ? 'warn' : 'ok');
+  return <>
+    <div className="hud-row">
+      <div className="hud-fx">
+        {flight.operating && <span className="hud-chip ok">◉ {g.fxScience}</span>}
+        {flight.transmitting && <span className="hud-chip ok">⇣ {g.fxDownlink}</span>}
+      </div>
+      <div className="hud-gauges">
+        <div className={`hud-gauge ${tone(flight.health)}`}><span>HP<b>{pct(flight.health)}</b></span><i><em style={{ width: pct(flight.health) }} /></i></div>
+        <div className={`hud-gauge ${tone(flight.battery)}`}><span>⚡<b>{pct(flight.battery)}</b></span><i><em style={{ width: pct(flight.battery) }} /></i></div>
+        <div className={`hud-gauge ${flight.storage > 0.9 ? 'bad' : flight.storage > 0.7 ? 'warn' : 'ok'}`}><span>💾<b>{pct(flight.storage)}</b></span><i><em style={{ width: pct(flight.storage) }} /></i></div>
+      </div>
+    </div>
+    {banner ? <div className={`hud-banner ${banner.tone}`} role="status">{banner.big && <span className="hud-countdown">{banner.big}</span>}{banner.text}</div> : <span />}
+    <span />
+  </>;
+}
+
 export function SimulationView() {
   const { lang, l } = useI18n();
   const copy = lang === 'es' ? es : en;
@@ -55,8 +102,16 @@ export function SimulationView() {
   const respond = useGame(s => s.respond);
   const finish = useGame(s => s.finish);
   const setScreen = useGame(s => s.setScreen);
-  const [playing, setPlaying] = useState(true);
-  const [speed, setSpeed] = useState(3);
+  const playing = useInput(s => s.playing);
+  const setPlaying = useInput(s => s.setPlaying);
+  const speed = useInput(s => s.speed);
+  const setSpeed = useInput(s => s.setSpeed);
+  const device = useInput(s => s.device);
+  const g = useGameCopy();
+  const [ascent, setAscent] = useState(0);
+  const [flight, setFlight] = useState<FlightState | null>(null);
+  const holdUntil = useRef(0);
+  const reduced = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const lastDay = timeline?.days.at(-1)?.day ?? 0;
   const pending = timeline?.events.find(event => event.day <= day && !event.responded);
   const ended = !!timeline && day >= lastDay && !pending;
@@ -64,9 +119,25 @@ export function SimulationView() {
   const currentPhase = ended ? 'end-of-life' : (current?.phase ?? 'launch');
   const progress = lastDay > 0 ? day / lastDay : ended ? 1 : 0;
 
+  // A response triggers a short cinematic hold so the player sees its consequence in 3D.
+  const respondedCount = timeline?.events.filter(e => e.responded).length ?? 0;
+  useEffect(() => { if (respondedCount) holdUntil.current = performance.now() + (reduced ? 300 : 1600); }, [respondedCount, reduced]);
+
+  // Day 0 plays a launch cinematic (countdown + ascent) before the daily clock starts.
   useEffect(() => {
-    if (!timeline || !playing || pending || ended) return;
-    const timer = window.setTimeout(() => setDay(Math.min(lastDay, day + 1)), 1000/speed);
+    if (!timeline || !playing || pending || day !== 0) return;
+    if (ascent >= 1) { setDay(1); return; }
+    const duration = (reduced ? 2.5 : 8) / Math.sqrt(speed / 3);
+    let raf = 0, last = performance.now();
+    const tick = (now: number) => { const dt = (now - last) / 1000; last = now; setAscent(a => Math.min(1, a + dt / duration)); raf = requestAnimationFrame(tick); };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [timeline, playing, pending, day, ascent >= 1, speed, reduced, setDay]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!timeline || !playing || pending || ended || day === 0) return;
+    const wait = Math.max(1000 / speed, holdUntil.current - performance.now());
+    const timer = window.setTimeout(() => setDay(Math.min(lastDay, day + 1)), wait);
     return () => window.clearTimeout(timer);
   }, [timeline, playing, pending, ended, day, speed, setDay, lastDay]);
 
@@ -78,7 +149,11 @@ export function SimulationView() {
     <div className="sim-phase-track" aria-label={copy.flightOperations}>{phases.map((phase, index) => <div key={phase} className={`${phase===currentPhase?'active':''} ${phases.indexOf(currentPhase)>index?'done':''}`} aria-current={phase===currentPhase?'step':undefined}><span>{phases.indexOf(currentPhase)>index ? <Check size={13}/> : `0${index+1}`}</span><b>{copy[phase]}</b></div>)}</div>
     <section className="panel sim-flight-panel">
       <div className="sim-flight-topline"><span className={`sim-status ${pending?'is-warning':''}`}><span/>{pending ? copy.awaitingDecision : ended ? copy.complete : playing ? copy.live : copy.paused}</span><span className="sim-clock"><Timer size={14}/>{copy.day} <b>{day}</b> / {lastDay}</span></div>
-      <FlightScene progress={progress} phase={currentPhase} paused={!playing||!!pending||ended} title={copy.trajectory}/>
+      <div className="flight-stage">
+        <Viewport3D mode="flight" timeline={timeline} day={day} ascent={Math.max(0, (ascent - COUNTDOWN) / (1 - COUNTDOWN))} onFlightState={setFlight}
+          hud={<FlightHud flight={flight} ascent={ascent} pending={!!pending} launched={timeline.launched} g={g} />}
+          fallback={<FlightScene progress={progress} phase={currentPhase} paused={!playing||!!pending||ended} title={copy.trajectory}/>} />
+      </div>
       <div className="sim-telemetry" aria-live="off">
         <div><span>{copy.health}</span><strong>{f((current?.health ?? 1)*100)}<small>%</small></strong></div>
         <div><span>{copy.downlinked}</span><strong>{f(current?.cumulativeDataGB ?? 0,1)}<small>GB</small></strong></div>
@@ -86,12 +161,12 @@ export function SimulationView() {
         <div><span>{copy.spent}</span><strong>{f(current?.spentM ?? timeline.resources.developmentCostM+timeline.resources.launchCostM,2)}<small>M$</small></strong></div>
       </div>
       <div className="sim-progress" role="progressbar" aria-label={`${copy.day} ${day} ${copy.of} ${lastDay}`} aria-valuemin={0} aria-valuemax={Math.max(lastDay,1)} aria-valuenow={day}><span style={{width:`${progress*100}%`}}/></div>
-      <div className="sim-controls"><button className="button button-secondary" disabled={!!pending||ended} onClick={() => setPlaying(!playing)}>{playing?<CirclePause size={16}/>:<Play size={16}/>} {playing?copy.pause:copy.play}</button><label><span className="sr-only">{copy.speed}</span><select value={speed} onChange={e=>setSpeed(Number(e.target.value))}><option value={1}>{copy.speedNormal}</option><option value={3}>{copy.speedFast}</option><option value={8}>{copy.speedFaster}</option></select></label>{ended&&<button className="button button-primary" onClick={finish}>{copy.viewReport}<ArrowRight size={16}/></button>}</div>
+      <div className="sim-controls"><button className="button button-secondary" disabled={!!pending||ended} onClick={() => setPlaying(!playing)}>{playing?<CirclePause size={16}/>:<Play size={16}/>} {playing?copy.pause:copy.play}</button><label><span className="sr-only">{copy.speed}</span><select value={speed} onChange={e=>setSpeed(Number(e.target.value))}>{speeds.map(n=><option key={n} value={n}>{n}× · {n} {copy.day.toLowerCase()}/s</option>)}</select></label>{ended&&<button className="button button-primary" onClick={finish}>{copy.viewReport}<ArrowRight size={16}/></button>}</div>
     </section>
     {pending&&<section className="panel sim-event" aria-labelledby="mission-event-title" role="region" aria-live="polite">
       <div className="sim-event-title"><span className="sim-event-icon"><AlertTriangle size={20}/></span><div><p className="eyebrow">{copy.decisionDay} {pending.day}</p><h2 id="mission-event-title">{l(pending.title)}</h2></div></div>
       <p>{l(pending.description)}</p><p className="sim-event-help">{copy.eventHelp}</p>
-      <div className="sim-choices">{pending.choices.map(choice=><button className="sim-choice" key={choice.id} onClick={()=>{respond(pending.id,choice.id);setPlaying(true);}}><span className="sim-choice-head"><strong>{l(choice.label)}</strong><ArrowRight size={16}/></span><span>{l(choice.description)}</span><span className="sim-choice-effects"><span>{copy.responseCost}: <b>{f(choice.costM,2)} M$</b></span><span>{copy.responseDays}: <b>{choice.lostDays}</b></span><span>{copy.responseHealth}: <b>{choice.healthDelta>0?'+':''}{f(choice.healthDelta)}</b></span><span>{copy.responsePower}: <b>{f(choice.powerMultiplier*100)}%</b></span><span>{copy.responseScience}: <b>{f(choice.scienceMultiplier*100)}%</b></span></span></button>)}</div>
+      <div className="sim-choices">{pending.choices.map((choice,index)=><button className="sim-choice" key={choice.id} autoFocus={index===0&&device==='gamepad'} onClick={()=>{respond(pending.id,choice.id);setPlaying(true);}}><span className="sim-choice-head"><strong>{l(choice.label)}</strong>{device==='touch'?<ArrowRight size={16}/>:<kbd className={device==='gamepad'?`pad pad-${index?'y':'x'}`:'key'}>{device==='gamepad'?(index?'Y':'X'):index+1}</kbd>}</span><span>{l(choice.description)}</span><span className="sim-choice-effects"><span>{copy.responseCost}: <b>{f(choice.costM,2)} M$</b></span><span>{copy.responseDays}: <b>{choice.lostDays}</b></span><span>{copy.responseHealth}: <b>{choice.healthDelta>0?'+':''}{f(choice.healthDelta)}</b></span><span>{copy.responsePower}: <b>{f(choice.powerMultiplier*100)}%</b></span><span>{copy.responseScience}: <b>{f(choice.scienceMultiplier*100)}%</b></span></span></button>)}</div>
     </section>}
     <div className="sim-secondary-telemetry"><div><span>{copy.battery}</span><b>{f(current?.batteryWh ?? timeline.resources.batteryWh)} Wh</b></div><div><span>{copy.storage}</span><b>{f(current?.storedGB ?? 0,1)} / {f(timeline.resources.storageGB)} GB</b></div><div><span>{copy.powerMargin}</span><b>{f(current?.energyMarginW ?? timeline.resources.averageGenerationW-timeline.resources.consumptionW)} W</b></div></div>
     <section className="panel sim-log"><h2><Radio size={17}/>{copy.flightLog}</h2>{visibleEvents.length===0 ? <p className="sim-muted">{copy.logEmpty}</p> : <ol>{visibleEvents.slice().reverse().map(event=><li key={event.id}><span className="sim-log-day">D+{event.day.toString().padStart(3,'0')}</span><div><strong>{l(event.title)}</strong><p>{event.responded?l(event.consequence):copy.pending}</p></div>{event.responded&&<Check size={16}/>}</li>)}</ol>}</section>
