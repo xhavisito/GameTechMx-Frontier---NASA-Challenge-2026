@@ -6,13 +6,16 @@ export interface WorldInput {
   /** touch joystick, written by the HUD */
   joyX: number; joyY: number; touchBoost: boolean;
   usingPad: boolean;
+  /** vertical movement for the submarine: +1 up, -1 down */
+  vert: number; touchUp: boolean; touchDown: boolean;
 }
-export const blankInput = (): WorldInput => ({ throttle: 0, steer: 0, boost: false, camYaw: 0, camPitch: 0.35, collectPulse: false, scanPulse: false, exitPulse: false, joyX: 0, joyY: 0, touchBoost: false, usingPad: false });
+export const blankInput = (): WorldInput => ({ throttle: 0, steer: 0, boost: false, camYaw: 0, camPitch: 0.35, collectPulse: false, scanPulse: false, exitPulse: false, joyX: 0, joyY: 0, touchBoost: false, usingPad: false, vert: 0, touchUp: false, touchDown: false });
 
 const dead = (v: number) => (Math.abs(v) < 0.14 ? 0 : v);
 
 /** Keyboard + gamepad + touch merged into one mutable object read every frame by the scene. */
-export function useWorldInput() {
+export function useWorldInput(opts: { sub?: boolean } = {}) {
+  const sub = !!opts.sub;
   const inp = useRef<WorldInput>(blankInput());
   const keys = useRef(new Set<string>());
   const prevPad = useRef({ a: false, x: false, b: false });
@@ -22,7 +25,7 @@ export function useWorldInput() {
       const k = e.key.toLowerCase();
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
       if (!keys.current.has(k)) {
-        if (k === 'e' || k === ' ' || k === 'enter') inp.current.collectPulse = true;
+        if (k === 'e' || k === 'enter' || (!sub && k === ' ')) inp.current.collectPulse = true;
         if (k === 'f') inp.current.scanPulse = true;
         if (k === 'escape') inp.current.exitPulse = true;
       }
@@ -41,12 +44,14 @@ export function useWorldInput() {
     let s = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
     let boost = k.has('shift');
     let cy = (k.has('l') ? 1 : 0) - (k.has('j') ? 1 : 0);
+    let vert = sub ? (k.has(' ') || k.has('q') ? 1 : 0) - (k.has('c') || k.has('z') ? 1 : 0) : 0;
     const pad = (navigator.getGamepads?.() ?? []).find(p => p && p.connected);
     if (pad) {
       const ax = (n: number) => dead(pad.axes[n] ?? 0), bt = (n: number) => !!pad.buttons[n]?.pressed;
       const lx = ax(0), ly = ax(1);
       if (lx || ly || bt(0) || bt(2)) i.usingPad = true;
-      t += -ly + (pad.buttons[7]?.value ?? 0) - (pad.buttons[6]?.value ?? 0) * 0.6;
+      t += -ly + (sub ? 0 : (pad.buttons[7]?.value ?? 0) - (pad.buttons[6]?.value ?? 0) * 0.6);
+      if (sub) vert += (pad.buttons[7]?.value ?? 0) - (pad.buttons[6]?.value ?? 0) + (bt(3) ? 1 : 0) - (bt(2) ? 1 : 0);
       s += lx + (bt(15) ? 1 : 0) - (bt(14) ? 1 : 0);
       boost = boost || bt(5) || bt(1);
       cy += ax(2);
@@ -57,6 +62,8 @@ export function useWorldInput() {
       if (b && !prevPad.current.b) i.exitPulse = true;
       prevPad.current = { a, x, b };
     }
+    if (sub) vert += (i.touchUp ? 1 : 0) - (i.touchDown ? 1 : 0);
+    i.vert = Math.max(-1, Math.min(1, vert));
     t += -i.joyY; s += i.joyX; boost = boost || i.touchBoost;
     i.throttle = Math.max(-1, Math.min(1, t)); i.steer = Math.max(-1, Math.min(1, s)); i.boost = boost;
     i.camYaw += cy * dt * 1.8;

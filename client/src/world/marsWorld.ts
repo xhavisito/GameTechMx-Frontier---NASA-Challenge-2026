@@ -105,10 +105,10 @@ export function sampleInReach(w: MarsWorldData, cfg: WorldConfig, taken: Readonl
 export interface MarsResult { score: number; science: number; returned: boolean; grade: string; samples: string[] }
 export const REQUIRED_SAMPLES = 3;
 const SCIENCE: Record<SampleKind, number> = { regolith: 8, basalt: 10, hematite: 14, ice: 18 };
-export function scoreRun(cfg: WorldConfig, kinds: SampleKind[], returned: boolean, rover: RoverState, secondsUsed: number): MarsResult {
+export function scoreRun(cfg: WorldConfig, kinds: SampleKind[], returned: boolean, rover: RoverState, secondsUsed: number, need = REQUIRED_SAMPLES): MarsResult {
   const science = kinds.reduce((a, k) => a + SCIENCE[k] * (cfg.spectrometer ? 1.5 : 1), 0);
   const raw = Math.min(55, science * 1.1) + (returned ? 25 : 0) + (rover.health / 100) * 8 + (rover.energy / cfg.battery) * 6 + Math.max(0, 6 - secondsUsed / 120) ;
-  const score = Math.max(0, Math.min(100, Math.round(kinds.length >= REQUIRED_SAMPLES ? raw : raw * 0.7)));
+  const score = Math.max(0, Math.min(100, Math.round(kinds.length >= need ? raw : raw * 0.7)));
   const grade = score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 50 ? 'B' : score >= 30 ? 'C' : 'D';
   return { score, science: Math.round(science), returned, grade, samples: kinds };
 }

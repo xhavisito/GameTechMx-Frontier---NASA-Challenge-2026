@@ -1,9 +1,13 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { X, Sun, BatteryFull, Camera, FlaskConical, Radar, Rocket, Orbit, Waves } from 'lucide-react';
+import { X, Rocket, HelpCircle, Star } from 'lucide-react';
 import { heightAt, newRover, normalAt, stepRover, type MarsResult, type MarsWorldData, type RoverState, type WorldConfig } from './marsWorld';
-import { RoverModel, Terrain, Joystick, type Palette } from './MarsWorld';
+import { Terrain, Joystick, type Palette } from './MarsWorld';
+import { RoverGLB } from './models';
+import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests, EventCard } from './ui';
+import { defaultDesign, normalize, eventsFor, applyEffects, type Design, type EventOption, type Dest } from './design';
+import { LEVEL_INFO, modsFor, readLevel, saveLevel, tutorialDone, markTutorialDone, type Level } from './levels';
 import { useWorldInput, type WorldInput } from './worldInput';
 import { rng } from '../three/noise';
 import './world.css';
@@ -16,20 +20,7 @@ const MillerOcean = lazy(() => import('./MillerOcean'));
 const EARTH: Palette = { low: '#4fae5d', mid: '#6cc56a', high: '#9bdc7a', pale: '#d8f0a8', pad: '#cfd3dc' };
 const HANGAR = new THREE.Vector3(-34, 0, 26), ROCKET = new THREE.Vector3(34, 0, -22), NEAR = 7;
 
-type Power = 'solar' | 'battery';
-type Tool = 'camera' | 'spectrometer' | 'radar';
-type Dest = 'mars' | 'jupiter' | 'miller';
-interface Loadout { power: Power; tool: Tool }
-type Phase = 'earth' | 'hangar' | 'launch' | 'travel' | 'mars' | 'end';
-
-const TOOL_DESC = {
-  es: { mars: { camera: 'Ves las muestras desde más lejos', spectrometer: 'Tus muestras valen más puntos', radar: 'Encuentra hielo escondido bajo la arena' },
-        jupiter: { camera: 'Escaneas zonas desde más lejos', spectrometer: 'Tu mapa vale más puntos', radar: 'Una flecha te guía a la siguiente zona' },
-        miller: { camera: 'Ves las señales de vida desde lejos', spectrometer: 'Tus hallazgos valen más puntos', radar: 'Detecta vida a gran distancia' } },
-  en: { mars: { camera: 'Spot samples from farther away', spectrometer: 'Your samples are worth more points', radar: 'Finds ice hidden under the sand' },
-        jupiter: { camera: 'Scan zones from farther away', spectrometer: 'Your map is worth more points', radar: 'An arrow guides you to the next zone' },
-        miller: { camera: 'See signs of life from afar', spectrometer: 'Your findings are worth more points', radar: 'Detects life from far away' } },
-} as const;
+type Phase = 'intro' | 'earth' | 'hangar' | 'tests' | 'launch' | 'travel' | 'mars' | 'end';
 
 const T = {
   es: {
@@ -115,7 +106,7 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct }: {
   hud: React.MutableRefObject<Hud>; lift: React.MutableRefObject<number>; onAct: (w: 'hangar' | 'rocket') => void;
 }) {
   const { camera, scene } = useThree();
-  const roverRef = useRef<THREE.Group>(null), wheels = useRef<THREE.Group[]>([]), markers = useRef<THREE.Group>(null);
+  const roverRef = useRef<THREE.Group>(null), markers = useRef<THREE.Group>(null);
   const rover = useRef<RoverState>({ ...newRover(CFG0), x: 0, z: 8, heading: -Math.PI / 4, energy: 1e9 });
   const cam = useRef(new THREE.Vector3(0, 8, -10)), tmp = useMemo(() => new THREE.Vector3(), []);
   const q = useMemo(() => ({ a: new THREE.Quaternion(), b: new THREE.Quaternion(), up: new THREE.Vector3(0, 1, 0), n: new THREE.Vector3() }), []);
@@ -145,7 +136,7 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct }: {
       rv.visible = !launching;
       const y = heightAt(world, r.x, r.z), n = normalAt(world, r.x, r.z);
       rv.position.set(r.x, y + 0.05, r.z); q.n.set(n[0], n[1], n[2]); q.a.setFromUnitVectors(q.up, q.n); q.b.setFromAxisAngle(q.up, r.heading);
-      rv.quaternion.slerp(q.a.multiply(q.b), Math.min(1, dt * 8)); wheels.current.forEach(w => { if (w) w.rotation.x += (r.speed * dt) / 0.38; });
+      rv.quaternion.slerp(q.a.multiply(q.b), Math.min(1, dt * 8));
     }
     if (markers.current) { const t = quest === 0 ? HANGAR : ROCKET; markers.current.position.set(t.x, 0, t.z); markers.current.rotation.y += dt; markers.current.children[0]!.position.y = 16 + Math.sin(performance.now() / 300) * 0.8; }
     if (launching) {
@@ -165,7 +156,7 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct }: {
     <mesh position={[0, -1.6, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[1500, 1500]} /><meshStandardMaterial color="#3fa7e8" flatShading /></mesh>
     <Terrain world={world} palette={EARTH} /><Trees world={world} /><Hangar />
     <RocketModel lift={lift} flame={phase === 'launch' && launchT.current > 3} />
-    <group ref={roverRef}><RoverModel cfg={CFG0} wheelRef={wheels as unknown as React.RefObject<THREE.Group[]>} /></group>
+    <group ref={roverRef}><RoverGLB /></group>
     {phase === 'earth' && <group ref={markers}>
       <mesh position={[0, 16, 0]} rotation={[Math.PI, 0, 0]}><coneGeometry args={[1.6, 3, 4]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.7} flatShading /></mesh>
       <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[NEAR - 0.8, NEAR, 24]} /><meshBasicMaterial color="#ffc857" transparent opacity={0.85} /></mesh>
@@ -175,76 +166,88 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct }: {
 
 export default function Adventure({ es, onExit }: { es: boolean; onExit: () => void }) {
   const L = T[es ? 'es' : 'en'];
-  const [phase, setPhase] = useState<Phase>('earth');
+  const [phase, setPhase] = useState<Phase>('intro');
+  const [tut, setTut] = useState(() => !tutorialDone());
+  const [level, setLevel] = useState<Level>(readLevel);
   const [quest, setQuest] = useState(0);
-  const [dest, setDest] = useState<Dest>('mars');
-  const [load, setLoad] = useState<Loadout>({ power: 'solar', tool: 'camera' });
+  const [design, setDesign] = useState<Design>(() => defaultDesign('mars'));
   const [count, setCount] = useState(0);
   const [result, setResult] = useState<MarsResult | null>(null);
   const [run, setRun] = useState(0);
+  const [evIdx, setEvIdx] = useState(0);
+  const [picked, setPicked] = useState<EventOption[]>([]);
   const [snap, setSnap] = useState<Hud>({ near: null, dist: 0, bearing: 0, heading: 0 });
   const world = useMemo(earthWorld, []);
   const { inp, poll } = useWorldInput();
   const hud = useRef<Hud>(snap), lift = useRef(0);
   useEffect(() => { const t = setInterval(() => setSnap({ ...hud.current }), 100); return () => clearInterval(t); }, []);
+  const d = useMemo(() => normalize(design, level), [design, level]);
+  const dest: Dest = d.dest;
+  const events = useMemo(() => eventsFor(level, run + 1), [level, run]);
 
   useEffect(() => {
     if (phase !== 'launch') return;
     lift.current = 0; setCount(0);
-    const ts = [setTimeout(() => setCount(1), 1000), setTimeout(() => setCount(2), 2000), setTimeout(() => setCount(3), 3000), setTimeout(() => setPhase('travel'), 8200)];
+    const ts = [setTimeout(() => setCount(1), 1000), setTimeout(() => setCount(2), 2000), setTimeout(() => setCount(3), 3000), setTimeout(() => { setEvIdx(0); setPicked([]); setPhase('travel'); }, 8200)];
     return () => ts.forEach(clearTimeout);
   }, [phase]);
-  useEffect(() => { if (phase !== 'travel') return; const t = setTimeout(() => setPhase('mars'), 4500); return () => clearTimeout(t); }, [phase]);
+  const pending = phase === 'travel' && evIdx < events.length;
+  useEffect(() => { if (phase !== 'travel' || pending) return; const t = setTimeout(() => setPhase('mars'), 4500); return () => clearTimeout(t); }, [phase, pending]);
 
+  const mission = useMemo(() => applyEffects(modsFor(level), picked.map(p => p.fx)), [level, picked]);
+  const mods = mission.mods;
   const cfg: WorldConfig = useMemo(() => ({
-    seed: 1000 + run * 7, health: 100,
-    battery: load.power === 'battery' ? 320 : 140, solar: load.power === 'solar' ? 160 : 50,
-    camera: load.tool === 'camera', spectrometer: load.tool === 'spectrometer', radar: load.tool === 'radar',
-  }), [load, run]);
+    seed: 1000 + run * 7, health: mission.health,
+    battery: ((d.batteryKWh * 100 + 20) * mission.energy) / mods.drainMul, solar: d.solarM2 * 45,
+    camera: d.tools.includes('camera'), spectrometer: d.tools.includes('spectrometer'), radar: d.tools.includes('radar'),
+  }), [d, run, mission, mods.drainMul]);
+  // Jupiter and Miller take one main tool: the one that sees farthest
+  const tool = d.tools.includes('radar') ? 'radar' : d.tools.includes('camera') ? 'camera' : 'spectrometer';
 
   const onAct = (w: 'hangar' | 'rocket') => { if (w === 'hangar') setPhase('hangar'); else setPhase('launch'); };
-  const reset = () => { setPhase('earth'); setQuest(0); setResult(null); setRun(r => r + 1); lift.current = 0; };
+  const reset = () => { setPhase('earth'); setQuest(0); setResult(null); setRun(r => r + 1); setPicked([]); lift.current = 0; };
+  const pickLevel = (l: Level) => { setLevel(l); saveLevel(l); setPhase('earth'); };
+  const done = (r: MarsResult) => { setResult(r); setPhase('end'); };
 
   if (phase === 'mars') return <Suspense fallback={<div className="w-root adv-center">…</div>}>
     {dest === 'jupiter'
-      ? <JupiterOrbit tool={load.tool} es={es} onDone={r => { setResult(r); setPhase('end'); }} onExit={onExit} />
+      ? <JupiterOrbit tool={tool} es={es} mods={mods} onDone={done} onExit={onExit} />
       : dest === 'miller'
-      ? <MillerOcean tool={load.tool} es={es} onDone={r => { setResult(r); setPhase('end'); }} onExit={onExit} />
-      : <MarsWorld cfg={cfg} es={es} onDone={r => { setResult(r); setPhase('end'); }} onExit={onExit} />}
+      ? <MillerOcean tool={tool} es={es} mods={mods} onDone={done} onExit={onExit} />
+      : <MarsWorld cfg={cfg} es={es} mods={mods} onDone={done} onExit={onExit} />}
   </Suspense>;
 
-  const opt = (key: string, icon: React.ReactNode, active: boolean, pick: () => void) => <button key={key} className={`adv-opt ${active ? 'on' : ''}`} onClick={pick} aria-pressed={active}>
-    <span className="adv-ico">{icon}</span><b>{L[key as keyof typeof L] as string}</b><small>{(key === 'camera' || key === 'spectrometer' || key === 'radar') ? TOOL_DESC[es ? 'es' : 'en'][dest][key] : L[(key + 'D') as keyof typeof L] as string}</small></button>;
-
+  const lvl = LEVEL_INFO[level];
   return <div className="w-root adv-root"
     onPointerDown={e => { if ((e.target as HTMLElement).tagName === 'CANVAS') (e.currentTarget as HTMLElement).dataset.drag = `${e.clientX},${e.clientY}`; }}
-    onPointerMove={e => { const el = e.currentTarget as HTMLElement, d = el.dataset.drag; if (!d) return; const [x, y] = d.split(',').map(Number); inp.current.camYaw -= (e.clientX - x!) * 0.006; inp.current.camPitch = Math.max(0.1, Math.min(1.1, inp.current.camPitch + (e.clientY - y!) * 0.004)); el.dataset.drag = `${e.clientX},${e.clientY}`; }}
+    onPointerMove={e => { const el = e.currentTarget as HTMLElement, dr = el.dataset.drag; if (!dr) return; const [x, y] = dr.split(',').map(Number); inp.current.camYaw -= (e.clientX - x!) * 0.006; inp.current.camPitch = Math.max(0.1, Math.min(1.1, inp.current.camPitch + (e.clientY - y!) * 0.004)); el.dataset.drag = `${e.clientX},${e.clientY}`; }}
     onPointerUp={e => { delete (e.currentTarget as HTMLElement).dataset.drag; }}>
     <Canvas dpr={[1, 1.6]} camera={{ fov: 62, near: 0.1, far: 600, position: [0, 8, -10] }}>
-      <EarthScene world={world} phase={phase} quest={quest} input={inp} poll={poll} hud={hud} lift={lift} onAct={onAct} />
+      <Suspense fallback={null}><EarthScene world={world} phase={phase} quest={quest} input={inp} poll={poll} hud={hud} lift={lift} onAct={onAct} /></Suspense>
     </Canvas>
     <button className="w-btn w-exit" onClick={onExit} aria-label={L.quit}><X size={20} /></button>
 
     {phase === 'earth' && <>
-      <div className="adv-quest"><span className="adv-step">{quest + 1}/2</span><b>{quest === 0 ? L.q0 : L.q1}</b></div>
+      <div className="adv-quest"><span className="adv-step">{quest + 1}/2</span><b>{quest === 0 ? L.q0 : L.q1}</b>
+        <button className="lvl-btn" style={{ background: lvl.color }} onClick={() => setPhase('intro')} title={es ? 'Cambiar dificultad' : 'Change difficulty'}><Star size={14} fill="currentColor" /> {es ? lvl.es : lvl.en}</button>
+        <button className="lvl-btn help" onClick={() => setTut(true)} aria-label={es ? 'Ayuda' : 'Help'}><HelpCircle size={18} /></button></div>
       <div className="adv-arrow" aria-hidden="true"><i style={{ transform: `rotate(${snap.heading - snap.bearing + Math.PI}rad)` }} /><span>{Math.round(snap.dist)} m</span></div>
       {snap.near && <button className="adv-prompt" onClick={() => onAct(snap.near!)}><span className="w-key">E</span><span className="w-key pad">A</span>{snap.near === 'hangar' ? L.enterHangar : L.launchNow}</button>}
       <div className="w-help adv-help"><span>{L.help}</span><span>{L.helpPad}</span><span>{L.helpTouch}</span></div>
       <div className="w-touch"><Joystick input={inp} /><div className="w-btns"><button className="w-btn big" onPointerDown={() => { inp.current.collectPulse = true; }}>E</button></div></div>
     </>}
 
-    {phase === 'hangar' && <div className="adv-modal"><div className="adv-card">
-      <h2>{L.hangarTitle}</h2><p>{L.hangarSub}</p>
-      <h3>{L.dest}</h3><div className="adv-row">{opt('mars', <Rocket size={30} />, dest === 'mars', () => setDest('mars'))}{opt('jupiter', <Orbit size={30} />, dest === 'jupiter', () => setDest('jupiter'))}{opt('miller', <Waves size={30} />, dest === 'miller', () => setDest('miller'))}</div>
-      {dest === 'mars' && <><h3>{L.power}</h3><div className="adv-row">{opt('solar', <Sun size={30} />, load.power === 'solar', () => setLoad(l => ({ ...l, power: 'solar' })))}{opt('battery', <BatteryFull size={30} />, load.power === 'battery', () => setLoad(l => ({ ...l, power: 'battery' })))}</div></>}
-      <h3>{L.tool}</h3><div className="adv-row">{opt('camera', <Camera size={30} />, load.tool === 'camera', () => setLoad(l => ({ ...l, tool: 'camera' })))}{opt('spectrometer', <FlaskConical size={30} />, load.tool === 'spectrometer', () => setLoad(l => ({ ...l, tool: 'spectrometer' })))}{opt('radar', <Radar size={30} />, load.tool === 'radar', () => setLoad(l => ({ ...l, tool: 'radar' })))}</div>
-      <button className="button button-primary" autoFocus onClick={() => { setQuest(1); setPhase('earth'); }}><Rocket size={18} /> {L.ready}</button>
-    </div></div>}
+    {phase === 'intro' && !tut && <LevelPicker es={es} level={level} onPick={pickLevel} onHelp={() => setTut(true)} />}
+    {tut && <Tutorial es={es} onClose={() => { markTutorialDone(); setTut(false); }} />}
+    {phase === 'hangar' && <HangarPanel es={es} level={level} design={design} setDesign={setDesign} onNext={() => { if (level === 'easy') { setQuest(1); setPhase('earth'); } else setPhase('tests'); }} />}
+    {phase === 'tests' && <Tests es={es} level={level} design={design} onBack={() => setPhase('hangar')} onGo={() => { setQuest(1); setPhase('earth'); }} />}
 
     {phase === 'launch' && <div className="adv-count" aria-live="assertive">{L.count[count]}</div>}
-    {phase === 'travel' && <div className="adv-travel"><div className="adv-stars" /><div className={`adv-dest ${dest}`} aria-hidden="true" /><Rocket className="adv-ship" size={64} aria-hidden="true" /><h2>{L.travel}: {L[dest]}</h2><p>{L.travelD}</p><div className="adv-progress"><span /></div><button className="button button-secondary" onClick={() => setPhase('mars')}>{L.skip}</button></div>}
+    {phase === 'travel' && <div className="adv-travel"><div className="adv-stars" /><div className={`adv-dest ${dest}`} aria-hidden="true" /><Rocket className="adv-ship" size={64} aria-hidden="true" /><h2>{L.travel}: {L[dest]}</h2><p>{L.travelD}</p><div className="adv-progress"><span /></div>
+      {!pending && <button className="button button-secondary" onClick={() => setPhase('mars')}>{L.skip}</button>}
+      {pending && <EventCard es={es} ev={events[evIdx]!} onPick={o => { setPicked(p => [...p, o]); setEvIdx(i => i + 1); }} />}</div>}
     {phase === 'end' && result && <div className="adv-modal"><div className="adv-card center">
-      <h2>{L.endTitle}</h2><div className="w-grade">{result.grade}</div><p><b>{result.score}</b>/100</p><p className="adv-next">{L.next}</p>
+      <h2>{L.endTitle}</h2><div className="w-grade">{result.grade}</div><p><b>{result.score}</b>/100 · {es ? lvl.es : lvl.en}</p><p className="adv-next">{L.next}</p>
       <div className="adv-row"><button className="button button-primary" autoFocus onClick={reset}>{L.again}</button></div>
     </div></div>}
   </div>;
