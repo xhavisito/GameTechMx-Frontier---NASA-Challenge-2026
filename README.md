@@ -6,11 +6,11 @@ El proyecto se creó para el reto *Space Mission Design Game* descrito para NASA
 
 ## Demo
 
-La URL prevista después de subir este repositorio y activar GitHub Pages es:
+Demo publicada en GitHub Pages (verificada el 14 de noviembre de 2026):
 
-`https://xhavisito.github.io/GameTechMx-Frontier---NASA-Challenge-2026/`
+**https://xhavisito.github.io/GameTechMx-Frontier---NASA-Challenge-2026/**
 
-La URL se deja como **pendiente de verificación** porque la entrega se genera como ZIP para que el equipo la suba. El workflow incluido publicará el cliente desde `main`.
+La demo estática incluye individual, sandbox y equipo local. El modo equipo online requiere desplegar el servidor por separado (ver *Despliegue*).
 
 ## Ejecutar
 
