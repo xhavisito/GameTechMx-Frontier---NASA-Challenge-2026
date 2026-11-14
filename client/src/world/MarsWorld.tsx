@@ -7,7 +7,7 @@ import { createWorld, heightAt, normalAt, newRover, stepRover, visibleSamples, s
   type MarsResult, type MarsWorldData, type RoverState, type SampleKind, type WorldConfig } from './marsWorld';
 import { fbm2, rng } from '../three/noise';
 import { useWorldInput, type WorldInput } from './worldInput';
-import { RoverGLB } from './models';
+import { Rover, arm } from './models';
 import './world.css';
 
 const KIND_COLOR: Record<SampleKind, string> = { regolith: '#ffd166', basalt: '#b39ddb', hematite: '#ff7a59', ice: '#7fdcff' };
@@ -172,7 +172,7 @@ function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
       if (r.energy > cfg.battery * 0.04 && s.scanT <= 0) { s.scanT = 5; s.rover = { ...s.rover, energy: s.rover.energy - cfg.battery * 0.03 }; say(es ? 'Escaneo: alcance ampliado' : 'Scan: range extended'); }
     }
     if (i.collectPulse) {
-      i.collectPulse = false;
+      i.collectPulse = false; arm.pulse++; // the arm always tries, whether or not there is a sample
       if (reach) {
         s.taken.add(reach.id); s.kinds.push(reach.kind);
         say(es ? `Muestra recolectada: ${KIND_NAME.es[reach.kind]}${cfg.spectrometer ? ' (analizada)' : ''}` : `Sample collected: ${KIND_NAME.en[reach.kind]}${cfg.spectrometer ? ' (analyzed)' : ''}`);
@@ -222,7 +222,7 @@ function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
     <directionalLight position={[60, 90, 30]} intensity={1.9} color="#fff1d6" />
     <Terrain world={world} /><Rocks world={world} /><Lander />
     <mesh position={[-120, 70, -160]}><icosahedronGeometry args={[14, 1]} /><meshBasicMaterial color="#fff3c4" fog={false} /></mesh>
-    <group ref={roverRef} position={[0, 0, LANDER_R + 3]}><RoverGLB radar={cfg.radar} spectrometer={cfg.spectrometer} /></group>
+    <group ref={roverRef} position={[0, 0, LANDER_R + 3]}><Rover radar={cfg.radar} spectrometer={cfg.spectrometer} /></group>
     {world.samples.map((sm, idx) => <group key={sm.id} ref={n => { sampleRefs.current[idx] = n; }} visible={false}>
       <mesh><octahedronGeometry args={[0.55, 0]} /><meshStandardMaterial color={KIND_COLOR[sm.kind]} emissive={KIND_COLOR[sm.kind]} emissiveIntensity={0.5} flatShading /></mesh>
       <mesh position={[0, 6, 0]}><cylinderGeometry args={[0.12, 0.12, 12, 5]} /><meshBasicMaterial color={KIND_COLOR[sm.kind]} transparent opacity={0.35} fog={false} /></mesh>
