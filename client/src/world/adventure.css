@@ -28,3 +28,12 @@
 .jup-mapbox{position:absolute;right:14px;bottom:14px;background:#3a2c52;border:3px solid #1b1230;border-radius:16px;padding:.5rem .6rem;box-shadow:0 4px 0 #1b1230;display:flex;flex-direction:column;gap:.3rem;font-size:.85rem}
 .jup-map{width:260px;height:130px;border-radius:8px;display:block;max-width:60vw}
 @media (pointer:coarse){.jup-mapbox{bottom:auto;top:84px}}
+.m-hp{display:block;width:100px;height:16px;border:3px solid #1b1230;border-radius:9px;overflow:hidden;background:#46365f}
+.m-hp i{display:block;height:100%;transition:width .1s}
+
+.adv-travel .adv-ship{z-index:1;color:#ffc857;animation:adv-wobble 1s ease-in-out infinite}
+.adv-travel .adv-dest{position:absolute;right:12%;top:30%;width:120px;height:120px;border-radius:50%;box-shadow:inset -18px -12px 0 #0003,0 6px 0 #1b1230;animation:adv-grow 4.5s ease-in forwards}
+.adv-dest.mars{background:#d9714a}.adv-dest.jupiter{background:linear-gradient(#f2dfc0 0 20%,#d9a066 20% 40%,#f5e6cc 40% 55%,#b9703f 55% 75%,#efd2a0 75%)}.adv-dest.miller{background:#3fa7e8}
+@keyframes adv-wobble{0%,100%{transform:translateY(-6px) rotate(45deg)}50%{transform:translateY(6px) rotate(45deg)}}
+@keyframes adv-grow{from{transform:scale(.3)}to{transform:scale(2.4)}}
+@media (prefers-reduced-motion:reduce){.adv-travel .adv-ship,.adv-travel .adv-dest{animation:none}}

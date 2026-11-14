@@ -11,37 +11,47 @@ import './adventure.css';
 
 const MarsWorld = lazy(() => import('./MarsWorld'));
 const JupiterOrbit = lazy(() => import('./JupiterOrbit'));
+const MillerOcean = lazy(() => import('./MillerOcean'));
 
 const EARTH: Palette = { low: '#4fae5d', mid: '#6cc56a', high: '#9bdc7a', pale: '#d8f0a8', pad: '#cfd3dc' };
 const HANGAR = new THREE.Vector3(-34, 0, 26), ROCKET = new THREE.Vector3(34, 0, -22), NEAR = 7;
 
 type Power = 'solar' | 'battery';
 type Tool = 'camera' | 'spectrometer' | 'radar';
-type Dest = 'mars' | 'jupiter';
+type Dest = 'mars' | 'jupiter' | 'miller';
 interface Loadout { power: Power; tool: Tool }
 type Phase = 'earth' | 'hangar' | 'launch' | 'travel' | 'mars' | 'end';
+
+const TOOL_DESC = {
+  es: { mars: { camera: 'Ves las muestras desde más lejos', spectrometer: 'Tus muestras valen más puntos', radar: 'Encuentra hielo escondido bajo la arena' },
+        jupiter: { camera: 'Escaneas zonas desde más lejos', spectrometer: 'Tu mapa vale más puntos', radar: 'Una flecha te guía a la siguiente zona' },
+        miller: { camera: 'Ves las señales de vida desde lejos', spectrometer: 'Tus hallazgos valen más puntos', radar: 'Detecta vida a gran distancia' } },
+  en: { mars: { camera: 'Spot samples from farther away', spectrometer: 'Your samples are worth more points', radar: 'Finds ice hidden under the sand' },
+        jupiter: { camera: 'Scan zones from farther away', spectrometer: 'Your map is worth more points', radar: 'An arrow guides you to the next zone' },
+        miller: { camera: 'See signs of life from afar', spectrometer: 'Your findings are worth more points', radar: 'Detects life from far away' } },
+} as const;
 
 const T = {
   es: {
     q0: 'Ve al hangar y prepara tu nave', q1: 'Ve al cohete y despega', arrive: 'Llegaste', hangar: 'Hangar', rocket: 'Cohete',
-    enterHangar: 'Entrar al hangar', launchNow: 'Despegar', hangarTitle: 'Prepara tu nave', hangarSub: 'Elige tu destino y 2 cosas. Cambian lo que podrás hacer allá.',
-    dest: '¿A dónde vas?', mars: 'Marte', marsD: 'Explora y recolecta muestras', jupiter: 'Júpiter', jupiterD: 'Escanea su atmósfera desde órbita', miller: 'Miller', millerD: 'Próximamente',
+    enterHangar: 'Entrar al hangar', launchNow: 'Despegar', hangarTitle: 'Prepara tu nave', hangarSub: 'Elige tu destino y qué llevar. Cambian lo que podrás hacer allá.',
+    dest: '¿A dónde vas?', mars: 'Marte', marsD: 'Explora y recolecta muestras', jupiter: 'Júpiter', jupiterD: 'Escanea su atmósfera desde órbita', miller: 'Miller', millerD: 'Busca vida en un océano gigante',
     power: '¿Cómo tendrá energía?', tool: '¿Qué herramienta llevará?',
     solar: 'Paneles solares', solarD: 'Se recarga con el sol', battery: 'Batería grande', batteryD: 'Dura más, pero no se recarga rápido',
-    camera: 'Cámara', cameraD: 'Ves las muestras desde más lejos', spectrometer: 'Analizador', spectrometerD: 'Tus muestras valen más puntos', radar: 'Radar', radarD: 'Encuentra hielo escondido bajo la arena',
+    camera: 'Cámara', spectrometer: 'Analizador', radar: 'Radar',
     ready: '¡Listo para despegar!', count: ['3', '2', '1', '¡Despegue!'], travel: 'Viaje', travelD: 'Tu nave cruza el espacio…', skip: 'Saltar',
-    endTitle: 'Misión cumplida', again: 'Jugar otra vez', next: 'Próxima misión: Miller (en construcción)', quit: 'Salir',
+    endTitle: 'Misión cumplida', again: 'Jugar otra vez', next: '¡Prueba otro destino!', quit: 'Salir',
     help: 'Muévete con WASD o las flechas · E para interactuar', helpPad: 'Stick para moverte · A para interactuar', helpTouch: 'Joystick para moverte · botón E para interactuar',
   },
   en: {
     q0: 'Go to the hangar and build your ship', q1: 'Go to the rocket and launch', arrive: 'Arrived', hangar: 'Hangar', rocket: 'Rocket',
-    enterHangar: 'Enter hangar', launchNow: 'Launch', hangarTitle: 'Build your ship', hangarSub: 'Pick a destination and 2 things. They change what you can do there.',
-    dest: 'Where to?', mars: 'Mars', marsD: 'Explore and collect samples', jupiter: 'Jupiter', jupiterD: 'Scan its atmosphere from orbit', miller: 'Miller', millerD: 'Coming soon',
+    enterHangar: 'Enter hangar', launchNow: 'Launch', hangarTitle: 'Build your ship', hangarSub: 'Pick a destination and what to bring. They change what you can do there.',
+    dest: 'Where to?', mars: 'Mars', marsD: 'Explore and collect samples', jupiter: 'Jupiter', jupiterD: 'Scan its atmosphere from orbit', miller: 'Miller', millerD: 'Look for life in a giant ocean',
     power: 'How will it get power?', tool: 'Which tool will it carry?',
     solar: 'Solar panels', solarD: 'Recharges in the sun', battery: 'Big battery', batteryD: 'Lasts longer, recharges slowly',
-    camera: 'Camera', cameraD: 'Spot samples from farther away', spectrometer: 'Analyzer', spectrometerD: 'Your samples are worth more points', radar: 'Radar', radarD: 'Finds ice hidden under the sand',
+    camera: 'Camera', spectrometer: 'Analyzer', radar: 'Radar',
     ready: 'Ready to launch!', count: ['3', '2', '1', 'Liftoff!'], travel: 'Trip', travelD: 'Your ship is crossing space…', skip: 'Skip',
-    endTitle: 'Mission complete', again: 'Play again', next: 'Coming next: Miller (under construction)', quit: 'Exit',
+    endTitle: 'Mission complete', again: 'Play again', next: 'Try another destination!', quit: 'Exit',
     help: 'Move with WASD or arrows · E to interact', helpPad: 'Stick to move · A to interact', helpTouch: 'Joystick to move · E button to interact',
   },
 } as const;
@@ -78,9 +88,15 @@ function Hangar() {
 }
 
 function RocketModel({ lift, flame }: { lift: React.MutableRefObject<number>; flame: boolean }) {
-  const g = useRef<THREE.Group>(null), f = useRef<THREE.Mesh>(null);
-  useFrame(({ clock }) => { if (g.current) g.current.position.y = lift.current; if (f.current) { f.current.visible = flame; f.current.scale.y = 0.8 + 0.4 * Math.sin(clock.elapsedTime * 40); } });
+  const g = useRef<THREE.Group>(null), f = useRef<THREE.Mesh>(null), smoke = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (smoke.current) {
+      smoke.current.visible = flame;
+      smoke.current.children.forEach((m, i) => { const age = (clock.elapsedTime * 0.9 + i / 18) % 1, a = i * 2.4; m.position.set(Math.cos(a) * age * 7, 0.6 + age * 4, Math.sin(a) * age * 7); m.scale.setScalar(1 + age * 3.5); ((m as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - age); });
+    }
+    if (g.current) g.current.position.y = lift.current; if (f.current) { f.current.visible = flame; f.current.scale.y = 0.8 + 0.4 * Math.sin(clock.elapsedTime * 40); } });
   return <group position={[ROCKET.x, 0, ROCKET.z]}>
+    <group ref={smoke} visible={false}>{Array.from({ length: 18 }, (_, i) => <mesh key={i}><icosahedronGeometry args={[0.9, 0]} /><meshBasicMaterial color="#fff4e6" transparent opacity={0.8} depthWrite={false} /></mesh>)}</group>
     <mesh position={[0, 0.15, 0]}><cylinderGeometry args={[6, 6.5, 0.3, 8]} /><meshStandardMaterial color="#b9a8d0" flatShading /></mesh>
     <group ref={g}>
       <mesh position={[0, 5.5, 0]}><cylinderGeometry args={[1.5, 1.7, 9, 8]} /><meshStandardMaterial color="#fff4e6" flatShading /></mesh>
@@ -134,6 +150,7 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct }: {
     if (markers.current) { const t = quest === 0 ? HANGAR : ROCKET; markers.current.position.set(t.x, 0, t.z); markers.current.rotation.y += dt; markers.current.children[0]!.position.y = 16 + Math.sin(performance.now() / 300) * 0.8; }
     if (launching) {
       tmp.set(ROCKET.x - 15, 4, ROCKET.z + 18); cam.current.lerp(tmp, Math.min(1, dt * 2)); camera.position.copy(cam.current);
+      const rumble = launchT.current > 3 && lift.current < 25 ? 0.25 : 0; camera.position.x += (Math.random() - 0.5) * rumble; camera.position.y += (Math.random() - 0.5) * rumble;
       camera.lookAt(ROCKET.x, 8 + lift.current * 0.7, ROCKET.z);
     } else {
       const yaw = r.heading + i.camYaw + Math.PI, dist = 11, pitch = i.camPitch;
@@ -193,11 +210,13 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   if (phase === 'mars') return <Suspense fallback={<div className="w-root adv-center">…</div>}>
     {dest === 'jupiter'
       ? <JupiterOrbit tool={load.tool} es={es} onDone={r => { setResult(r); setPhase('end'); }} onExit={onExit} />
+      : dest === 'miller'
+      ? <MillerOcean tool={load.tool} es={es} onDone={r => { setResult(r); setPhase('end'); }} onExit={onExit} />
       : <MarsWorld cfg={cfg} es={es} onDone={r => { setResult(r); setPhase('end'); }} onExit={onExit} />}
   </Suspense>;
 
   const opt = (key: string, icon: React.ReactNode, active: boolean, pick: () => void) => <button key={key} className={`adv-opt ${active ? 'on' : ''}`} onClick={pick} aria-pressed={active}>
-    <span className="adv-ico">{icon}</span><b>{L[key as keyof typeof L] as string}</b><small>{L[(key + 'D') as keyof typeof L] as string}</small></button>;
+    <span className="adv-ico">{icon}</span><b>{L[key as keyof typeof L] as string}</b><small>{(key === 'camera' || key === 'spectrometer' || key === 'radar') ? TOOL_DESC[es ? 'es' : 'en'][dest][key] : L[(key + 'D') as keyof typeof L] as string}</small></button>;
 
   return <div className="w-root adv-root"
     onPointerDown={e => { if ((e.target as HTMLElement).tagName === 'CANVAS') (e.currentTarget as HTMLElement).dataset.drag = `${e.clientX},${e.clientY}`; }}
@@ -218,14 +237,14 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
 
     {phase === 'hangar' && <div className="adv-modal"><div className="adv-card">
       <h2>{L.hangarTitle}</h2><p>{L.hangarSub}</p>
-      <h3>{L.dest}</h3><div className="adv-row">{opt('mars', <Rocket size={30} />, dest === 'mars', () => setDest('mars'))}{opt('jupiter', <Orbit size={30} />, dest === 'jupiter', () => setDest('jupiter'))}<button className="adv-opt" disabled style={{ opacity: .5 }}><span className="adv-ico"><Waves size={30} /></span><b>{L.miller}</b><small>{L.millerD}</small></button></div>
-      <h3>{L.power}</h3><div className="adv-row">{opt('solar', <Sun size={30} />, load.power === 'solar', () => setLoad(l => ({ ...l, power: 'solar' })))}{opt('battery', <BatteryFull size={30} />, load.power === 'battery', () => setLoad(l => ({ ...l, power: 'battery' })))}</div>
+      <h3>{L.dest}</h3><div className="adv-row">{opt('mars', <Rocket size={30} />, dest === 'mars', () => setDest('mars'))}{opt('jupiter', <Orbit size={30} />, dest === 'jupiter', () => setDest('jupiter'))}{opt('miller', <Waves size={30} />, dest === 'miller', () => setDest('miller'))}</div>
+      {dest === 'mars' && <><h3>{L.power}</h3><div className="adv-row">{opt('solar', <Sun size={30} />, load.power === 'solar', () => setLoad(l => ({ ...l, power: 'solar' })))}{opt('battery', <BatteryFull size={30} />, load.power === 'battery', () => setLoad(l => ({ ...l, power: 'battery' })))}</div></>}
       <h3>{L.tool}</h3><div className="adv-row">{opt('camera', <Camera size={30} />, load.tool === 'camera', () => setLoad(l => ({ ...l, tool: 'camera' })))}{opt('spectrometer', <FlaskConical size={30} />, load.tool === 'spectrometer', () => setLoad(l => ({ ...l, tool: 'spectrometer' })))}{opt('radar', <Radar size={30} />, load.tool === 'radar', () => setLoad(l => ({ ...l, tool: 'radar' })))}</div>
       <button className="button button-primary" autoFocus onClick={() => { setQuest(1); setPhase('earth'); }}><Rocket size={18} /> {L.ready}</button>
     </div></div>}
 
     {phase === 'launch' && <div className="adv-count" aria-live="assertive">{L.count[count]}</div>}
-    {phase === 'travel' && <div className="adv-travel"><div className="adv-stars" /><h2>{L.travel}</h2><p>{L.travelD}</p><div className="adv-progress"><span /></div><button className="button button-secondary" onClick={() => setPhase('mars')}>{L.skip}</button></div>}
+    {phase === 'travel' && <div className="adv-travel"><div className="adv-stars" /><div className={`adv-dest ${dest}`} aria-hidden="true" /><Rocket className="adv-ship" size={64} aria-hidden="true" /><h2>{L.travel}: {L[dest]}</h2><p>{L.travelD}</p><div className="adv-progress"><span /></div><button className="button button-secondary" onClick={() => setPhase('mars')}>{L.skip}</button></div>}
     {phase === 'end' && result && <div className="adv-modal"><div className="adv-card center">
       <h2>{L.endTitle}</h2><div className="w-grade">{result.grade}</div><p><b>{result.score}</b>/100</p><p className="adv-next">{L.next}</p>
       <div className="adv-row"><button className="button button-primary" autoFocus onClick={reset}>{L.again}</button><button className="button button-secondary" onClick={onExit}>{L.quit}</button></div>
