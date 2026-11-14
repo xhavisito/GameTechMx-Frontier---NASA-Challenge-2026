@@ -4,6 +4,7 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
 const base = () => `${import.meta.env.BASE_URL}models/`;
+export const SHUTTLE_URL = () => `${base()}rocket.glb`;
 export const SUB_URL = () => `${base()}sub.glb`;
 
 /** Clone a CAD-derived mesh and give it the game's flat low-poly look. */
@@ -104,3 +105,34 @@ export function SubGLB() {
 }
 
 export const preloadModels = () => { useGLTF.preload(SUB_URL()); };
+
+
+/** The launch vehicle from the team's CAD (tank, two boosters, orbiter). Boosters and then the tank separate as it climbs. */
+export function Shuttle({ lift, flame }: { lift: React.MutableRefObject<number>; flame: boolean }) {
+  const root = useStyled(SHUTTLE_URL());
+  const g = useRef<THREE.Group>(null);
+  const parts = useMemo(() => {
+    const get = (n: string) => root.getObjectByName(n) as THREE.Object3D;
+    const mk = () => { const m = new THREE.Mesh(new THREE.ConeGeometry(0.7, 4, 7), new THREE.MeshBasicMaterial({ color: '#ffb02e' })); m.rotation.x = Math.PI; m.visible = false; return m; };
+    const p = { srbL: get('srbL'), srbR: get('srbR'), tank: get('tank'), orbiter: [get('orbiter'), get('wingL'), get('wingR')], fl: { srbL: mk(), srbR: mk(), tank: mk(), orb: mk() } };
+    // flames hang under each engine (positions in metres, from the CAD)
+    p.fl.srbL.position.set(-1.68, -1.6, 0); p.fl.srbR.position.set(1.68, -1.6, 0); p.fl.tank.position.set(0, 0.4, 0); p.fl.orb.position.set(0, -0.6, 2.8);
+    p.fl.orb.scale.setScalar(0.7); p.fl.tank.scale.set(1.2, 1, 1.2);
+    root.add(p.fl.srbL, p.fl.srbR, p.fl.tank, p.fl.orb);
+    return p;
+  }, [root]);
+  useFrame(({ clock }) => {
+    const h = lift.current, wob = 0.8 + 0.4 * Math.sin(clock.elapsedTime * 40);
+    if (g.current) g.current.position.y = h;
+    const s1 = Math.max(0, h - 45), s2 = Math.max(0, h - 130); // boosters let go at 45 m, the tank at 130 m
+    for (const [n, dir] of [['srbL', -1], ['srbR', 1]] as const) {
+      const o = parts[n]; o.position.set(dir * s1 * 0.12, -s1 * s1 * 0.004, 0); o.rotation.z = -dir * s1 * 0.008;
+    }
+    parts.tank.position.set(0, -s2 * s2 * 0.004, -s2 * 0.1); parts.tank.rotation.x = -s2 * 0.006;
+    const f = (m: THREE.Mesh, on: boolean) => { m.visible = flame && on; m.scale.y = wob; };
+    parts.fl.srbL.position.set(-1.68 + parts.srbL.position.x, -1.6 + parts.srbL.position.y, 0); parts.fl.srbR.position.set(1.68 + parts.srbR.position.x, -1.6 + parts.srbR.position.y, 0);
+    parts.fl.tank.position.set(parts.tank.position.x, 0.4 + parts.tank.position.y, parts.tank.position.z);
+    f(parts.fl.srbL, s1 === 0 || s1 < 8); f(parts.fl.srbR, s1 === 0 || s1 < 8); f(parts.fl.tank, s2 < 6); f(parts.fl.orb, true);
+  });
+  return <group ref={g}><primitive object={root} /></group>;
+}
