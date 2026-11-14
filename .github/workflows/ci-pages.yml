@@ -19,7 +19,6 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: /GameTechMx-Frontier---NASA-Challenge-2026/
-          VITE_SERVER_URL: ${{ vars.VITE_SERVER_URL }}
       - name: Upload static client
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3

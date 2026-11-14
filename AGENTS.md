@@ -1,24 +1,12 @@
 # GameTechMx Frontier — repository instructions
 
-## Product and delivery contract
-Build an educational, bilingual (Spanish/English) mission-design game for the NASA Space Apps Challenge 2026 brief supplied by the team. Brand every surface **GameTechMx Frontier**. Do not use NASA insignia or claim NASA endorsement. Catalog values are editable educational approximations with source notes, not engineering predictions. Keep the supplied repository and GitHub Pages as the deployment target.
+## Product
+A bilingual (Spanish/English), open-world, low-poly space exploration game for NASA Space Apps 2026, playable by all ages with **no tables, numbers or menus to understand**. The game starts straight in the open world on Earth: drive to the hangar, pick a destination and what to bring (big buttons), drive to the rocket, launch, travel, and play one of three missions: Mars (rover, samples, meteors), Jupiter (fly around the planet and scan 4 zones), Miller (ocean planet, find signs of life, giant waves). Brand every surface **GameTechMx Frontier**. Do not use NASA insignia or claim NASA endorsement.
 
-## Architecture and conventions
-- Node 20 (`.nvmrc`), npm workspaces: `/client` (Vite, React, TypeScript, Tailwind, Zustand), `/server` (Node/Socket.IO), `/shared` (pure TypeScript types, catalogs, engine).
-- `npm install && npm run dev` launches client and server. `npm test` and `npm run build` must pass after every phase. Commit small, descriptive changes on `main` and push each phase. Never commit secrets, node_modules, dist, or `.env`.
-- Engine must not import React, browser APIs, or mutable global RNG. Export `validateDesign`, `simulateMission`, `scoreMission`, `generateReport`; identical design/seed/responses produces identical results. Explicit units: kg, W/Wh, GB/day, Mbps, USD millions, days/months. All formulas and approximations documented.
-- Use typed stable IDs, localized catalog strings, JSON interface dictionaries, semantic HTML, keyboard operation, visible focus, readable contrast, and text/icons alongside resource colors. Responsive desktop/tablet layout.
-- Scope edits to owned files when collaborating. Root agent integrates and owns commits. Run meaningful engine/scoring and room protocol tests, plus browser smoke checks where available.
-
-## Phases (commit + push and test + build at each boundary)
-0. Commit and push this complete plan before implementation.
-1. Scaffold workspace, MIT license, gitignore, Node version, TS config, data catalogs, deterministic simulation/validation/scoring/report engine and Vitest tests. At least five scenarios; LEO, SSO, MEO, GEO, HEO/Molniya, L2, lunar and Mars transfers; launchers with destination capacities; simple/advanced structure, solar, RTG, battery, UHF/S/X/Ka/optical comms, computer, storage, attitude control, propulsion and thermal; ten science instruments and two ground networks.
-2. Mission control UI, mode/difficulty selection, briefing, objective/orbit/instruments/subsystems/launcher/review steps. Persistent resource dashboard: launch mass, energy by mode/eclipse, development+launch+operations budget, daily generated/downloaded data, storage margin, development/lifetime. Explain consequences and repair suggestions immediately. Original SVG orbital/spacecraft visualization.
-3. Animated seeded launch/insertion/daily operations/end-of-life, response decisions to solar storms, wheel failures, budget cuts, delays, debris and battery degradation. Score objective/science/efficiency/robustness/collaboration, causal report, resource chart, redesign preserving prior result and side-by-side comparison.
-4. Offline hot-seat teams of 2–4, combined mission director/engineering/science/communications roles, competing goals, proposals, approvals/rejections, critical votes, decision log and collaboration scoring.
-5. Socket.IO server, 6-character room codes, 2–4 players, validated authoritative state, role assignment, proposals/votes/chat/log, shared simulation and response decisions, connection/leave handling. Static deployment remains playable without a server; document separate backend hosting.
-6. Interactive first-mission tutorial; JSON i18n; NASA glossary/facts and source links; robust local saves + URL hash share; per-scenario local ranking/comparison; common seed competition; printable PDF report and PNG export if practical; accessibility and reduced motion.
-7. README (setup, architecture, screenshots, demo URL and credits), docs/PROJECT_SUBMISSION.md (English, benefits, methods, tools, NASA resources, AI disclosure), docs/DEMO_SCRIPT.md (30 seconds and 2 minutes), docs/GAME_DESIGN.md (formulas, score, educational choices), deployment instructions and limitations. GitHub Actions tests/build every push; GitHub Pages deployment only from main. Verify published output if credentials permit.
-
-## Acceptance and honest reporting
-Prioritize a playable complete solo loop through phases 1–3 before later layers. Do not replace required behavior with inert UI. All selected instruments/components affect engine resources. Difficulty affects real constraints or events, sandbox permits experimentation, responses influence outcomes. Team mode must remain usable without infrastructure. Validate imported designs and network input. Document simplified physics, short demo horizon, in-memory room lifecycle, missing backend configuration, and any authentication/deployment blockers. Report only verified deployment status; do not label an expected URL as live.
+## Rules
+- Keep it simple: one clear goal on screen, big buttons, short sentences. If a feature needs explaining with numbers, simplify it.
+- Visual style: low-poly, warm flat colors, chunky outlines and solid shadows. No glow, glassmorphism, monospace micro-labels or dark-cyan "AI" look.
+- Controls must always work on keyboard, gamepad and touch (joystick + button). Respect `prefers-reduced-motion`.
+- Everything is in `client/` (React, TypeScript, Vite, Three.js via react-three-fiber). Pure game logic (`src/world/marsWorld.ts`) stays deterministic and tested with Vitest.
+- `npm test` and `npm run build` must pass before every PR. Work on a branch, open a PR, merge, and verify the GitHub Pages deploy. Never commit secrets, node_modules or dist.
+- Report only what was actually verified; say what was not tested (real gamepad/touch devices, live site gameplay).

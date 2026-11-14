@@ -40,7 +40,7 @@ const T = {
     solar: 'Paneles solares', solarD: 'Se recarga con el sol', battery: 'Batería grande', batteryD: 'Dura más, pero no se recarga rápido',
     camera: 'Cámara', spectrometer: 'Analizador', radar: 'Radar',
     ready: '¡Listo para despegar!', count: ['3', '2', '1', '¡Despegue!'], travel: 'Viaje', travelD: 'Tu nave cruza el espacio…', skip: 'Saltar',
-    endTitle: 'Misión cumplida', again: 'Jugar otra vez', next: '¡Prueba otro destino!', quit: 'Salir',
+    endTitle: 'Misión cumplida', again: 'Jugar otra vez', next: '¡Prueba otro destino!', quit: 'Volver al inicio',
     help: 'Muévete con WASD o las flechas · E para interactuar', helpPad: 'Stick para moverte · A para interactuar', helpTouch: 'Joystick para moverte · botón E para interactuar',
   },
   en: {
@@ -51,7 +51,7 @@ const T = {
     solar: 'Solar panels', solarD: 'Recharges in the sun', battery: 'Big battery', batteryD: 'Lasts longer, recharges slowly',
     camera: 'Camera', spectrometer: 'Analyzer', radar: 'Radar',
     ready: 'Ready to launch!', count: ['3', '2', '1', 'Liftoff!'], travel: 'Trip', travelD: 'Your ship is crossing space…', skip: 'Skip',
-    endTitle: 'Mission complete', again: 'Play again', next: 'Try another destination!', quit: 'Exit',
+    endTitle: 'Mission complete', again: 'Play again', next: 'Try another destination!', quit: 'Back to start',
     help: 'Move with WASD or arrows · E to interact', helpPad: 'Stick to move · A to interact', helpTouch: 'Joystick to move · E button to interact',
   },
 } as const;
@@ -187,8 +187,6 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const { inp, poll } = useWorldInput();
   const hud = useRef<Hud>(snap), lift = useRef(0);
   useEffect(() => { const t = setInterval(() => setSnap({ ...hud.current }), 100); return () => clearInterval(t); }, []);
-  useEffect(() => { document.body.dataset.minigame = 'on'; return () => { delete document.body.dataset.minigame; }; }, []);
-  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape' && phase !== 'mars') onExit(); }; addEventListener('keydown', k); return () => removeEventListener('keydown', k); }, [onExit, phase]);
 
   useEffect(() => {
     if (phase !== 'launch') return;
@@ -247,7 +245,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     {phase === 'travel' && <div className="adv-travel"><div className="adv-stars" /><div className={`adv-dest ${dest}`} aria-hidden="true" /><Rocket className="adv-ship" size={64} aria-hidden="true" /><h2>{L.travel}: {L[dest]}</h2><p>{L.travelD}</p><div className="adv-progress"><span /></div><button className="button button-secondary" onClick={() => setPhase('mars')}>{L.skip}</button></div>}
     {phase === 'end' && result && <div className="adv-modal"><div className="adv-card center">
       <h2>{L.endTitle}</h2><div className="w-grade">{result.grade}</div><p><b>{result.score}</b>/100</p><p className="adv-next">{L.next}</p>
-      <div className="adv-row"><button className="button button-primary" autoFocus onClick={reset}>{L.again}</button><button className="button button-secondary" onClick={onExit}>{L.quit}</button></div>
+      <div className="adv-row"><button className="button button-primary" autoFocus onClick={reset}>{L.again}</button></div>
     </div></div>}
   </div>;
 }
