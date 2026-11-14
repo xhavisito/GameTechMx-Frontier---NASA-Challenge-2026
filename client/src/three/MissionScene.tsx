@@ -65,7 +65,7 @@ function Planet({ kind, radius = 1, stations = 0, spin = 0.04, aurora = 0 }: { k
       })}
     </group>
     {cloudMap && <mesh ref={clouds}><sphereGeometry args={[radius * 1.012, 64, 48]} /><meshStandardMaterial map={cloudMap} transparent depthWrite={false} opacity={0.8} /></mesh>}
-    {atmosphere && <mesh scale={1.08}><sphereGeometry args={[radius, 48, 32]} /><meshBasicMaterial ref={glow} color="#6cc8ff" transparent opacity={0.22} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>}
+    {atmosphere && <mesh scale={1.035}><sphereGeometry args={[radius, 48, 32]} /><meshBasicMaterial ref={glow} color="#6cc8ff" transparent opacity={0.22} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>}
   </group>;
 }
 

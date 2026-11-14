@@ -88,3 +88,6 @@ Licencia MIT. Hecho por el equipo GameTechMx Frontier con React, TypeScript, Vit
 ## Mundo abierto de Marte (TypeScript)
 
 La fase de superficie ahora es un mundo abierto 3D low-poly en Three.js (`client/src/world/`): terreno procedural determinista, rover libre, muestras (el hielo enterrado solo se ve con radar), meteoritos con aviso en el suelo y minimapa. La batería, los paneles solares y los instrumentos de tu nave cambian lo que puedes hacer. Controles: teclado (WASD, Shift, E, F), control (stick, A, X, RT) y touch (joystick + botones).
+## Modo aventura
+
+El botón **Jugar** abre un juego simple en mundo abierto, sin números ni tablas: manejas por la Tierra hasta el hangar, eliges energía y herramienta con botones grandes, vas al cohete, despegas, viajas y exploras Marte (`client/src/world/Adventure.tsx`). Teclado, control y touch. Júpiter y Miller siguen pendientes. El diseño técnico completo queda como **Modo ingeniero**.
