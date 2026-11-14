@@ -27,6 +27,12 @@ export function DesignStage() {
   const r = useMemo(() => calculateResources(design), [design]);
   const spec = useMemo(() => buildShipSpec(design), [design]);
   const mode = step === 1 ? 'orbit' : step === 4 ? 'launcher' : 'hangar';
+  // Problems are shown as HUD chips; the matching parts also glow red/orange on the 3D model.
+  const alerts = ([
+    [spec.bus.status, g.labelMass], [spec.solar?.status ?? spec.rtg?.status ?? 'bad', g.labelPower], [spec.battery?.status ?? 'ok', g.labelBattery],
+    [spec.antenna?.status ?? 'ok', g.labelData], [spec.storage?.status ?? 'ok', g.labelStorage], [spec.propulsion?.status ?? (r.deltaV > 0 ? 'ok' : 'warn'), g.labelPropulsion],
+    [spec.launcher.status, g.labelLauncher],
+  ] as [PartStatus, string][]).filter(([s]) => s !== 'ok').map(([status, text]) => ({ status, text }));
   const Icon = spec.readiness === 'ok' ? CheckCircle2 : spec.readiness === 'warn' ? AlertTriangle : OctagonAlert;
   const hud = <>
     <div className="hud-row">
@@ -38,7 +44,10 @@ export function DesignStage() {
         <Gauge label="$" value={r.totalCostM} limit={r.budgetM} unit="M" />
       </div>
     </div>
-    {step !== 1 && <p className="hud-hint">{g.hangarHint}</p>}
+    <div className="hud-bottom">
+      {alerts.length > 0 && <ul className="hud-alerts" aria-label={g.readyBad}>{alerts.map(a => <li key={a.text} className={`part-alert ${a.status}`}>{a.status === 'bad' ? '⛔' : '⚠'} {a.text}</li>)}</ul>}
+      {step !== 1 && alerts.length === 0 && <p className="hud-hint">{g.hangarHint}</p>}
+    </div>
   </>;
   return <div className="design-stage">
     <Viewport3D mode={mode} collapsible hud={hud} fallback={<OrbitView />} />

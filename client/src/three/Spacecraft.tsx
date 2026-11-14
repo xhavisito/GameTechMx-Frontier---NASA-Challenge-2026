@@ -1,4 +1,3 @@
-import { Html } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import * as THREE from 'three';
@@ -60,9 +59,6 @@ function Part({ watch, children, position, label }: { watch: string; children: R
   return <group position={position}>
     <group ref={group}>{children}</group>
     <mesh ref={ring} visible={false} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.6, 0.025, 8, 48]} /><meshBasicMaterial color={C.cyan} transparent depthWrite={false} /></mesh>
-    {label && label.status !== 'ok' && <Html center distanceFactor={9} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
-      <span className={`part-alert ${label.status}`}>{label.status === 'bad' ? '⛔' : '⚠'} {label.text}</span>
-    </Html>}
   </group>;
 }
 
