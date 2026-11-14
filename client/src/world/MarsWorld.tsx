@@ -295,7 +295,7 @@ export default function MarsWorld({ cfg, es, onDone, onExit }: { cfg: WorldConfi
   const world = useMemo(() => createWorld(cfg), [cfg]);
   const { inp, poll } = useWorldInput();
   const g = useRef<Game>({ rover: newRover(cfg), taken: new Set(), kinds: [], time: 0, scanT: 0, dust: 0, meteors: Array.from({ length: 3 }, () => ({ t: 0, x: 0, z: 0, active: false, hit: false })), nextMeteor: 7, msg: '', msgT: 0, ended: false, stuck: 0, result: null, shake: 0 });
-  const hud = useRef<Hud>({ energy: 1, health: 1, boost: 1, taken: [], reach: null, atLander: false, heading: Math.PI, x: 0, z: 0, dist: 0, bearing: 0, msg: '', scan: 0, visible: [], dust: 0, speed: 0 });
+  const hud = useRef<Hud>({ energy: 1, health: 1, boost: 1, taken: [], reach: null, atLander: false, heading: 0, x: 0, z: 0, dist: 0, bearing: 0, msg: '', scan: 0, visible: [], dust: 0, speed: 0 });
   const [snap, setSnap] = useState<Hud>(hud.current);
   useEffect(() => { if (new URLSearchParams(location.search).has('debug')) (window as unknown as Record<string, unknown>).__frontierMars = { g: g.current, world }; }, [world]);
   const [result, setResult] = useState<MarsResult | null>(null);

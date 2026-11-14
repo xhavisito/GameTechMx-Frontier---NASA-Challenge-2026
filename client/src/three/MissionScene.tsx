@@ -49,7 +49,7 @@ function Planet({ kind, radius = 1, stations = 0, spin = 0.04, aurora = 0 }: { k
   useFrame((_, dt) => {
     if (group.current) group.current.rotation.y += dt * spin;
     if (clouds.current) clouds.current.rotation.y += dt * spin * 0.35;
-    if (glow.current) { glow.current.color.set(aurora > 0 ? '#7dffb2' : kind === 'mars' ? '#ffb38a' : '#6cc8ff'); glow.current.opacity = (kind === 'moon' ? 0 : 0.1) + aurora * 0.3; }
+    if (glow.current) { glow.current.color.set(aurora > 0 ? '#7dffb2' : kind === 'mars' ? '#ffd0a8' : '#bfe6ff'); glow.current.opacity = (kind === 'moon' ? 0 : 0.16) + aurora * 0.3; }
   });
   const atmosphere = kind !== 'moon';
   return <group>
