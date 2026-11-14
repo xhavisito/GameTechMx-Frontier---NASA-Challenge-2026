@@ -20,7 +20,7 @@ export interface ShipFx {
   planetDistance?: number;  // for beams toward +Z
 }
 
-const C = { gold: '#d6a63a', foil: '#b98b2c', white: '#e6ecf2', alu: '#9aa7b4', dark: '#0d1219', cell: '#173f78', cyan: '#5be4e8', orange: '#ff9f5b', red: '#ff4d5e', green: '#62dda5' };
+const C = { gold: '#d6a63a', foil: '#b98b2c', white: '#e6ecf2', alu: '#9aa7b4', dark: '#0d1219', cell: '#173f78', cyan: '#ffc857', orange: '#ff9f5b', red: '#ff4d5e', green: '#62dda5' };
 const statusColor: Record<PartStatus, string> = { ok: '#000000', warn: C.orange, bad: C.red };
 
 /** Standard material that glows when its part has a problem (pulsing when it blocks launch). */
@@ -309,7 +309,7 @@ export function Spacecraft({ spec, fx = {}, labels, showLabels = false }: { spec
     </Part>}
 
     {/* Flight effects */}
-    <Beam length={(fx.planetDistance ?? 4) - 0.4} color="#5be4e8" active={!!fx.transmitting && lights > 0.1} kind="pulses" />
+    <Beam length={(fx.planetDistance ?? 4) - 0.4} color="#ffc857" active={!!fx.transmitting && lights > 0.1} kind="pulses" />
     <Beam length={Math.min(3, (fx.planetDistance ?? 4) * 0.6)} color="#8fffd2" active={!!fx.scanning} kind="cone" />
     {fx.shield && <mesh><sphereGeometry args={[Math.max(w, h, d) * 1.4 + (spec.solar ? spec.solar.span * 0.6 : 0), 32, 24]} /><meshBasicMaterial color="#58b8ff" transparent opacity={0.12} depthWrite={false} blending={THREE.AdditiveBlending} /></mesh>}
     {fx.sparks !== undefined && <Sparks at={fx.sparks} />}

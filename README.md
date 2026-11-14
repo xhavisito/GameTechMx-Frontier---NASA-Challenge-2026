@@ -103,3 +103,7 @@ El modelo no hace propagación orbital ni diseño de enlace o análisis térmico
 - [Guía para subir y publicar](docs/UPLOAD_TO_GITHUB.md)
 
 Licencia MIT. Hecho por el equipo GameTechMx Frontier con React, TypeScript, Vite, Zustand, Socket.IO y Vitest.
+
+## Mundo abierto de Marte (TypeScript)
+
+La fase de superficie ahora es un mundo abierto 3D low-poly en Three.js (`client/src/world/`): terreno procedural determinista, rover libre, muestras (el hielo enterrado solo se ve con radar), meteoritos con aviso en el suelo y minimapa. La batería, los paneles solares y los instrumentos de tu nave cambian lo que puedes hacer. Controles: teclado (WASD, Shift, E, F), control (stick, A, X, RT) y touch (joystick + botones). El módulo Java anterior (`java-mars/`) ya no se usa desde la interfaz.

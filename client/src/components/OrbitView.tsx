@@ -51,7 +51,7 @@ export function OrbitView({ hero = false }: { hero?: boolean }) {
       <path d="m436 156 10-17 16 2" fill="none" stroke="#74f2ec" strokeWidth="1.2"/>
       <g transform="translate(445 140) rotate(-24)" className="orbit-spacecraft"><path d="M-38-10h24v20h-24zM14-10h24v20H14z" fill="#184970" stroke="#77b7db" strokeWidth=".8"/><path d="M-30-10v20m8-20v20m44-20v20m8-20v20M-38 0h24m28 0h24" stroke="#78adc9" strokeWidth=".5"/><path d="M-14-2h28v4h-28z" fill="#9eb9c8"/><path d="M-10-12h20v24h-20z" fill="#d4d8ca" stroke="#faf3c9" strokeWidth=".8"/><path d="M-5-12h10v24H-5z" fill="#bc9d6b"/><circle cy="-17" r="5" fill="#e6ecdf"/><path d="M0-22v-6" stroke="#e6ecdf"/></g>
       <g fill="none" stroke="#ffa965" opacity=".85"><circle cx="243" cy="176" r="3"/><circle cx="243" cy="176" r="7" opacity=".45"/><path d="M239 171 179 104h-57" strokeWidth=".7"/><path d="M450 121 480 87h45" strokeWidth=".7"/></g>
-      <g fill="#8facbf" fontFamily="monospace" fontSize="9"><text x="121" y="96">19.43° N / 99.13° W</text><text x="483" y="80">FRONTIER–01</text><text x="290" y="334" letterSpacing="3">{c.earth}</text></g>
+      <g fill="#8facbf" fontFamily="sans-serif" fontSize="9"><text x="121" y="96">19.43° N / 99.13° W</text><text x="483" y="80">FRONTIER–01</text><text x="290" y="334" letterSpacing="3">{c.earth}</text></g>
       {deepSpace && <circle cx="524" cy="238" r="15" fill={orbit.id === 'mars' ? '#b66f52' : '#7c899b'} opacity=".8"/>}
     </svg>
     <div className="orbit-stats"><span><Crosshair size={13}/>{number(orbit.altitudeKm,0)} <small>KM</small></span><span><Radio size={13}/>{number(orbit.contactMinutesPerDay)} <small>MIN{c.perDay.toUpperCase()}</small></span><span className="orbit-note">{l(orbit.name)}</span></div>
