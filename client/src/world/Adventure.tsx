@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { X, Rocket, HelpCircle, Star } from 'lucide-react';
 import { heightAt, newRover, normalAt, stepRover, type MarsResult, type MarsWorldData, type RoverState, type WorldConfig } from './marsWorld';
 import { Terrain, Joystick, type Palette } from './MarsWorld';
-import { RoverGLB } from './models';
+import { Rover } from './models';
 import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests, EventCard } from './ui';
 import { defaultDesign, normalize, eventsFor, applyEffects, type Design, type EventOption, type Dest } from './design';
 import { LEVEL_INFO, modsFor, readLevel, saveLevel, tutorialDone, markTutorialDone, type Level } from './levels';
@@ -156,7 +156,7 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct }: {
     <mesh position={[0, -1.6, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[1500, 1500]} /><meshStandardMaterial color="#3fa7e8" flatShading /></mesh>
     <Terrain world={world} palette={EARTH} /><Trees world={world} /><Hangar />
     <RocketModel lift={lift} flame={phase === 'launch' && launchT.current > 3} />
-    <group ref={roverRef}><RoverGLB /></group>
+    <group ref={roverRef}><Rover /></group>
     {phase === 'earth' && <group ref={markers}>
       <mesh position={[0, 16, 0]} rotation={[Math.PI, 0, 0]}><coneGeometry args={[1.6, 3, 4]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.7} flatShading /></mesh>
       <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[NEAR - 0.8, NEAR, 24]} /><meshBasicMaterial color="#ffc857" transparent opacity={0.85} /></mesh>
