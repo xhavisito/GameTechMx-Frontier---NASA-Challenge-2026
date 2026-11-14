@@ -6,6 +6,8 @@ import { Landing } from './components/Landing';
 import { ReportView } from './components/ReportView';
 import { SimulationView } from './components/SimulationView';
 import { TeamPanel } from './components/TeamPanel';
+import { ControlBar, HelpOverlay, Toast } from './components/GameControls';
+import { useGameInput } from './input/useGameInput';
 import { useGame } from './store';
 import { useTeam } from './teamStore';
 
@@ -13,7 +15,9 @@ export function App() {
   const game = useGame();
   const team = useTeam();
   const connected = team.connection === 'connected';
-  if (game.screen === 'home') return <Landing />;
+  useGameInput();
+  const overlays = <><ControlBar/><HelpOverlay/><Toast/></>;
+  if (game.screen === 'home') return <><Landing />{overlays}</>;
   return <div className="app-shell">
     <header className="topbar">
       <button className="brand" onClick={() => {team.leave();game.setScreen('home');}} aria-label="GameTechMx Frontier home"><span className="brand-mark"><Satellite size={20}/></span><span><b>GameTechMx</b> Frontier<small>MISSION DESIGN LAB</small></span></button>
@@ -27,5 +31,6 @@ export function App() {
     {game.screen === 'design' && <div className="workspace"><DesignView/><aside className="dashboard-rail"><Dashboard/><TeamPanel/></aside></div>}
     {game.screen === 'simulation' && <div className="workspace simulation-workspace"><SimulationView/><aside className="dashboard-rail"><Dashboard/><TeamPanel/></aside></div>}
     {game.screen === 'report' && <div className="workspace report-workspace"><ReportView/><aside className="dashboard-rail"><Dashboard/><TeamPanel/></aside></div>}
+    {overlays}
   </div>;
 }

@@ -5,7 +5,7 @@ import type { ComponentCategory, Issue } from '../../../shared/types';
 import { useGame } from '../store';
 import { useI18n } from '../i18n';
 import { useDesignCopy, number } from '../designCopy';
-import { OrbitView } from './OrbitView';
+import { DesignStage } from './DesignStage';
 
 const categoryIds: ComponentCategory[] = ['structure','solar','rtg','battery','communications','computer','storage','attitude','propulsion','thermal'];
 const scenarioIcons = {cubesat:Satellite,wildfire:Globe2,telescope:Sparkles,lunar:Moon,relay:Radio,mars:Compass};
@@ -34,8 +34,9 @@ export function DesignView() {
   ];
   return <main className="design-main" id="main-content">
     <div className="page-heading"><div><span className="eyebrow">{c.step} {String(step+1).padStart(2,'0')} / 06</span><h1>{c.steps[step]}</h1><p>{c.stepDescriptions[step]}</p></div><div className="stage-badge"><span className="status-dot"/>{c.missionControl}</div></div>
+    <DesignStage/>
     {step === 0 && <>
-      <section className="briefing-card panel"><div className="briefing-copy"><span className="eyebrow accent">{c.briefing}</span><h2>{l(scenario.name)}</h2><p>{l(scenario.description)}</p><div className="briefing-metrics"><div><span>{c.budget}</span><strong>${number(resources.budgetM)}<small> M USD</small></strong></div><div><span>{c.lifetime}</span><strong>{scenario.minDurationDays}<small> {c.days}</small></strong></div></div></div><OrbitView/></section>
+      <section className="briefing-card panel"><div className="briefing-copy"><span className="eyebrow accent">{c.briefing}</span><h2>{l(scenario.name)}</h2><p>{l(scenario.description)}</p><div className="briefing-metrics"><div><span>{c.budget}</span><strong>${number(resources.budgetM)}<small> M USD</small></strong></div><div><span>{c.lifetime}</span><strong>{scenario.minDurationDays}<small> {c.days}</small></strong></div></div></div></section>
       <div className="section-title"><h2>{c.selectScenario}</h2><span className="eyebrow">{scenarios.length} {c.mission}S</span></div>
       <div className="scenario-grid">{scenarios.map(s => {const Icon = scenarioIcons[s.id as keyof typeof scenarioIcons] ?? Target;return <button className={`scenario-card panel ${s.id === design.scenarioId ? 'is-selected' : ''}`} key={s.id} onClick={() => patchDesign({...createDefaultDesign(s.id,design.difficulty,design.mode),name:design.name})} aria-pressed={s.id === design.scenarioId}><div className="scenario-card-top"><Icon size={22}/>{s.id === design.scenarioId ? <CheckCircle2 size={17}/> : <ArrowRight size={17}/>}</div><strong>{l(s.name)}</strong><span>{l(s.description)}</span><div className="scenario-tags"><small>${s.budgetM}M</small><small>{s.validOrbitIds.map(id=>id.toUpperCase()).join(' / ')}</small></div></button>;})}</div>
       <p className="muted-note">{c.scenarioChange}</p>
@@ -43,7 +44,7 @@ export function DesignView() {
       <section className="mission-settings panel"><label>{c.missionName}<input maxLength={64} value={design.name} onChange={e => patchDesign({name:e.target.value})}/></label><label>{c.development} ({c.months})<input type="number" min={1} max={120} value={design.developmentMonths} onChange={e => patchDesign({developmentMonths:Math.max(1,Math.min(120,Number(e.target.value)||1))})}/></label><label>{c.lifetime} ({c.days})<input type="number" min={1} max={3650} value={design.durationDays} onChange={e => patchDesign({durationDays:Math.max(1,Math.min(3650,Number(e.target.value)||1))})}/></label></section>
     </>}
     {step === 1 && <>
-      <section className="orbit-intro panel"><div><span className="eyebrow accent">ORBITAL MECHANICS / 01</span><h2>{c.orbitTitle}</h2><p>{c.orbitDesc}</p></div><OrbitView/></section>
+      <section className="orbit-intro panel"><div><span className="eyebrow accent">ORBITAL MECHANICS / 01</span><h2>{c.orbitTitle}</h2><p>{c.orbitDesc}</p></div></section>
       <div className="orbit-grid">{orbits.map(o => <button className={`orbit-option panel ${design.orbitId === o.id ? 'is-selected' : ''}`} onClick={() => patchDesign({orbitId:o.id})} aria-pressed={design.orbitId === o.id} key={o.id}><div className="option-header"><span className="orbit-id">{o.id.toUpperCase()}</span><span className={`compatibility ${scenario.validOrbitIds.includes(o.id) ? '' : 'warning'}`}>{scenario.validOrbitIds.includes(o.id) ? <Check size={12}/> : <AlertTriangle size={12}/>} {scenario.validOrbitIds.includes(o.id) ? c.compatible : c.incompatible}</span></div><h3>{l(o.name)}</h3><p>{l(o.description)}</p><div className="option-stats"><Stat label={c.altitude} value={`${number(o.altitudeKm,0)} km`}/><Stat label={c.period} value={`${number(o.periodHours)} h`}/><Stat label={c.contact} value={`${number(o.contactMinutesPerDay)} min${c.perDay}`}/><Stat label={c.eclipse} value={`${number(o.eclipseFraction*100)}%`}/></div><div className="orbit-extra"><span>{c.radiation}: {number(o.radiation)}×</span><span>{c.deltaV}: {number(o.deltaV)} m/s</span></div><div className="orbit-extra"><span>{c.decay}: {number(o.decayDays,0)} {c.days}</span><span>{c.coverage}: {number(o.coverage*100)}%</span></div></button>)}</div>
     </>}
     {step === 2 && <>

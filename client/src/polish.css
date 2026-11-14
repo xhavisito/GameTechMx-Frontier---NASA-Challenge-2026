@@ -1,0 +1,70 @@
+/* UI polish: styles for design-screen classes that previously had no rules, plus game feel. */
+.page-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin:.2rem 0 1rem}
+.page-heading h1{font-size:clamp(1.7rem,3vw,2.5rem);line-height:1.1;margin:.35rem 0 .25rem;letter-spacing:-.02em}
+.page-heading p{margin:0;color:var(--muted);font-size:.9rem}
+.stage-badge{display:inline-flex;align-items:center;gap:.4rem;white-space:nowrap;flex:none;letter-spacing:.12em}
+.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
+.catalog-stat{display:flex;flex-direction:column;gap:.15rem;min-width:0}
+.catalog-stat span{font-size:.6rem;letter-spacing:.08em;text-transform:uppercase}
+.catalog-stat strong{color:var(--text);font:700 .82rem ui-monospace,monospace}
+.scenario-card{display:flex;flex-direction:column;gap:.55rem;min-height:178px;border-radius:14px}
+.scenario-card-top{display:flex;justify-content:space-between;align-items:center;color:var(--cyan)}
+.scenario-card strong{font-size:1.05rem}
+.scenario-card>span{color:var(--muted);font-size:.8rem;line-height:1.5}
+.scenario-tags{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:auto}
+.scenario-tags small,.instrument-requirements span{padding:.2rem .45rem;border-radius:6px;background:#0a1824;border:1px solid #1d3346;color:#9fb6c9;font:600 .62rem ui-monospace,monospace}
+.muted-note{color:var(--muted);font-size:.75rem;margin:.7rem 0 1rem}
+.briefing-copy h2{font-size:clamp(1.4rem,2.4vw,2rem);margin:.45rem 0}
+.briefing-metrics span,.requirements-grid span{display:block;font-size:.66rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.briefing-metrics strong{display:block;font-size:1.35rem;margin-top:.2rem}
+.briefing-metrics small{font-size:.7rem;color:var(--muted);font-weight:600}
+.requirements,.mission-settings{padding:1.1rem;margin:.8rem 0}
+.requirements .section-title h2{font-size:1rem;margin-bottom:.8rem}
+.requirements-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.mission-settings{display:grid;grid-template-columns:2fr 1fr 1fr;gap:.8rem}
+.mission-settings label{display:flex;flex-direction:column;gap:.4rem;font-size:.7rem;color:var(--muted);font-weight:600}
+.mission-settings input,.subsystem-card select{width:100%;background:#08121e;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:.7rem}
+.subsystem-card select{appearance:auto}
+.orbit-option{padding:1rem;text-align:left;display:flex;flex-direction:column;gap:.45rem;background:var(--panel);border-radius:14px;transition:.18s transform,.18s border-color}
+.orbit-option:hover{transform:translateY(-2px);border-color:#3a7080}
+.orbit-option h3,.instrument-card h3,.ground-card h3,.launcher-card h3{margin:.25rem 0 0;font-size:1rem}
+.orbit-option p,.instrument-card p,.ground-card p,.launcher-card p{margin:0;font-size:.8rem;line-height:1.5}
+.orbit-id{font:800 .72rem ui-monospace,monospace;color:var(--cyan);letter-spacing:.12em;padding:.22rem .5rem;border:1px solid #5be4e844;border-radius:6px;background:#0a2230}
+.compatibility{display:inline-flex;gap:.3rem;align-items:center;font:700 .62rem ui-monospace,monospace;color:var(--green);letter-spacing:.04em}
+.compatibility.warning{color:var(--orange)}
+.option-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:.5rem;padding:.6rem;background:#0a1521;border-radius:8px}
+.orbit-extra{display:flex;justify-content:space-between;gap:.5rem;font:.64rem ui-monospace,monospace;color:var(--muted)}
+.instrument-card{display:flex;flex-direction:column;gap:.55rem;border-radius:14px}
+.instrument-top{display:flex;align-items:center;gap:.6rem}
+.instrument-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:#0b2230;color:var(--cyan);border:1px solid #1f4a5c}
+.instrument-icon.orange{color:var(--orange);background:#2a1a0e;border-color:#5c3a1f}
+.text-orange{color:var(--orange)}
+.icon-button{display:grid;place-items:center;width:40px;height:40px;border-radius:11px;border:1px solid var(--line);background:#0a1622;margin-left:auto;transition:.15s}
+.icon-button:hover{border-color:var(--cyan);color:var(--cyan)}
+.instrument-toggle.active{background:var(--cyan);color:#062028;border-color:var(--cyan)}
+.instrument-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.4rem;padding:.6rem;background:#0a1521;border-radius:8px}
+.science-line{display:flex;align-items:center;justify-content:space-between;gap:.4rem;font-size:.78rem;color:var(--muted)}
+.science-line span{display:inline-flex;align-items:center;gap:.35rem}
+.science-line strong{color:var(--cyan);font:800 1rem ui-monospace,monospace}
+.instrument-requirements{display:flex;gap:.3rem;flex-wrap:wrap}
+.empty-slot{color:var(--muted);font-size:.78rem;font-style:italic;margin:.6rem 0 0}
+.subsystem-stats span{font:600 .66rem ui-monospace,monospace;color:var(--muted)}
+.subsystem-output span{display:block;padding:.5rem;border-radius:8px;background:#0a1521;font-size:.7rem;color:var(--muted)}
+.subsystem-output b{display:block;color:var(--cyan);font:800 .9rem ui-monospace,monospace}
+.ground-section{margin-top:1.4rem}
+.ground-section .section-title h2{font-size:1.1rem}
+.ground-card{display:flex;flex-direction:column;gap:.35rem;border-radius:14px}
+.launcher-card{border-radius:14px}
+.launcher-body{flex:1;display:flex;flex-direction:column;gap:.45rem;min-width:0}
+.launch-button{background:linear-gradient(90deg,#ff9f5b,#ffcf6b)!important;border-color:#ffb46b!important;color:#2a1405!important;animation:launch-glow 1.6s infinite alternate}
+.validation-count{display:inline-flex;align-items:center;gap:.3rem;font:700 .7rem ui-monospace,monospace;color:var(--green)}
+.validation-count.warning{color:var(--orange)}
+.validation-panel summary>div{display:flex;align-items:center;gap:.45rem;font-weight:700}
+.validation-success{color:var(--green);font-size:.8rem;margin:.6rem 0 0}
+.step-navigation .button{min-height:44px;padding-inline:1.2rem}
+.panel{transition:border-color .18s,box-shadow .18s}
+.button-primary{box-shadow:0 6px 20px #5be4e822}
+@media(max-width:900px){.requirements-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mission-settings{grid-template-columns:1fr}.instrument-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.page-heading{flex-direction:column;align-items:flex-start}}
+/* Hide the gesture tip under the HUD hint so they never overlap. */
+.viewport-hud{padding-bottom:1.9rem}

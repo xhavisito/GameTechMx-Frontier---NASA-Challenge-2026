@@ -4,6 +4,7 @@ import type { Difficulty, GameMode } from '../../../shared/types';
 import { useGame } from '../store';
 import { useDesignCopy } from '../designCopy';
 import { OrbitView } from './OrbitView';
+import { Viewport3D } from './Viewport3D';
 import { useTeam } from '../teamStore';
 
 export function Landing() {
@@ -22,7 +23,7 @@ export function Landing() {
         <p className="hero-description">{c.intro}</p>
         <div className="hero-tags"><span><Orbit size={14}/> 8 {c.steps[1].toLowerCase()}s</span><span><Rocket size={14}/> {c.built}</span></div>
       </div>
-      <div className="hero-art"><OrbitView hero/><span className="hero-coordinate">MISSION SIMULATOR / 01</span></div>
+      <div className="hero-art"><Viewport3D mode="showcase" className="hero-viewport" fallback={<OrbitView hero/>}/><span className="hero-coordinate">MISSION SIMULATOR / 01</span></div>
     </section>
     <section className="mission-start panel" aria-label={c.configure}>
       <div className="mode-section"><h2 className="eyebrow">{c.chooseMode}</h2><div className="mode-grid">{modes.map(({id,icon:Icon}) => <button key={id} className={`mode-card ${mode === id ? 'is-selected' : ''}`} aria-pressed={mode === id} onClick={() => setMode(id)}><div className="mode-icon"><Icon size={20}/>{mode === id && <span className="selection-dot"/>}</div><strong>{c[id]}</strong><span>{c[`${id}Desc`]}</span></button>)}</div></div>
