@@ -67,7 +67,7 @@ public final class RoverStage {
         mavX = 360; mavY = WORLD_H / 2;
         x = mavX + 90; y = mavY; heading = 0;
         maxEnergy = energy = config.roverEnergy();
-        hull = Math.max(0.35, config.health);
+        hull = Math.max(0.5, config.health);
         stormStart = 35 + rng.range(0, 25);
         stormEnd = stormStart + 18;
 

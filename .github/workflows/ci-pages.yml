@@ -35,9 +35,6 @@ jobs:
           name: mars-js
           path: client/public/java/mars.js
           retention-days: 7
-      - name: TEMP dump compiled module for local smoke test
-        if: github.ref != 'refs/heads/main'
-        run: echo "MARSJS_BEGIN"; gzip -9c client/public/java/mars.js | base64 -w 1000; echo "MARSJS_END"
       - run: npm ci
       - run: npm test
       - run: npm run build

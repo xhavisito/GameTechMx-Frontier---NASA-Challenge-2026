@@ -40,10 +40,29 @@ npm run preview # vista del build del cliente
 
 El modo local funciona sin servidor con 2–4 personas, roles combinados, propuestas, votación, paso del dispositivo, chat y registro. El modo online usa códigos de seis caracteres y mantiene el estado autoritativo en memoria. Las salas terminan al reiniciar el servidor.
 
+## Misión Marte (módulo en Java)
+
+La fase en la superficie de Marte está escrita en **Java** y se compila a JavaScript con [TeaVM](https://teavm.org/), así que se juega dentro de GitHub Pages:
+
+1. Elige **Misión Marte** en la portada, diseña la nave y lánzala.
+2. Si la nave llega a Marte, el informe muestra **Operaciones en la superficie**.
+3. Conduce el rover, escanea y perfora hasta 3 muestras, y vuelve al vehículo de ascenso antes de agotar la batería.
+4. Pilota tu nave a distancia para atrapar el contenedor esquivando asteroides. Los comandos llegan con el retraso de la antena que elegiste.
+
+Tu diseño cambia el juego: la batería da la energía del rover, el espectrómetro identifica minerales, la cámara amplía la visibilidad, el radar SAR revela hielo enterrado, el Δv da combustible y la antena fija el retraso de control.
+
+```bash
+gradle -p java-mars coreTest generateJavaScript   # Java 21 + Gradle 8
+cp java-mars/build/generated/teavm/js/mars.js client/public/java/
+```
+
+CI compila el módulo automáticamente antes del build del cliente. El núcleo (`java-mars/src/main/java/.../core`) es Java puro y tiene pruebas sin dependencias; la capa `web` usa anotaciones JSO de TeaVM para el canvas, el teclado, el control y la pantalla táctil.
+
 ## Arquitectura
 
 ```text
-client/  React + TypeScript + Vite + Tailwind + Zustand
+client/     React + TypeScript + Vite + Tailwind + Zustand + Three.js
+java-mars/  Misión Marte en Java (TeaVM → JavaScript)
 server/  Node + Socket.IO; salas autoritativas y validación de mensajes
 shared/  tipos, catálogos y motor TypeScript puro y determinista
 docs/    diseño, entrega y guiones de demo

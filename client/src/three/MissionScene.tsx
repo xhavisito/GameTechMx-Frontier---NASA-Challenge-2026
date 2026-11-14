@@ -1,4 +1,4 @@
-import { Html, Line, Stars } from '@react-three/drei';
+import { Line, Stars } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
@@ -156,9 +156,6 @@ function Hangar({ spec, labels, launcherView }: { spec: ShipSpec; labels: Labels
     </group>
     {launcherView ? <group>
       <Rocket spec={spec} transparentFairing ship={ship} />
-      <Html position={[spec.launcher.width * 1.4, spec.launcher.height * 0.95, 0]} distanceFactor={6} style={{ pointerEvents: 'none' }}>
-        <span className={`part-alert ${spec.launcher.status}`}>{spec.launcher.status === 'ok' ? '✓' : spec.launcher.status === 'warn' ? '⚠' : '⛔'} {labels.launcher}</span>
-      </Html>
     </group> : <Float>{ship}</Float>}
   </group>;
 }
