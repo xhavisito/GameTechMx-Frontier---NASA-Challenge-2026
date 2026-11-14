@@ -35,6 +35,7 @@ export function useGameInput() {
 
     const onKeyDown = (e: KeyboardEvent) => {
       setDevice('keyboard');
+      if (document.body.dataset.minigame) return; // the Java mission owns the keyboard
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const key = e.key.toLowerCase();
       if (typing(e.target)) { if (key === 'escape') (e.target as HTMLElement).blur(); return; }
@@ -96,7 +97,7 @@ export function useGameInput() {
 
       const pads = navigator.getGamepads?.() ?? [];
       const pad = [...pads].find(p => p && p.connected);
-      if (pad) {
+      if (pad && !document.body.dataset.minigame) {
         const lx = dz(pad.axes[0] ?? 0), ly = dz(pad.axes[1] ?? 0), ry = dz(pad.axes[3] ?? 0);
         const lt = pad.buttons[Btn.LT]?.value ?? 0, rt = pad.buttons[Btn.RT]?.value ?? 0;
         yaw += lx; pitch -= ly; zoom += lt - rt;

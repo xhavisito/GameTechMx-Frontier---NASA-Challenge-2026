@@ -1,0 +1,19 @@
+.mars-card{display:grid;grid-template-columns:150px 1fr;gap:1.2rem;padding:1.2rem;margin:1rem 0;border-color:#8a4a2f;background:linear-gradient(135deg,#2a130c,#0f1a29 55%)}
+.mars-card.is-locked{filter:saturate(.4);opacity:.8}
+.mars-card h2{margin:.35rem 0;font-size:1.5rem}
+.mars-card-art{position:relative;display:grid;place-items:center}
+.mars-planet{width:120px;height:120px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#e08a5f,#b65f3c 45%,#6d2f1d);box-shadow:0 0 40px #ff7a4a44}
+.mars-rover{position:absolute;bottom:14px;right:10px;font-size:1.4rem;color:#eef5fb}
+.mars-controls{display:flex;gap:.9rem;flex-wrap:wrap;padding:0;margin:.6rem 0;list-style:none;color:var(--muted);font-size:.75rem}
+.mars-controls li{display:inline-flex;align-items:center;gap:.35rem}
+.mars-result{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;color:var(--green);font-size:.85rem}
+.mars-best{display:flex;align-items:center;gap:.35rem;color:var(--muted);font-size:.78rem}
+.mars-error{display:flex;gap:.4rem;color:var(--orange);font-size:.78rem}
+.mars-start{margin-top:.4rem;background:linear-gradient(90deg,#ff9f5b,#ffcf6b)!important;border-color:#ffb46b!important;color:#2a1405!important}
+.mars-start:disabled{opacity:.45;cursor:not-allowed}
+.mars-overlay{position:fixed;inset:0;z-index:300;background:#020409;display:grid;place-items:center}
+.mars-canvas{width:min(100vw,calc(100vh * 16 / 9));height:auto;aspect-ratio:16/9;display:block;touch-action:none;outline:none;background:#05080f}
+.mars-close{position:fixed;top:12px;left:12px;z-index:2;width:42px;height:42px;display:grid;place-items:center;border-radius:12px;border:1px solid #2b4a63;background:#07101bcc;color:var(--text)}
+.mars-loading{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);color:var(--muted);font:600 .8rem ui-monospace,monospace}
+body[data-minigame] .control-bar{display:none}
+@media(max-width:700px){.mars-card{grid-template-columns:1fr}.mars-card-art{display:none}}

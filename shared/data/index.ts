@@ -37,8 +37,8 @@ export const scenarios: Scenario[] = [
     description: t('Conecta comunidades remotas mediante un repetidor espacial. Prioriza cobertura, continuidad del servicio y reservas de energía.', 'Connect remote communities with a space relay. Prioritize coverage, service continuity and power reserves.'),
     budgetM: 220, validOrbitIds: ['geo', 'meo', 'heo'], minCoverage: 0.75, maxResolutionM: 1000, minDurationDays: 730, minDataGB: 4000, maxDevelopmentMonths: 36, recommendedInstrumentIds: ['relay-payload'] },
   { id: 'mars', name: t('Horizonte rojo', 'Red horizon'), objective: 'mars', icon: '◎',
-    description: t('Explora Marte con menos luz solar y comunicaciones limitadas por la distancia. Diseña una sonda que conserve los datos hasta la próxima ventana.', 'Explore Mars with less sunlight and distance-limited communications. Design a probe that stores data until the next contact window.'),
-    budgetM: 500, validOrbitIds: ['mars'], minCoverage: 0.7, maxResolutionM: 50, minDurationDays: 365, minDataGB: 450, maxDevelopmentMonths: 48, recommendedInstrumentIds: ['optical', 'spectrometer'] },
+    description: t('Nivel inicial. Despega desde la Tierra, llega a Marte y baja a la superficie: conduce un rover para recolectar muestras y pilota tu nave para traerlas de vuelta esquivando asteroides. El radar revela hielo enterrado.', 'Beginner level. Launch from Earth, reach Mars and go to the surface: drive a rover to collect samples and pilot your spacecraft to bring them back while dodging asteroids. Radar reveals buried ice.'),
+    budgetM: 500, validOrbitIds: ['mars'], minCoverage: 0.7, maxResolutionM: 50, minDurationDays: 365, minDataGB: 450, maxDevelopmentMonths: 48, recommendedInstrumentIds: ['optical', 'spectrometer', 'sar'] },
 ];
 
 export const orbits: Orbit[] = [

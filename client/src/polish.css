@@ -68,3 +68,7 @@
 @media(max-width:700px){.page-heading{flex-direction:column;align-items:flex-start}}
 /* Hide the gesture tip under the HUD hint so they never overlap. */
 .viewport-hud{padding-bottom:1.9rem}
+.mars-quick{border-color:#8a4a2f!important;gap:.55rem}
+.mars-quick:hover{border-color:#ff9f5b!important}
+.mars-dot{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#e08a5f,#b65f3c 50%,#6d2f1d)}
+.start-actions{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}

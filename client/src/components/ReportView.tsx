@@ -6,6 +6,7 @@ import { useI18n } from '../i18n';
 import en from '../locales/simulation.en.json';
 import es from '../locales/simulation.es.json';
 import './simulation.css';
+import { MarsSurfaceCard } from './MarsSurface';
 
 type ReportCopy = typeof en;
 type ScoreCategory = keyof ScoreBreakdown['max'];
@@ -93,6 +94,7 @@ export function ReportView() {
   const metrics=[{label:copy.downlinked,value:`${f(timeline.totalDataGB)} GB`},{label:copy.completedDays,value:`${timeline.completedDays} / ${timeline.design.durationDays}`},{label:copy.cost,value:`${f(timeline.finalCostM,2)} M$`},{label:copy.dataLoss,value:`${f(timeline.lostDataGB)} GB`}];
   return <article className="report-view">
     <header className="sim-heading"><div><p className="eyebrow">{copy.reportEyebrow}</p><h1>{copy.reportTitle}</h1></div><span className="sim-seed">{copy.seed} <strong>{timeline.seed}</strong></span></header>
+    {timeline.design.orbitId==='mars'&&<MarsSurfaceCard timeline={timeline}/>}
     <section className={`panel report-hero ${report.success?'is-success':'is-incomplete'}`}><div className="report-outcome">{report.success?<CheckCircle2 size={20}/>:<TriangleAlert size={20}/>}<span>{report.success?copy.success:copy.failure}</span></div><h2>{l(report.title)}</h2><p>{l(report.summary)}</p>
       <div className="report-score-content"><div className="report-total-score"><span>{copy.score}</span><strong>{score.total}<small>/100</small></strong><b>{copy.grade} {score.grade}</b></div><div className="report-score-bars">{categories.map((key,index)=><div className="report-score-row" key={key}><div><span>{categoryLabel(key,copy)}</span><b>{score[key]}<small> / {score.max[key]}</small></b></div><div className="report-score-track"><span style={{width:`${score[key]/Math.max(1,score.max[key])*100}%`,background:colors[index]}}/></div></div>)}</div></div>
     </section>

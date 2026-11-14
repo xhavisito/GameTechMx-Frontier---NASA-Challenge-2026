@@ -29,6 +29,12 @@ jobs:
           mkdir -p client/public/java && cp "$out" client/public/java/mars.js
           ls -l client/public/java/mars.js
           if grep -qE '^export |^import ' client/public/java/mars.js; then echo "TeaVM produced an ES module; expected a classic script"; head -c 400 client/public/java/mars.js; exit 1; fi
+      - name: Keep the compiled Java module for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: mars-js
+          path: client/public/java/mars.js
+          retention-days: 7
       - run: npm ci
       - run: npm test
       - run: npm run build
