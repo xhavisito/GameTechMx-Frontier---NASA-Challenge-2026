@@ -8,6 +8,7 @@ import { useWorldInput, type WorldInput } from './worldInput';
 import { Joystick } from './MarsWorld';
 import type { MarsResult } from './marsWorld';
 import { modsFor, type Mods } from './levels';
+import { Boom, type BoomState } from './fx';
 import './world.css';
 import './adventure.css';
 
@@ -34,12 +35,13 @@ export function jupiterScore(tool: JupiterTool, scanned: number, need: number, h
   return { score, science: scanned * 10, returned: scanned >= need, grade: score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 50 ? 'B' : score >= 30 ? 'C' : 'D', samples: [] };
 }
 
-interface Game { lat: number; lon: number; heading: number; scanned: Set<string>; time: number; msg: string; msgT: number; ended: boolean; health: number; fuel: number }
+interface Game { lat: number; lon: number; heading: number; scanned: Set<string>; time: number; msg: string; msgT: number; ended: boolean; health: number; fuel: number; dying?: number }
 interface Hud { health: number; fuel: number; left: number; near: string | null; scanned: string[]; bearing: number; dist: number; msg: string; lat: number; lon: number; guide: string | null }
 
 function Scene({ tool, mods, es, g, hud, input, poll, onFinish }: { tool: JupiterTool; mods: Mods; es: boolean; g: React.MutableRefObject<Game>; hud: React.MutableRefObject<Hud>; input: React.MutableRefObject<WorldInput>; poll: (dt: number) => void; onFinish: () => void }) {
   const { camera, scene } = useThree();
   const geo = useMemo(() => jupiterGeometry(R), []);
+  const boom = useRef<BoomState>(null);
   const ship = useRef<THREE.Group>(null), moon = useRef<THREE.Mesh>(null), rings = useRef<(THREE.Mesh | null)[]>([]);
   const cam = useRef(new THREE.Vector3(0, 10, 40));
   const n = useMemo(() => new THREE.Vector3(), []), north = useMemo(() => new THREE.Vector3(), []), east = useMemo(() => new THREE.Vector3(), []), tmp = useMemo(() => new THREE.Vector3(), []);
@@ -51,6 +53,7 @@ function Scene({ tool, mods, es, g, hud, input, poll, onFinish }: { tool: Jupite
     const dt = Math.min(rawDt, 0.05), s = g.current, i = input.current;
     poll(dt);
     if (s.ended) return;
+    if (s.dying !== undefined) { s.dying -= dt; if (s.dying <= 0) { s.ended = true; onFinish(); } return; }
     s.time += dt;
     // fast levels: boosting burns limited fuel; the equator is full of radiation
     const boosting = i.boost && (!mods.fuel || s.fuel > 0);
@@ -60,7 +63,7 @@ function Scene({ tool, mods, es, g, hud, input, poll, onFinish }: { tool: Jupite
       s.health = Math.max(0, s.health - mods.radiation * 3.2 * dt);
       if (Math.floor(s.time * 2) % 5 === 0) say(es ? '¡Radiación! Sal de la franja del ecuador' : 'Radiation! Leave the equator band');
     }
-    if (s.health <= 0) { s.ended = true; say(es ? 'La nave se dañó' : 'The ship was damaged'); onFinish(); return; }
+    if (s.health <= 0) { say(es ? 'La nave explotó' : 'The ship exploded'); s.dying = 2.2; const q = posAt(s.lat, s.lon); boom.current = { t: 0, x: q.x, y: q.y, z: q.z, big: 1.5 }; if (ship.current) ship.current.visible = false; return; }
     if (mods.timeLimit && s.time >= mods.timeLimit) { s.ended = true; say(es ? 'Se acabó el tiempo' : 'Time is up'); onFinish(); return; }
     s.lat = Math.max(-1.3, Math.min(1.3, s.lat + i.throttle * sp * dt));
     s.lon += (i.steer * sp * dt) / Math.max(0.4, Math.cos(s.lat));
@@ -108,6 +111,7 @@ function Scene({ tool, mods, es, g, hud, input, poll, onFinish }: { tool: Jupite
     <mesh ref={moon}><icosahedronGeometry args={[2.2, 1]} /><meshStandardMaterial color="#e8c46a" flatShading /></mesh>
     {ZONES.map((z, idx) => { const p = posAt(z.lat, z.lon, R + 0.4); return <mesh key={z.id} ref={m => { rings.current[idx] = m; }} position={p} quaternion={new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), p.clone().normalize())}>
       <ringGeometry args={[2.6, 3.4, 20]} /><meshBasicMaterial color={z.hint} side={THREE.DoubleSide} /></mesh>; })}
+    <Boom boom={boom} gravity={0} />
     <group ref={ship}>
       <mesh rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[0.8, 2.4, 6]} /><meshStandardMaterial color="#fff4e6" flatShading /></mesh>
       <mesh position={[0, 0, -0.6]}><boxGeometry args={[3.6, 0.1, 1]} /><meshStandardMaterial color="#5b6ee1" flatShading /></mesh>

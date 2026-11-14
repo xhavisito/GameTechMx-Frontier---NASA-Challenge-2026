@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { X, Zap, Heart, Compass, Gamepad2, Keyboard, Hand } from 'lucide-react';
 import { modsFor, type Mods } from './levels';
+import { Boom, type BoomState } from './fx';
 import { createWorld, heightAt, normalAt, newRover, stepRover, visibleSamples, sampleInReach, scoreRun, HALF, LANDER_R, REQUIRED_SAMPLES, detectRange,
   type MarsResult, type MarsWorldData, type RoverState, type SampleKind, type WorldConfig } from './marsWorld';
 import { fbm2, rng } from '../three/noise';
@@ -19,7 +20,7 @@ const KIND_NAME: Record<'es' | 'en', Record<SampleKind, string>> = {
 interface Meteor { t: number; x: number; z: number; active: boolean; hit: boolean }
 interface Game {
   rover: RoverState; taken: Set<number>; kinds: SampleKind[]; time: number; scanT: number; dust: number;
-  meteors: Meteor[]; nextMeteor: number; msg: string; msgT: number; ended: boolean; stuck: number; result: MarsResult | null; shake: number;
+  meteors: Meteor[]; nextMeteor: number; msg: string; msgT: number; ended: boolean; stuck: number; result: MarsResult | null; shake: number; dying?: number;
 }
 interface Hud { energy: number; health: number; boost: number; taken: SampleKind[]; reach: SampleKind | null; atLander: boolean; heading: number; x: number; z: number; dist: number; bearing: number; msg: string; scan: number; visible: { x: number; z: number; kind: SampleKind }[]; dust: number; speed: number; left: number }
 
@@ -86,6 +87,7 @@ function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
 }) {
   const { camera, scene } = useThree();
   const roverRef = useRef<THREE.Group>(null);
+  const boom = useRef<BoomState>(null);
   const sampleRefs = useRef<(THREE.Group | null)[]>([]);
   const meteorRefs = useRef<(THREE.Group | null)[]>([]);
   const fog = useMemo(() => new THREE.Fog('#f7b98a', 70, 300), []);
@@ -102,6 +104,7 @@ function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
     poll(dt);
     if (s.ended) return;
     s.time += dt;
+    if (s.dying !== undefined) { s.dying -= dt; if (s.dying <= 0) finish(false); return; }
     if (mods.timeLimit && s.time >= mods.timeLimit) { say(es ? 'Se acabó el tiempo' : 'Time is up'); finish(false); return; }
     s.dust = Math.max(0, Math.sin(s.time * 0.03 - 0.7)) ** 2;
     const prev = s.rover;
@@ -181,7 +184,7 @@ function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
       } else say(atLander ? (es ? 'Aún no tienes muestras' : 'No samples yet') : (es ? 'No hay muestras al alcance' : 'No sample in reach'));
     }
     if (i.exitPulse) { i.exitPulse = false; finish(false, true); }
-    if (s.rover.health <= 0) { say(es ? 'El rover quedó inservible' : 'The rover is wrecked'); finish(false); }
+    if (s.rover.health <= 0) { say(es ? 'El rover explotó' : 'The rover exploded'); s.dying = 2.2; boom.current = { t: 0, x: s.rover.x, y: heightAt(world, s.rover.x, s.rover.z) + 1, z: s.rover.z }; if (roverRef.current) roverRef.current.visible = false; return; }
     if (s.rover.energy <= 0 && Math.abs(s.rover.speed) < 0.4) { s.stuck += dt; if (s.stuck > 6) { say(es ? 'Sin energía: fin de la misión' : 'Out of power: mission over'); finish(false); } } else s.stuck = 0;
     s.msgT = Math.max(0, s.msgT - dt);
 
@@ -222,6 +225,7 @@ function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
     <directionalLight position={[60, 90, 30]} intensity={1.9} color="#fff1d6" />
     <Terrain world={world} /><Rocks world={world} /><Lander />
     <mesh position={[-120, 70, -160]}><icosahedronGeometry args={[14, 1]} /><meshBasicMaterial color="#fff3c4" fog={false} /></mesh>
+    <Boom boom={boom} />
     <group ref={roverRef} position={[0, 0, LANDER_R + 3]}><Rover radar={cfg.radar} spectrometer={cfg.spectrometer} /></group>
     {world.samples.map((sm, idx) => <group key={sm.id} ref={n => { sampleRefs.current[idx] = n; }} visible={false}>
       <mesh><octahedronGeometry args={[0.55, 0]} /><meshStandardMaterial color={KIND_COLOR[sm.kind]} emissive={KIND_COLOR[sm.kind]} emissiveIntensity={0.5} flatShading /></mesh>

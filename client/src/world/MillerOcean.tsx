@@ -7,6 +7,7 @@ import { Joystick } from './MarsWorld';
 import { SubGLB } from './models';
 import { useWorldInput, type WorldInput } from './worldInput';
 import { modsFor, type Mods } from './levels';
+import { Boom, type BoomState } from './fx';
 import { fbm2, rng } from '../three/noise';
 import './world.css';
 import './adventure.css';
@@ -41,7 +42,7 @@ export function millerScore(tool: MillerTool, found: number, need: number, healt
 }
 
 interface Wave { t: number; x: number; z: number; active: boolean; hit: boolean }
-interface Game { x: number; y: number; z: number; heading: number; speed: number; vy: number; found: Set<number>; kinds: Life[]; time: number; waves: Wave[]; nextWave: number; msg: string; msgT: number; ended: boolean; health: number; battery: number; shake: number }
+interface Game { x: number; y: number; z: number; heading: number; speed: number; vy: number; found: Set<number>; kinds: Life[]; time: number; waves: Wave[]; nextWave: number; msg: string; msgT: number; ended: boolean; health: number; battery: number; shake: number; dying?: number }
 interface Hud { health: number; battery: number; depth: number; found: Life[]; reach: Life | null; msg: string; heading: number; x: number; z: number; left: number; visible: { x: number; z: number; kind: Life; dy: number }[] }
 
 function Creature({ kind }: { kind: Life }) {
@@ -57,6 +58,7 @@ const SKY = new THREE.Color('#9fe0ff'), DEEP = new THREE.Color('#06193a'), MID =
 
 function Scene({ tool, mods, es, sites, g, hud, input, poll, onFinish }: { tool: MillerTool; mods: Mods; es: boolean; sites: Site[]; g: React.MutableRefObject<Game>; hud: React.MutableRefObject<Hud>; input: React.MutableRefObject<WorldInput>; poll: (dt: number) => void; onFinish: () => void }) {
   const { camera, scene } = useThree();
+  const boom = useRef<BoomState>(null);
   const sub = useRef<THREE.Group>(null), surf = useRef<THREE.Mesh>(null), light = useRef<THREE.PointLight>(null);
   const siteRefs = useRef<(THREE.Group | null)[]>([]), waveRefs = useRef<(THREE.Group | null)[]>([]);
   const cam = useRef(new THREE.Vector3(0, -8, -14));
@@ -81,6 +83,7 @@ function Scene({ tool, mods, es, sites, g, hud, input, poll, onFinish }: { tool:
     for (let k = 0; k < p.count; k++) p.setY(k, waveH(p.getX(k), p.getZ(k), t));
     p.needsUpdate = true;
     if (s.ended) return;
+    if (s.dying !== undefined) { s.dying -= dt; if (s.dying <= 0) { s.ended = true; onFinish(); } return; }
     s.time += dt; s.shake = Math.max(0, s.shake - dt);
 
     // ── submarine physics: forward/back, turn left/right, up/down ──
@@ -136,7 +139,7 @@ function Scene({ tool, mods, es, sites, g, hud, input, poll, onFinish }: { tool:
       if (reach) { s.found.add(reach.id); s.kinds.push(reach.kind); say(es ? `¡Vida encontrada: ${NAME.es[reach.kind]}!` : `Life found: ${NAME.en[reach.kind]}!`); if (s.kinds.length >= mods.required) { s.ended = true; onFinish(); } }
       else say(es ? 'Acércate a una señal brillante' : 'Get close to a glowing signal');
     }
-    if (s.health <= 0 && !s.ended) { s.ended = true; say(es ? 'El submarino quedó dañado' : 'The submarine is wrecked'); onFinish(); }
+    if (s.health <= 0) { say(es ? 'El submarino explotó' : 'The submarine exploded'); s.dying = 2.2; boom.current = { t: 0, x: s.x, y: s.y, z: s.z, big: 1.6 }; if (sub.current) sub.current.visible = false; return; }
     const left = mods.timeLimit ? Math.max(0, mods.timeLimit - s.time) : 0;
     if (mods.timeLimit && left <= 0 && !s.ended) { s.ended = true; say(es ? 'Se acabó el tiempo' : 'Time is up'); onFinish(); }
     s.msgT = Math.max(0, s.msgT - dt);
@@ -164,7 +167,10 @@ function Scene({ tool, mods, es, sites, g, hud, input, poll, onFinish }: { tool:
     <pointLight ref={light} color="#bfe9ff" distance={70} intensity={0.2} />
     <mesh ref={surf} geometry={surfGeo} position={[0, 0, 0]}><meshStandardMaterial color="#7fd8f0" flatShading transparent opacity={0.55} side={THREE.DoubleSide} roughness={0.4} /></mesh>
     <mesh geometry={floorGeo}><meshStandardMaterial vertexColors flatShading roughness={1} /></mesh>
-    {decor.map((d, k) => <mesh key={k} position={[d.x, d.y + d.s * 0.6, d.z]} scale={d.s}>{d.k ? <coneGeometry args={[0.7, 2.2, 5]} /> : <dodecahedronGeometry args={[0.9, 0]} />}<meshStandardMaterial color={d.k ? '#4fae7a' : '#8a7aa8'} flatShading /></mesh>)}
+    {decor.map((d, k) => d.k
+      ? <group key={k} position={[d.x, d.y, d.z]} scale={d.s}>{[0, 1, 2].map(j => <mesh key={j} position={[(j - 1) * 0.5, 1.4 + j * 0.3, 0]} rotation={[0, j, (j - 1) * 0.18]}><boxGeometry args={[0.12, 2.8 + j * 0.6, 0.5]} /><meshStandardMaterial color={j === 1 ? '#3fb59a' : '#2a8f7a'} flatShading /></mesh>)}</group>
+      : <mesh key={k} position={[d.x, d.y + d.s * 0.5, d.z]} scale={d.s}><dodecahedronGeometry args={[0.9, 0]} /><meshStandardMaterial color="#8a7aa8" flatShading /></mesh>)}
+    <Boom boom={boom} gravity={-2} />
     <group ref={sub} scale={1.5}><Suspense fallback={null}><SubGLB /></Suspense></group>
     {sites.map((x, idx) => <group key={x.id} ref={n => { siteRefs.current[idx] = n; }} visible={false}>
       <Creature kind={x.kind} />

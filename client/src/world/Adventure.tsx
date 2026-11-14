@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { X, Rocket, HelpCircle, Star } from 'lucide-react';
 import { heightAt, newRover, normalAt, stepRover, type MarsResult, type MarsWorldData, type RoverState, type WorldConfig } from './marsWorld';
 import { Terrain, Joystick, type Palette } from './MarsWorld';
-import { Rover } from './models';
+import { Rover, Shuttle } from './models';
 import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests, EventCard } from './ui';
 import { defaultDesign, normalize, eventsFor, applyEffects, type Design, type EventOption, type Dest } from './design';
 import { LEVEL_INFO, modsFor, readLevel, saveLevel, tutorialDone, markTutorialDone, type Level } from './levels';
@@ -79,23 +79,16 @@ function Hangar() {
 }
 
 function RocketModel({ lift, flame }: { lift: React.MutableRefObject<number>; flame: boolean }) {
-  const g = useRef<THREE.Group>(null), f = useRef<THREE.Mesh>(null), smoke = useRef<THREE.Group>(null);
+  const smoke = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
-    if (smoke.current) {
-      smoke.current.visible = flame;
-      smoke.current.children.forEach((m, i) => { const age = (clock.elapsedTime * 0.9 + i / 18) % 1, a = i * 2.4; m.position.set(Math.cos(a) * age * 7, 0.6 + age * 4, Math.sin(a) * age * 7); m.scale.setScalar(1 + age * 3.5); ((m as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - age); });
-    }
-    if (g.current) g.current.position.y = lift.current; if (f.current) { f.current.visible = flame; f.current.scale.y = 0.8 + 0.4 * Math.sin(clock.elapsedTime * 40); } });
+    if (!smoke.current) return;
+    smoke.current.visible = flame;
+    smoke.current.children.forEach((m, i) => { const age = (clock.elapsedTime * 0.9 + i / 18) % 1, a = i * 2.4; m.position.set(Math.cos(a) * age * 8, 0.6 + age * 4, Math.sin(a) * age * 8); m.scale.setScalar(1 + age * 3.5); ((m as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.85 * (1 - age); });
+  });
   return <group position={[ROCKET.x, 0, ROCKET.z]}>
     <group ref={smoke} visible={false}>{Array.from({ length: 18 }, (_, i) => <mesh key={i}><icosahedronGeometry args={[0.9, 0]} /><meshBasicMaterial color="#fff4e6" transparent opacity={0.8} depthWrite={false} /></mesh>)}</group>
-    <mesh position={[0, 0.15, 0]}><cylinderGeometry args={[6, 6.5, 0.3, 8]} /><meshStandardMaterial color="#b9a8d0" flatShading /></mesh>
-    <group ref={g}>
-      <mesh position={[0, 5.5, 0]}><cylinderGeometry args={[1.5, 1.7, 9, 8]} /><meshStandardMaterial color="#fff4e6" flatShading /></mesh>
-      <mesh position={[0, 11.3, 0]}><coneGeometry args={[1.5, 2.8, 8]} /><meshStandardMaterial color="#ff7a59" flatShading /></mesh>
-      <mesh position={[0, 7.5, 1.55]}><sphereGeometry args={[0.6, 8, 6]} /><meshStandardMaterial color="#6ec6ff" flatShading /></mesh>
-      {[0, 1, 2, 3].map(i => { const a = i * Math.PI / 2; return <mesh key={i} position={[Math.cos(a) * 1.9, 1.7, Math.sin(a) * 1.9]} rotation={[0, -a, 0]}><boxGeometry args={[1.6, 2.6, 0.25]} /><meshStandardMaterial color="#ffc857" flatShading /></mesh>; })}
-      <mesh ref={f} position={[0, -1.4, 0]} rotation={[Math.PI, 0, 0]} visible={false}><coneGeometry args={[1.2, 4, 7]} /><meshBasicMaterial color="#ffb02e" /></mesh>
-    </group>
+    <mesh position={[0, 0.15, 0]}><cylinderGeometry args={[7, 7.5, 0.3, 8]} /><meshStandardMaterial color="#b9a8d0" flatShading /></mesh>
+    <Shuttle lift={lift} flame={flame} />
   </group>;
 }
 
@@ -140,9 +133,9 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct }: {
     }
     if (markers.current) { const t = quest === 0 ? HANGAR : ROCKET; markers.current.position.set(t.x, 0, t.z); markers.current.rotation.y += dt; markers.current.children[0]!.position.y = 16 + Math.sin(performance.now() / 300) * 0.8; }
     if (launching) {
-      tmp.set(ROCKET.x - 15, 4, ROCKET.z + 18); cam.current.lerp(tmp, Math.min(1, dt * 2)); camera.position.copy(cam.current);
+      tmp.set(ROCKET.x - 16, 4 + lift.current * 0.85, ROCKET.z + 26); cam.current.lerp(tmp, Math.min(1, dt * 3)); camera.position.copy(cam.current);
       const rumble = launchT.current > 3 && lift.current < 25 ? 0.25 : 0; camera.position.x += (Math.random() - 0.5) * rumble; camera.position.y += (Math.random() - 0.5) * rumble;
-      camera.lookAt(ROCKET.x, 8 + lift.current * 0.7, ROCKET.z);
+      camera.lookAt(ROCKET.x, 7 + lift.current, ROCKET.z);
     } else {
       const yaw = r.heading + i.camYaw + Math.PI, dist = 11, pitch = i.camPitch;
       tmp.set(r.x + Math.sin(yaw) * Math.cos(pitch) * dist, heightAt(world, r.x, r.z) + 1.5 + Math.sin(pitch) * dist, r.z + Math.cos(yaw) * Math.cos(pitch) * dist);
@@ -188,7 +181,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   useEffect(() => {
     if (phase !== 'launch') return;
     lift.current = 0; setCount(0);
-    const ts = [setTimeout(() => setCount(1), 1000), setTimeout(() => setCount(2), 2000), setTimeout(() => setCount(3), 3000), setTimeout(() => { setEvIdx(0); setPicked([]); setPhase('travel'); }, 8200)];
+    const ts = [setTimeout(() => setCount(1), 1000), setTimeout(() => setCount(2), 2000), setTimeout(() => setCount(3), 3000), setTimeout(() => setCount(4), 4600), setTimeout(() => { setEvIdx(0); setPicked([]); setPhase('travel'); }, 8200)];
     return () => ts.forEach(clearTimeout);
   }, [phase]);
   const pending = phase === 'travel' && evIdx < events.length;
@@ -242,7 +235,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     {phase === 'hangar' && <HangarPanel es={es} level={level} design={design} setDesign={setDesign} onNext={() => { if (level === 'easy') { setQuest(1); setPhase('earth'); } else setPhase('tests'); }} />}
     {phase === 'tests' && <Tests es={es} level={level} design={design} onBack={() => setPhase('hangar')} onGo={() => { setQuest(1); setPhase('earth'); }} />}
 
-    {phase === 'launch' && <div className="adv-count" aria-live="assertive">{L.count[count]}</div>}
+    {phase === 'launch' && count < 4 && <div className="adv-count" aria-live="assertive">{L.count[count]}</div>}
     {phase === 'travel' && <div className="adv-travel"><div className="adv-stars" /><div className={`adv-dest ${dest}`} aria-hidden="true" /><Rocket className="adv-ship" size={64} aria-hidden="true" /><h2>{L.travel}: {L[dest]}</h2><p>{L.travelD}</p><div className="adv-progress"><span /></div>
       {!pending && <button className="button button-secondary" onClick={() => setPhase('mars')}>{L.skip}</button>}
       {pending && <EventCard es={es} ev={events[evIdx]!} onPick={o => { setPicked(p => [...p, o]); setEvIdx(i => i + 1); }} />}</div>}
