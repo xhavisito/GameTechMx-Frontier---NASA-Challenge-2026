@@ -162,3 +162,5 @@
 .set-opt{text-align:left}.set-opt.on,.look.on{background:#ffc857;color:#2a1f3d}.set-opt.on small,.look.on small{color:#3a2d52}
 .look-row{margin:.4rem 0}.look-row>b{display:block;margin-bottom:.2rem}.look{text-align:left}.look:disabled{opacity:.5}
 .swatch{display:flex;gap:3px;margin-top:.25rem}.swatch i{display:block;width:22px;height:12px;border-radius:4px;border:2px solid #1b1230}
+
+.crew{display:flex;flex-wrap:wrap;gap:.35rem;justify-content:center;margin:.4rem 0 .2rem}.crew-mate{font:800 .8rem/1 inherit;padding:.4rem .6rem;border-radius:999px;background:#2a1f3d;color:#fff4e6;border:2px solid #1b1230;box-shadow:0 2px 0 #1b1230;cursor:pointer;font-family:inherit}.crew-mate.on{background:#ffc857;color:#2a1f3d}.crew-mate:disabled{opacity:.55;cursor:not-allowed}.crew-desc{display:block;text-align:center;margin-bottom:.5rem}.chap-hint{background:#ffd16633;border:2px dashed #ffd166;border-radius:12px;padding:.35rem .6rem;font-weight:700;text-align:center}

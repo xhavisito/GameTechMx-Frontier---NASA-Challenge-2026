@@ -81,6 +81,7 @@ Honesty rule: a figure counts as NASA-backed only if the linked NASA page states
 - **Efectos de la run / Run effects**: bonos y penalizaciones (💨 🔩 💸 🪫 …) que duran varias misiones y se ven en pantalla (`runstate.ts`, guardado en `frontier-run-v1`).
 - **Aprende y juega / Learn & play** (🧠): al terminar cada misión, bitácora (qué pasó, qué aprendiste, qué cambia) y un repaso de 2 preguntas de opción múltiple (+🪙 por acierto). Repaso espaciado (cajas de Leitner, `review.ts`): lo que fallas vuelve mañana, lo que aciertas cada vez más tarde. 💡 en la Tierra = ciencia del día (una tarjeta por día, racha) + repaso. Guardado solo en el dispositivo.
 - **Ajustes y accesibilidad / Settings** (⚙️): letra grande (A+/A++), alto contraste, sin límite de tiempo, subtítulos de sonido (funcionan aunque esté en silencio) y menos movimiento. Se guardan en el dispositivo.
+- **Tripulación y saga**: 6 compañeros (Ada, Tuerca, Nube, Dra. Lupa, Capitán Brisa, Estrella) con una ventaja pasiva cada uno; eliges uno en el tablero de misiones y se desbloquean jugando. La historia tiene 6 capítulos que aparecen como trabajo especial (📖) en el tablero de su planeta; al terminar el capítulo 6 ganas el logro «Fin de la historia» y un banderín nuevo.
 - **Aspecto / Looks**: pintura del rover, color del polvo y banderín, desbloqueados con logros (no cambian la dificultad).
 - **Pulido / Polish**: estelas de balas, chispas de impacto, polvo del rover y textura granulada del terreno.
 
