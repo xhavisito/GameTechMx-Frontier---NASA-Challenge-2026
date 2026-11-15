@@ -5,6 +5,7 @@ import { X, Rocket, HelpCircle, Star } from 'lucide-react';
 import { heightAt, newRover, normalAt, stepRover, type MarsResult, type MarsWorldData, type RoverState, type WorldConfig } from './marsWorld';
 import { Terrain, Joystick, type Palette } from './MarsWorld';
 import { Rover, Shuttle } from './models';
+import { HangarBuilding, HANGAR_POS, hangarBlocked, onApron, APRON_Y } from './hangar3d';
 import { powerOf, scaleForPower } from './threat';
 import { PITCH, GOAL_HALF, BALL_R, REWARD, COIN_POS, inPitch, newBall, newCoins, stepBall, stepCoins, coinsLeft } from './earthgames';
 import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests, EventCard } from './ui';
@@ -25,7 +26,7 @@ const JupiterOrbit = lazy(() => import('./JupiterOrbit'));
 const MillerOcean = lazy(() => import('./MillerOcean'));
 
 const EARTH: Palette = { low: '#4fae5d', mid: '#6cc56a', high: '#9bdc7a', pale: '#d8f0a8', pad: '#cfd3dc' };
-const HANGAR = new THREE.Vector3(-34, 0, 26), ROCKET = new THREE.Vector3(34, 0, -22), NEAR = 7;
+const HANGAR = new THREE.Vector3(HANGAR_POS.x, 0, HANGAR_POS.z), ROCKET = new THREE.Vector3(34, 0, -22), NEAR = 7;
 
 type Phase = 'intro' | 'earth' | 'hangar' | 'workshop' | 'tests' | 'launch' | 'travel' | 'draft' | 'mars' | 'end';
 
@@ -58,7 +59,7 @@ function earthWorld(): MarsWorldData {
   const rand = rng(77), rocks: MarsWorldData['rocks'] = [];
   for (let i = 0; i < 90; i++) {
     const x = (rand() * 2 - 1) * 120, z = (rand() * 2 - 1) * 120;
-    if (inPitch(x, z, 5) || COIN_POS.some(([cx, cz]) => Math.hypot(x - cx, z - cz) < 5) || Math.hypot(x, z) < 12 || Math.hypot(x - HANGAR.x, z - HANGAR.z) < 12 || Math.hypot(x - ROCKET.x, z - ROCKET.z) < 12) continue;
+    if (inPitch(x, z, 5) || COIN_POS.some(([cx, cz]) => Math.hypot(x - cx, z - cz) < 5) || Math.hypot(x, z) < 12 || Math.hypot(x - HANGAR.x, z - HANGAR.z) < 20 || Math.hypot(x - ROCKET.x, z - ROCKET.z) < 12) continue;
     rocks.push({ x, z, s: 1 + rand() * 1.6, r: rand() * 6, tint: rand() });
   }
   return { seed: 77, amp: 0.3, craters: [], rocks, samples: [] };
@@ -88,15 +89,6 @@ function Pitch() {
     <mesh position={[x, y + 1.6, z - hl - 1.2]}><boxGeometry args={[GOAL_HALF * 2, 3.2, 0.1]} /><meshStandardMaterial color="#ffffff" transparent opacity={0.28} /></mesh>
   </group>;
 }
-function Hangar() {
-  return <group position={[HANGAR.x, 0, HANGAR.z]}>
-    <mesh position={[0, 2.2, 0]}><boxGeometry args={[11, 4.4, 8]} /><meshStandardMaterial color="#fff4e6" flatShading /></mesh>
-    {[-1, 1].map(s => <mesh key={s} position={[s * 2.9, 5.5, 0]} rotation={[0, 0, -s * 0.55]}><boxGeometry args={[6.9, 0.5, 8.6]} /><meshStandardMaterial color="#ff7a59" flatShading /></mesh>)}
-    <mesh position={[0, 1.7, 4.05]}><boxGeometry args={[5, 3.4, 0.2]} /><meshStandardMaterial color="#5b6ee1" flatShading /></mesh>
-    <mesh position={[0, 8.3, 0]}><cylinderGeometry args={[0.1, 0.1, 3, 5]} /><meshStandardMaterial color="#cdb9e0" /></mesh>
-  </group>;
-}
-
 function RocketModel({ lift, flame, tier = 0 }: { lift: React.MutableRefObject<number>; flame: boolean; tier?: number }) {
   const smoke = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
@@ -137,11 +129,11 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
     if (!launching && phase === 'earth') {
       const prev = rover.current;
       let r = stepRover(world, CFG0, prev, { throttle: i.throttle, steer: i.steer, boost: i.boost }, dt);
-      for (const o of [HANGAR, ROCKET]) if (Math.hypot(r.x - o.x, r.z - o.z) < 5.5) r = { ...r, x: prev.x, z: prev.z, speed: 0 };
+      if (Math.hypot(r.x - ROCKET.x, r.z - ROCKET.z) < 5.5 || hangarBlocked(r.x, r.z)) r = { ...r, x: prev.x, z: prev.z, speed: 0 };
       for (const k of world.rocks) { if (Math.abs(r.x - k.x) < 2.5 && Math.abs(r.z - k.z) < 2.5 && Math.hypot(r.x - k.x, r.z - k.z) < k.s * 0.7 + 1) { r = { ...r, x: prev.x, z: prev.z, speed: -r.speed * 0.2 }; break; } }
       rover.current = { ...r, energy: 1e9 };
       const target = quest === 0 ? HANGAR : ROCKET, d = Math.hypot(r.x - target.x, r.z - target.z);
-      const nearH = Math.hypot(r.x - HANGAR.x, r.z - HANGAR.z) < NEAR + 2, nearR = quest >= 1 && Math.hypot(r.x - ROCKET.x, r.z - ROCKET.z) < NEAR + 2;
+      const nearH = Math.hypot(r.x - HANGAR.x, r.z - HANGAR.z) < NEAR + 5, nearR = quest >= 1 && Math.hypot(r.x - ROCKET.x, r.z - ROCKET.z) < NEAR + 2;
       hud.current = { near: nearH && quest === 0 ? 'hangar' : nearR ? 'rocket' : null, dist: d, bearing: Math.atan2(target.x - r.x, target.z - r.z), heading: r.heading };
       if (i.collectPulse) { i.collectPulse = false; if (hud.current.near) onAct(hud.current.near); }
       // side games: kick-about pitch and coin hunt
@@ -155,7 +147,7 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
     const rv = roverRef.current;
     if (rv) {
       rv.visible = !launching;
-      const y = inPitch(r.x, r.z) ? PITCH.y : heightAt(world, r.x, r.z), n = inPitch(r.x, r.z) ? [0, 1, 0] : normalAt(world, r.x, r.z);
+      const flat = inPitch(r.x, r.z) || onApron(r.x, r.z), y = inPitch(r.x, r.z) ? PITCH.y : onApron(r.x, r.z) ? APRON_Y : heightAt(world, r.x, r.z), n = flat ? [0, 1, 0] : normalAt(world, r.x, r.z);
       rv.position.set(r.x, y + 0.05, r.z); q.n.set(n[0], n[1], n[2]); q.a.setFromUnitVectors(q.up, q.n); q.b.setFromAxisAngle(q.up, r.heading);
       rv.quaternion.slerp(q.a.multiply(q.b), Math.min(1, dt * 8));
     }
@@ -175,7 +167,7 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
     <hemisphereLight args={['#ffffff', '#7fb86a', 1.3]} />
     <directionalLight position={[80, 120, 40]} intensity={1.8} color="#fff6dd" />
     <mesh position={[0, -1.6, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[1500, 1500]} /><meshStandardMaterial color="#3fa7e8" flatShading /></mesh>
-    <Terrain world={world} palette={EARTH} /><Trees world={world} /><Hangar />
+    <Terrain world={world} palette={EARTH} /><Trees world={world} /><HangarBuilding />
     <RocketModel lift={lift} flame={phase === 'launch' && count >= 3} tier={rocketTier} />
     <Pitch />
     <group ref={ballRef}><mesh><icosahedronGeometry args={[BALL_R, 1]} /><meshStandardMaterial color="#ffffff" flatShading /></mesh><mesh scale={1.02}><dodecahedronGeometry args={[BALL_R * 0.98, 0]} /><meshStandardMaterial color="#2a1f3d" flatShading transparent opacity={0.55} /></mesh></group>
