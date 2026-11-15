@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { Polish } from './polish';
+import { Polish, VehicleDust } from './polish';
 import { X, Rocket, HelpCircle, Star } from 'lucide-react';
 import { heightAt, newRover, normalAt, stepRover, type MarsResult, type MarsWorldData, type RoverState, type WorldConfig } from './marsWorld';
 import { Terrain, Joystick, type Palette } from './MarsWorld';
@@ -11,7 +11,9 @@ import { sfx, setTheme } from './audio';
 import { track, subscribe, ACHIEVEMENTS, type Ev } from './progress';
 import { SOURCES } from './sources';
 import { ProgressPanel } from './progressui';
-import { setCombatListener } from './combat';
+import { setCombatListener, resetBossHud } from './combat';
+import { StoryBubble, DailyPanel } from './storyui';
+import { dayKey, destOfDay, seedOfDay, loadDaily, saveDaily, recordDaily, type DailyDest } from './daily';
 import { powerOf, scaleForPower } from './threat';
 import { PITCH, GOAL_HALF, BALL_R, REWARD, COIN_POS, RACE, RAMP, inPitch, newBall, newCoins, newRace, newAir, stepBall, stepCoins, stepRace, stepAir, coinsLeft } from './earthgames';
 import { LobbyDeco } from './lobbydeco';
@@ -19,8 +21,8 @@ import { solidAt, keepClear, ROCKET_POS } from './lobby';
 import { SkyLife, RaceProps, RampProp } from './skylife';
 import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests, EventCard } from './ui';
 import { Workshop, Draft, Reward } from './workshop';
-import { Money, HurtFlash } from './hud';
-import { loadMeta, saveMeta, perksFor, tierOf, withCard, draw, type Meta, type RunCard, type Ship } from './meta';
+import { Money, HurtFlash, BossBar } from './hud';
+import { loadMeta, saveMeta, perksFor, tierOf, withCard, draw, basePerks, type Meta, type RunCard, type Ship } from './meta';
 import { contractsFor, contractById, defaultContract } from './contracts';
 import { scrapParts, scrapReward } from './runkit';
 import { defaultDesign, supplyCost, EMERGENCY_FUND, normalize, eventsFor, applyEffects, type Design, type EventOption, type Dest } from './design';
@@ -193,6 +195,7 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
       <mesh><octahedronGeometry args={[0.9, 0]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.7} flatShading /></mesh>
       <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[1.25, 0.08, 4, 14]} /><meshBasicMaterial color="#fff4c2" /></mesh>
     </group>)}
+    <VehicleDust target={roverRef} color="#cfc7a0" />
     <group ref={roverRef}><Rover tier={roverTier} laser={laser} /></group>
     {phase === 'earth' && <group ref={markers}>
       <mesh position={[0, 16, 0]} rotation={[Math.PI, 0, 0]}><coneGeometry args={[1.6, 3, 4]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.7} flatShading /></mesh>
@@ -216,11 +219,13 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const [meta, setMetaState] = useState<Meta>(loadMeta);
   const metaRef = useRef(meta); metaRef.current = meta;
   const setMeta = (m: Meta) => { metaRef.current = m; setMetaState(m); saveMeta(m); track({ t: 'wallet', scrap: m.scrap }); };
-  const [showProg, setShowProg] = useState(false), [unlock, setUnlock] = useState('');
+  const [showProg, setShowProg] = useState(false), [unlock, setUnlock] = useState(''), [beats, setBeats] = useState<string[]>([]);
+  const [daily, setDaily] = useState<{ key: string; dest: DailyDest; seed: number } | null>(null), [dailyRec, setDailyRec] = useState(loadDaily), [showDaily, setShowDaily] = useState(false);
   useEffect(() => {   // celebrate new achievements and science cards, one after another
     let q: string[] = [], busy = false, timer: ReturnType<typeof setTimeout> | undefined;
     const next = () => { const m = q.shift(); if (!m) { busy = false; setUnlock(''); return; } busy = true; setUnlock(m); sfx('unlock'); timer = setTimeout(next, 2600); };
     const off = subscribe((_p, n) => {
+      if (n.beats.length) setBeats(b => [...b, ...n.beats.filter(x => !b.includes(x))]);
       for (const id of n.ach) { const a = ACHIEVEMENTS.find(x => x.id === id); if (a) q.push(`🏆 ${es ? 'Logro' : 'Achievement'}: ${a.icon} ${es ? a.es : a.en}`); }
       for (const id of n.found) { const s = SOURCES.find(x => x.id === id); if (s) q.push(`📖 ${es ? 'Nueva tarjeta de ciencia' : 'New science card'}: ${es ? s.name.es : s.name.en}`); }
       if (!busy) next();
@@ -302,14 +307,31 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     setPaid(bill.total); if (bill.total > 0) setMeta({ ...meta, scrap: meta.scrap - bill.total });
     setPhase('launch');
   };
-  const reset = () => { setPhase('earth'); setQuest(0); setResult(null); setRun(r => r + 1); setPicked([]); setCard(null); lift.current = 0; };
+  const reset = () => { setDaily(null); setPhase('earth'); setQuest(0); setResult(null); setRun(r => r + 1); setPicked([]); setCard(null); lift.current = 0; };
   const openWorkshop = (back: Phase) => { wsBack.current = back; setPhase('workshop'); };
   const pickLevel = (l: Level) => { setLevel(l); saveLevel(l); setPhase('earth'); };
   useEffect(() => {
     setTheme(phase === 'mars' ? (d.dest as 'mars' | 'jupiter' | 'miller') : phase === 'earth' || phase === 'hangar' || phase === 'workshop' || phase === 'tests' ? 'earth' : phase === 'intro' ? null : 'calm');
   }, [phase, d.dest]);
-  useEffect(() => () => setTheme(null), []);
+  useEffect(() => () => { setTheme(null); resetBossHud(); }, []);
+  useEffect(() => { if (!tut && phase === 'earth') track({ t: 'visit' }); }, [tut, phase]);   // the base crew says hello the first time
+  /** The daily challenge: fixed world, seed, gear and no upgrades, so everyone's score is comparable. */
+  const dailyRun = useMemo(() => {
+    if (!daily) return null;
+    const dd = normalize(defaultDesign(daily.dest), 'medium'), mi = applyEffects(modsFor('medium'), [], 0), pk = basePerks(), m = { ...mi.mods, boss: false };
+    return { dest: daily.dest, mods: m, perks: pk, contract: defaultContract(daily.dest), tool: dd.tools.includes('radar') ? 'radar' as const : dd.tools.includes('camera') ? 'camera' as const : 'spectrometer' as const,
+      cfg: { seed: daily.seed, health: mi.health, battery: ((dd.batteryKWh * 100 + 20) * mi.energy * pk.energyMul) / m.drainMul, solar: dd.solarM2 * 45, camera: dd.tools.includes('camera'), spectrometer: dd.tools.includes('spectrometer'), radar: dd.tools.includes('radar') } as WorldConfig };
+  }, [daily]);
+  const startDaily = () => { const key = dayKey(); setDaily({ key, dest: destOfDay(key), seed: seedOfDay(key) }); setShowDaily(false); setCard(null); setPhase('mars'); };
   const done = (r: MarsResult) => {
+    resetBossHud();
+    if (daily) {   // the daily run never touches upgrades or the run counter
+      sfx(r.returned ? 'win' : 'fail');
+      const rr = recordDaily(dailyRec, daily.key, r.score, daily.dest, r.returned); setDailyRec(rr.rec); saveDaily(rr.rec);
+      setReward(rr.bonus); setPaid(0); if (rr.bonus > 0) setMeta({ ...meta, scrap: meta.scrap + rr.bonus });
+      track({ t: 'daily', returned: r.returned, score: r.score });
+      setResult({ ...r, scrapWhy: [] }); setPhase('end'); return;
+    }
     sfx(r.returned ? 'win' : 'fail');
     const gain = scrapReward(r, mods, perks, activeContract), sp = scrapParts(r, mods, perks, activeContract), sub = sp.base.reduce((a, p) => a + p.pts, 0);
     const scrapWhy = [...sp.base, { es: 'Subtotal', en: 'Subtotal', pts: Math.round(sub * 10) / 10, max: -1 }, ...sp.mult.map(m => ({ es: m.es, en: m.en, pts: 0, k: Math.round(m.k * 100) / 100 }))];
@@ -319,12 +341,12 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   };
 
   if (phase === 'mars') return <><Suspense fallback={<div className="w-root adv-center">…</div>}>
-    {dest === 'jupiter'
-      ? <JupiterOrbit tool={tool} es={es} mods={mods} perks={perks} contract={activeContract} tier={tierOf(meta, 'orbiter')} onDone={done} onExit={onExit} />
-      : dest === 'miller'
-      ? <MillerOcean tool={tool} es={es} mods={mods} perks={perks} contract={activeContract} tier={tierOf(meta, 'sub')} onDone={done} onExit={onExit} />
-      : <MarsWorld cfg={cfg} es={es} mods={mods} perks={perks} contract={activeContract} tier={tierOf(meta, 'rover')} onDone={done} onExit={onExit} />}
-  </Suspense><Money n={meta.scrap} es={es} />{unlock && <div className="adv-unlock" role="status">{unlock}</div>}<HurtFlash /></>;
+    {(dailyRun?.dest ?? dest) === 'jupiter'
+      ? <JupiterOrbit tool={dailyRun?.tool ?? tool} es={es} mods={dailyRun?.mods ?? mods} perks={dailyRun?.perks ?? perks} contract={dailyRun?.contract ?? activeContract} tier={dailyRun ? 0 : tierOf(meta, 'orbiter')} onDone={done} onExit={onExit} />
+      : (dailyRun?.dest ?? dest) === 'miller'
+      ? <MillerOcean tool={dailyRun?.tool ?? tool} es={es} mods={dailyRun?.mods ?? mods} perks={dailyRun?.perks ?? perks} contract={dailyRun?.contract ?? activeContract} tier={dailyRun ? 0 : tierOf(meta, 'sub')} onDone={done} onExit={onExit} />
+      : <MarsWorld cfg={dailyRun?.cfg ?? cfg} es={es} mods={dailyRun?.mods ?? mods} perks={dailyRun?.perks ?? perks} contract={dailyRun?.contract ?? activeContract} tier={dailyRun ? 0 : tierOf(meta, 'rover')} onDone={done} onExit={onExit} />}
+  </Suspense><BossBar es={es} /><Money n={meta.scrap} es={es} />{unlock && <div className="adv-unlock" role="status">{unlock}</div>}<HurtFlash /></>;
 
   const lvl = LEVEL_INFO[level];
   return <div className="w-root adv-root"
@@ -337,11 +359,14 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     <button className="w-btn w-exit" onClick={onExit} aria-label={L.quit}><X size={20} /></button>
     <Money n={meta.scrap} es={es} />
     {unlock && <div className="adv-unlock" role="status">{unlock}</div>}
+    {showDaily && <DailyPanel es={es} rec={dailyRec} onPlay={startDaily} onClose={() => setShowDaily(false)} />}
+    {beats[0] && !tut && (phase === 'earth' || phase === 'end') && !showProg && !showDaily && <StoryBubble key={beats[0]} es={es} id={beats[0]} onClose={() => setBeats(b => b.slice(1))} onCard={() => { setBeats(b => b.slice(1)); window.dispatchEvent(new Event('frontier-open-science')); }} />}
     {showProg && <ProgressPanel es={es} runs={meta.runs} best={meta.best} scrap={meta.scrap} onClose={() => setShowProg(false)} />}
 
     {phase === 'earth' && !showProg && <>
       <div className="adv-quest"><span className="adv-step">{quest + 1}/2</span><b>{quest === 0 ? L.q0 : L.q1}</b>
         <button className="lvl-btn" style={{ background: lvl.color }} onClick={() => setPhase('intro')} title={es ? 'Cambiar dificultad' : 'Change difficulty'}><Star size={14} fill="currentColor" /> {es ? lvl.es : lvl.en}</button>
+        <button className="lvl-btn help" onClick={() => setShowDaily(true)} aria-label={es ? 'Reto del día' : 'Daily challenge'} title={es ? 'Reto del día' : 'Daily challenge'}>📅</button>
         <button className="lvl-btn help" onClick={() => setShowProg(true)} aria-label={es ? 'Mi progreso y logros' : 'My progress and achievements'} title={es ? 'Progreso y logros' : 'Progress and achievements'}>🏆</button>
         <button className="lvl-btn help" onClick={() => setTut(true)} aria-label={es ? 'Ayuda' : 'Help'}><HelpCircle size={18} /></button></div>
       <div className="adv-arrow" aria-hidden="true"><i style={{ transform: `rotate(${snap.heading - snap.bearing + Math.PI}rad)` }} /><span>{Math.round(snap.dist)} m</span></div>

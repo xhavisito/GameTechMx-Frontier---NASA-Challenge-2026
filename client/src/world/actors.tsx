@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { statsOf, type CombatSim, type EnemyKind } from './combat';
+import { BOSS_STYLES, statsOf, type CombatSim, type EnemyKind } from './combat';
 import type { PoiSim } from './pois';
 
 const M = ({ c, e = 0 }: { c: string; e?: number }) => <meshStandardMaterial color={c} emissive={e ? c : '#000'} emissiveIntensity={e} />;
@@ -83,14 +83,15 @@ function Boss() {
   </group>;
 }
 const KINDS: EnemyKind[] = ['crawler', 'drone', 'angler', 'thief', 'swarmer', 'dasher', 'brute', 'boss'];
-const MAXE = 14, MAXB = 40;
+const MAXE = 14, MAXB = 40, MAXS = 48;
 
 /** Draws every enemy, bullet and objective marker of a world from the shared sims. */
 export function Actors({ sim, pois, bulletColor = '#ffc857', groundY, sphere = false }: { sim: CombatSim; pois: PoiSim | null; bulletColor?: string; groundY?: (x: number, z: number) => number; sphere?: boolean }) {
   const up = useRef(new THREE.Vector3(0, 1, 0)), nn = useRef(new THREE.Vector3()), qq = useRef(new THREE.Quaternion());
   const eg = useRef<(THREE.Group | null)[]>([]), bg = useRef<(THREE.Mesh | null)[]>([]), pg = useRef<(THREE.Group | null)[]>([]);
   const last = useRef<{ x: number; z: number }[]>([]);
-  useFrame(({ clock }) => {
+  const sp = useRef<(THREE.Mesh | null)[]>([]), spark = useRef(Array.from({ length: MAXS }, () => ({ x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, life: 0 }))), sparkI = useRef(0);
+  useFrame(({ clock }, dt) => {
     const t = clock.elapsedTime, list = sim.enemies.filter(e => e.alive || e.flash > 0);
     for (let i = 0; i < MAXE; i++) {
       const g = eg.current[i]; if (!g) continue;
@@ -108,8 +109,13 @@ export function Actors({ sim, pois, bulletColor = '#ffc857', groundY, sphere = f
       g.scale.setScalar(s); if (e.wind > 0.05) g.position.y += e.wind * 0.8;
       const bar = g.children[KINDS.length] as THREE.Mesh; bar.visible = e.alive && e.hp < e.maxHp && e.kind !== 'thief'; bar.scale.x = Math.max(0.02, e.hp / e.maxHp);
       const flag = g.children[KINDS.length + 1] as THREE.Mesh; flag.visible = e.alive && e.kind === 'thief' && e.flee > 0;
+      const ring = g.children[KINDS.length + 2] as THREE.Mesh;   // the boss's slam warning: a ring that grows until the shockwave lands
+      ring.visible = e.alive && e.kind === 'boss' && e.slam > 0;
+      if (ring.visible) { const st = BOSS_STYLES[sim.cfg.bossStyle ?? 'quake'], k = 1 - e.slam / 1.2; ring.scale.setScalar(Math.max(0.05, (st.radius * (0.25 + 0.75 * k)) / Math.max(0.1, s))); ((ring.material) as THREE.MeshBasicMaterial).color.set(st.color); ((ring.material) as THREE.MeshBasicMaterial).opacity = 0.35 + 0.5 * k; }
     }
-    for (let i = 0; i < MAXB; i++) { const m = bg.current[i]; if (!m) continue; const b = sim.bullets[i]; m.visible = !!b; if (b) m.position.set(b.x, b.y, b.z); }
+    for (let i = 0; i < MAXB; i++) { const m = bg.current[i]; if (!m) continue; const b = sim.bullets[i]; m.visible = !!b; if (b) { m.position.set(b.x, b.y, b.z); m.lookAt(b.x + b.dx, b.y + b.dy, b.z + b.dz); m.scale.set(1, 1, 2.8); } }   // stretched along the flight = a streak
+    for (const im of sim.impacts.splice(0)) for (let k = 0; k < 6; k++) { const s = spark.current[sparkI.current++ % MAXS]!; s.x = im.x; s.y = im.y; s.z = im.z; s.vx = (Math.random() - 0.5) * 12; s.vy = Math.random() * 8 + 2; s.vz = (Math.random() - 0.5) * 12; s.life = 0.35 + Math.random() * 0.2; }
+    for (let i = 0; i < MAXS; i++) { const m = sp.current[i], s = spark.current[i]!; if (!m) continue; m.visible = s.life > 0; if (s.life > 0) { s.life -= dt; s.vy -= 20 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt; m.position.set(s.x, s.y, s.z); m.scale.setScalar(Math.max(0.05, s.life * 1.6)); } }
     pois?.pois.forEach((p, i) => {
       const g = pg.current[i]; if (!g) return;
       g.visible = !p.done; g.position.set(p.x, p.y, p.z);
@@ -124,7 +130,9 @@ export function Actors({ sim, pois, bulletColor = '#ffc857', groundY, sphere = f
       <group visible={false}><Crawler /></group><group visible={false}><Drone /></group><group visible={false}><Angler /></group><group visible={false}><Thief /></group><group visible={false}><Swarmer /></group><group visible={false}><Dasher /></group><group visible={false}><Brute /></group><group visible={false}><Boss /></group>
       <mesh position={[0, 3, 0]} visible={false}><boxGeometry args={[1.6, 0.18, 0.18]} /><meshBasicMaterial color="#ff5d73" /></mesh>
       <mesh position={[0, 3.6, 0]} visible={false}><coneGeometry args={[0.3, 0.5, 4]} /><meshBasicMaterial color="#ffc857" /></mesh>
+      <mesh position={[0, 0.15, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.9, 1, 40]} /><meshBasicMaterial color="#ff8f4d" transparent opacity={0.6} side={THREE.DoubleSide} depthWrite={false} fog={false} /></mesh>
     </group>)}
+    {Array.from({ length: MAXS }, (_, i) => <mesh key={`s${i}`} ref={n => { sp.current[i] = n; }} visible={false}><octahedronGeometry args={[0.22, 0]} /><meshBasicMaterial color="#ffe9a8" fog={false} /></mesh>)}
     {Array.from({ length: MAXB }, (_, i) => <mesh key={i} ref={n => { bg.current[i] = n; }} visible={false}><icosahedronGeometry args={[0.35, 1]} /><meshBasicMaterial color={bulletColor} fog={false} /></mesh>)}
     {Array.from({ length: 6 }, (_, i) => <group key={i} ref={n => { pg.current[i] = n; }} visible={false}>
       <group><mesh position={[0, 1.2, 0]}><cylinderGeometry args={[0.15, 0.3, 2.4, 14]} /><M c="#8d8f98" /></mesh><mesh position={[0, 2.6, 0]}><octahedronGeometry args={[0.5, 0]} /><M c="#ffc857" e={0.9} /></mesh><mesh position={[0, 6, 0]}><cylinderGeometry args={[0.1, 0.1, 8, 14]} /><meshBasicMaterial color="#ffc857" transparent opacity={0.35} fog={false} /></mesh></group>

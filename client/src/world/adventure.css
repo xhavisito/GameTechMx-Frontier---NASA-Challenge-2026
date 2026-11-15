@@ -125,3 +125,12 @@
 .prog-reset span{flex:1 1 240px}
 .adv-unlock{position:absolute;left:50%;top:84px;transform:translateX(-50%);padding:.45rem 1rem;border-radius:12px;background:#2a1f3d;border:3px solid #ffc857;color:#fff;font-weight:800;z-index:30;pointer-events:none;animation:advpop .35s ease-out;max-width:92vw;text-align:center}
 .boss-warn{margin:.4rem 0;padding:.5rem .8rem;border-radius:12px;background:#ff5d7333;border:1px solid #ff5d73;font-weight:700}
+.boss-bar{position:fixed;left:50%;top:150px;transform:translateX(-50%);width:min(340px,62vw);z-index:380;pointer-events:none;text-align:center;color:#fff;text-shadow:0 2px 0 #1b1230}
+.boss-track{height:14px;margin-top:2px;border-radius:999px;background:#1b1230cc;border:3px solid #1b1230;overflow:hidden}
+.boss-track i{display:block;height:100%;transition:width .2s}
+.story{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:min(560px,94vw);z-index:40;background:#2a1f3d;border:3px solid #ffc857;border-radius:18px;padding:.8rem 1rem;color:#fff;box-shadow:0 6px 0 #1b1230;animation:advpop .3s ease-out}
+.story-who{display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem}.story-av{font-size:1.8rem}
+.story p{margin:.2rem 0}.story-card{font-size:.9rem;color:#ffc857}
+.story-btns{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.5rem}
+.link{background:none;border:0;color:#7fdcff;text-decoration:underline;font-weight:700;cursor:pointer;padding:0}
+.daily-top{text-align:left;margin:.2rem auto;max-width:320px}

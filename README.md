@@ -73,6 +73,10 @@ Honesty rule: a figure counts as NASA-backed only if the linked NASA page states
 - **Progreso y logros / Progress** (`progress.ts`, `progressui.tsx`): botón 🏆 en la Tierra con estadísticas, 13 logros y «Reiniciar partida» (con confirmación).
 - **Tarjetas de ciencia descubribles / Discoverable science cards**: jugar desbloquea tarjetas de «Ciencia y fuentes» (📖); las no descubiertas siguen legibles (🔒) y dicen cómo conseguirlas. Una prueba verifica que cada tarjeta tiene forma de descubrirse.
 - **Jefes / Bosses**: cada 4.ª misión trae un jefe por mundo (vida ×9, lento, embiste, cuenta como 5 bajas). El garage avisa antes de despegar. Sigue habiendo máximo 4 enemigos a la vez.
+- **Ataques de jefe / Boss attacks**: Marte = temblor (anillo en el suelo), Júpiter = tormenta, Miller = ola. Se avisa ~1.2 s antes y solo daña dentro del anillo; barra de vida arriba.
+- **Historia / Story**: Ada y Tuerca, la tripulación de la base, cuentan una historia corta por eventos (primera visita, lanzamientos, jefes…) y enlazan a la tarjeta de ciencia relacionada.
+- **Reto diario / Daily challenge** (📅): mismo mundo, semilla y equipo para todos cada día (sin mejoras), racha y mejores puntajes **solo locales** (`frontier-daily-v1`), +10 🪙 la primera vez al día.
+- **Pulido / Polish**: estelas de balas, chispas de impacto, polvo del rover y textura granulada del terreno.
 
 ## Lobby más lleno y gráficos más pulidos / Fuller lobby and polished graphics
 

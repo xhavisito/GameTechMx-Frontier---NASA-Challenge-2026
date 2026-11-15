@@ -17,6 +17,7 @@ export function App() {
   const [sci, setSci] = useState(false);
   const [muted, setMutedState] = useState(isMuted);
   const quality = useQuality();
+  useEffect(() => { const f = () => setSci(true); window.addEventListener('frontier-open-science', f); return () => window.removeEventListener('frontier-open-science', f); }, []);
   useEffect(() => {   // browsers only allow sound after a first tap or key; every button click gets a small blip
     const first = () => unlockAudio(), click = (e: Event) => { if ((e.target as HTMLElement | null)?.closest('button')) sfx('ui'); };
     window.addEventListener('pointerdown', first, { once: true }); window.addEventListener('keydown', first, { once: true }); document.addEventListener('click', click);

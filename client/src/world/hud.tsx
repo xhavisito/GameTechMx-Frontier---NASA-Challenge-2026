@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Coins } from 'lucide-react';
+import { bossHud, BOSS_STYLES, type BossStyle } from './combat';
 
 /** Worlds call this when the player is hit: a red edge flash on screen. */
 export const hurt = () => { try { window.dispatchEvent(new Event('frontier-hurt')); } catch { /* ssr */ } };
@@ -19,4 +20,16 @@ export function Viewfinder({ state, es, shots }: { state: 'ready' | 'far' | 'off
     <div className={`w-vf-tip ${state}`}>{state === 'ready' ? (es ? '¡Encuadrada! Pulsa E para tomar la foto' : 'Framed! Press E to take the photo') : state === 'far' ? (es ? 'Muy lejos: acércate a la formación' : 'Too far: get closer to the formation') : state === 'off' ? (es ? 'Gira el rover para centrar la formación en el visor' : 'Turn the rover to center the formation in the viewfinder') : (es ? 'Busca una formación rocosa (sigue la flecha)' : 'Look for a rock formation (follow the arrow)')}</div>
     {shots > 0 && <div key={shots} className="w-flash" aria-hidden="true" />}
   </>;
+}
+
+/** The boss's health bar and name, shown while a boss is alive. */
+export function BossBar({ es }: { es: boolean }) {
+  const [b, setB] = useState<{ hp: number; max: number; style: BossStyle } | null>(null);
+  useEffect(() => { const t = setInterval(() => setB(bossHud ? { ...bossHud } : null), 150); return () => clearInterval(t); }, []);
+  if (!b) return null;
+  const st = BOSS_STYLES[b.style];
+  return <div className="boss-bar" role="status" aria-label={es ? 'Vida del jefe' : 'Boss health'}>
+    <b>👑 {es ? st.es : st.en}</b>
+    <div className="boss-track"><i style={{ width: `${Math.max(0, Math.min(100, (b.hp / b.max) * 100))}%`, background: st.color }} /></div>
+  </div>;
 }
