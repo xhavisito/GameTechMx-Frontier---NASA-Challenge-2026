@@ -2,12 +2,13 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { X, Heart, BatteryFull, ChevronUp, ChevronDown, Timer } from 'lucide-react';
-import { HALF, type MarsResult } from './marsWorld';
+import { HALF, tally, type MarsResult } from './marsWorld';
 import { Joystick } from './MarsWorld';
 import { SubGLB } from './models';
 import { CombatSim, type V3 } from './combat';
 import { PoiSim, makePois } from './pois';
 import { Actors } from './actors';
+import { hurt } from './hud';
 import { type Contract, defaultContract, contractN } from './contracts';
 import { basePerks, type Perks } from './meta';
 import { contractResult, weaponCd, weaponDmg } from './runkit';
@@ -42,9 +43,13 @@ export function makeSites(seed: number, hullDepth: number): Site[] {
   });
 }
 export function millerScore(tool: MillerTool, found: number, need: number, health: number, seconds: number): MarsResult {
-  const raw = Math.min(70, (found / need) * 62) + health * 0.15 + (tool === 'spectrometer' ? 8 : 0) + Math.max(0, 7 - seconds / 60);
-  const score = Math.max(0, Math.min(100, Math.round(found >= need ? raw : raw * 0.6)));
-  return { score, science: found * 10, returned: found >= need, grade: score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 50 ? 'B' : score >= 30 ? 'C' : 'D', samples: [] };
+  const t = tally([
+    { es: `Señales de vida: ${found} de ${need}`, en: `Signs of life: ${found} of ${need}`, pts: Math.min(70, (found / need) * 62), max: 70 },
+    { es: `Casco al final: ${Math.round(health)} %`, en: `Hull at the end: ${Math.round(health)}%`, pts: health * 0.15, max: 15 },
+    { es: `Rapidez (${Math.round(seconds)} s)`, en: `Speed (${Math.round(seconds)} s)`, pts: Math.max(0, 7 - seconds / 60), max: 7 },
+    ...(tool === 'spectrometer' ? [{ es: 'Bono del analizador', en: 'Analyzer bonus', pts: 8, max: 8 }] : []),
+  ], found >= need ? undefined : { k: 0.6, es: `Faltaron hallazgos (${found} de ${need}): puntos ×0.6`, en: `Missing finds (${found} of ${need}): points ×0.6` });
+  return { score: t.score, science: found * 10, returned: found >= need, grade: t.grade, samples: [], why: t.why };
 }
 
 interface Wave { t: number; x: number; z: number; active: boolean; hit: boolean }
@@ -156,7 +161,7 @@ function Scene({ tool, mods, perks, contract, sim, pois, tier, es, sites, g, hud
       th.carry = null;
     };
     for (const e of sim.update(dt, me, 0)) {
-      if (e.type === 'hit') { const dmg = Math.round(e.dmg * (1 - Math.min(0.6, perks.armor))); s.health = Math.max(0, s.health - dmg); s.shake = 0.5; s.speed *= 0.5; say(es ? `¡Un pez abisal te mordió! −${dmg}` : `An anglerfish bit you! −${dmg}`); }
+      if (e.type === 'hit') { hurt(); const dmg = Math.round(e.dmg * (1 - Math.min(0.6, perks.armor))); s.health = Math.max(0, s.health - dmg); s.shake = 0.5; s.speed *= 0.5; say(es ? `¡Un pez abisal te mordió! −${dmg}` : `An anglerfish bit you! −${dmg}`); }
       else if (e.type === 'wave') say(es ? '¡Banco de peces abisales!' : 'Anglerfish school incoming!');
       else if (e.type === 'thief') say(es ? '¿Qué fue eso…? Un pulpo ladrón nada por aquí' : 'What was that…? A thieving octopus swims nearby');
       else if (e.type === 'kill' && e.enemy.kind === 'thief') loot(e.enemy);

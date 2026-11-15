@@ -102,13 +102,29 @@ export function sampleInReach(w: MarsWorldData, cfg: WorldConfig, taken: Readonl
   return best;
 }
 
-export interface MarsResult { score: number; science: number; returned: boolean; grade: string; samples: string[]; kills?: number; pois?: number; exploded?: boolean; lost?: number }
+/** One line of the "why this grade?" explanation. `pts` can be negative. */
+export interface Part { es: string; en: string; pts: number; max?: number; k?: number }
+export interface MarsResult { score: number; science: number; returned: boolean; grade: string; samples: string[]; kills?: number; pois?: number; exploded?: boolean; lost?: number; why?: Part[]; scrapWhy?: Part[] }
+export const gradeOf = (score: number) => (score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 50 ? 'B' : score >= 30 ? 'C' : 'D');
+const r1 = (n: number) => Math.round(n * 10) / 10;
+/** Adds the parts up (optionally scaled when the mission was not completed) and keeps the explanation so the player can read it. */
+export function tally(parts: Part[], scale?: { k: number; es: string; en: string }): { score: number; grade: string; why: Part[] } {
+  const why = parts.map(p => ({ ...p, pts: r1(p.pts) })), sum = parts.reduce((a, p) => a + p.pts, 0);
+  const scaled = scale && scale.k !== 1 ? sum * scale.k : sum;
+  if (scale && scale.k !== 1) why.push({ es: scale.es, en: scale.en, pts: r1(scaled - sum) });
+  const score = Math.max(0, Math.min(100, Math.round(scaled)));
+  return { score, grade: gradeOf(score), why };
+}
 export const REQUIRED_SAMPLES = 3;
 const SCIENCE: Record<SampleKind, number> = { regolith: 8, basalt: 10, hematite: 14, ice: 18 };
 export function scoreRun(cfg: WorldConfig, kinds: SampleKind[], returned: boolean, rover: RoverState, secondsUsed: number, need = REQUIRED_SAMPLES): MarsResult {
   const science = kinds.reduce((a, k) => a + SCIENCE[k] * (cfg.spectrometer ? 1.5 : 1) * (cfg.science ?? 1), 0);
-  const raw = Math.min(55, science * 1.1) + (returned ? 25 : 0) + (rover.health / 100) * 8 + (rover.energy / cfg.battery) * 6 + Math.max(0, 6 - secondsUsed / 120) ;
-  const score = Math.max(0, Math.min(100, Math.round(kinds.length >= need ? raw : raw * 0.7)));
-  const grade = score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 50 ? 'B' : score >= 30 ? 'C' : 'D';
-  return { score, science: Math.round(science), returned, grade, samples: kinds };
+  const t = tally([
+    { es: `Ciencia: ${kinds.length} muestra(s)${cfg.spectrometer ? ' (analizador ×1.5)' : ''}`, en: `Science: ${kinds.length} sample(s)${cfg.spectrometer ? ' (analyzer ×1.5)' : ''}`, pts: Math.min(55, science * 1.1), max: 55 },
+    { es: returned ? 'Regresaste al módulo' : 'No regresaste al módulo', en: returned ? 'You returned to the lander' : 'You did not return to the lander', pts: returned ? 25 : 0, max: 25 },
+    { es: `Casco al final: ${Math.round(rover.health)} %`, en: `Hull at the end: ${Math.round(rover.health)}%`, pts: (rover.health / 100) * 8, max: 8 },
+    { es: `Energía que sobró: ${Math.round((rover.energy / cfg.battery) * 100)} %`, en: `Power left: ${Math.round((rover.energy / cfg.battery) * 100)}%`, pts: (rover.energy / cfg.battery) * 6, max: 6 },
+    { es: `Rapidez (${Math.round(secondsUsed)} s)`, en: `Speed (${Math.round(secondsUsed)} s)`, pts: Math.max(0, 6 - secondsUsed / 120), max: 6 },
+  ], kinds.length >= need ? undefined : { k: 0.7, es: `Faltaron muestras (${kinds.length} de ${need}): puntos ×0.7`, en: `Missing samples (${kinds.length} of ${need}): points ×0.7` });
+  return { score: t.score, science: Math.round(science), returned, grade: t.grade, samples: kinds, why: t.why };
 }

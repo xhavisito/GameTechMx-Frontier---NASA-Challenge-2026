@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Camera, FlaskConical, Radar, Rocket, Orbit, Waves, Sun, BatteryFull, Check, X as XIcon, Star, Keyboard, Gamepad2, Hand } from 'lucide-react';
-import { BUDGET, DEST, ROCKETS, TOOLS, NO_BONUS, normalize, runTests, passed, stats, type RocketBonus, type Design, type Dest, type RocketId, type Tool, type TestResult, type TravelEvent, type EventOption } from './design';
+import { BUDGET, DEST, ROCKETS, TOOLS, NO_BONUS, TOOL_PRICE, ROCKET_PRICE, supplyCost, normalize, runTests, passed, stats, type RocketBonus, type Design, type Dest, type RocketId, type Tool, type TestResult, type TravelEvent, type EventOption } from './design';
 import { LEVELS, LEVEL_INFO, type Level } from './levels';
 import { ContractPicker } from './workshop';
 import type { Contract } from './contracts';
@@ -84,7 +84,8 @@ function Slider({ label, unit, min, max, step = 1, value, onChange }: { label: s
 export function Hangar({ es, level, design, setDesign, onNext, bonus = NO_BONUS, contracts = [], contract = '', setContract, scrap = 0, onWorkshop }: Es & { level: Level; design: Design; setDesign: (d: Design) => void; onNext: () => void; bonus?: RocketBonus; contracts?: Contract[]; contract?: string; setContract?: (id: string) => void; scrap?: number; onWorkshop?: () => void }) {
   const d = normalize(design, level), S = stats(d), pro = level === 'hard' || level === 'expert', set = (p: Partial<Design>) => setDesign({ ...design, ...p });
   const multi = pro, toggleTool = (k: Tool) => { const has = d.tools.includes(k); set({ tools: multi ? (has ? d.tools.filter(x => x !== k) : [...d.tools, k]) : [k] }); };
-  const lvl = LEVEL_INFO[level];
+  const lvl = LEVEL_INFO[level], bill = supplyCost(d, level), needTool = contracts.find(c => c.id === contract)?.tool, missingTool = !!needTool && !d.tools.includes(needTool), broke = (bill.total > scrap && !!onWorkshop) || missingTool;
+  const price = (n: number) => (n > 0 ? ` · 🪙${n}` : ` · ${t(es, 'gratis', 'free')}`);
   return <div className="adv-modal"><div className="adv-card wide">
     <div className="hang-head"><h2>{t(es, 'Prepara tu nave', 'Build your ship')}</h2><span className="lvl-chip" style={{ background: lvl.color }}>{es ? lvl.es : lvl.en}</span>{onWorkshop && <button className="button button-secondary" onClick={onWorkshop}>🔧 {t(es, 'Taller', 'Workshop')} · {scrap}</button>}</div>
     <h3>{t(es, '¿A dónde vas?', 'Where to?')}</h3>
@@ -95,7 +96,7 @@ export function Hangar({ es, level, design, setDesign, onNext, bonus = NO_BONUS,
 
     {level !== 'easy' && <><h3>{t(es, 'Cohete', 'Rocket')}</h3>
       <div className="adv-row">{(['light', 'standard', 'heavy'] as RocketId[]).map(k => <Opt key={k} on={d.rocket === k} onClick={() => set({ rocket: k })} title={ROCKET_TXT[k][es ? 0 : 1]}
-        sub={pro ? `${ROCKETS[k].cost} M$ · ${t(es, 'carga máx.', 'max payload')} ${ROCKETS[k].maxPayload + bonus.payload} kg` : ROCKET_TXT[k][es ? 2 : 3]} />)}</div></>}
+        sub={(pro ? `${ROCKETS[k].cost} M$ · ${t(es, 'carga máx.', 'max payload')} ${ROCKETS[k].maxPayload + bonus.payload} kg` : ROCKET_TXT[k][es ? 2 : 3]) + price(ROCKET_PRICE[k])} />)}</div></>}
 
     {(level === 'medium' || level === 'hard') && <><h3>{t(es, 'Energía', 'Power')}</h3>
       <div className="adv-row"><Opt on={d.solarM2 >= 3} onClick={() => set({ solarM2: 3, batteryKWh: 1 })} icon={<Sun size={28} />} title={t(es, 'Paneles solares', 'Solar panels')} sub={t(es, 'Se recarga con el sol', 'Recharges in the sun')} />
@@ -107,7 +108,7 @@ export function Hangar({ es, level, design, setDesign, onNext, bonus = NO_BONUS,
 
     <h3>{multi ? t(es, 'Instrumentos (puedes llevar varios)', 'Instruments (you can bring several)') : t(es, '¿Qué herramienta llevará?', 'Which tool will it carry?')}</h3>
     <div className="adv-row">{(['camera', 'spectrometer', 'radar'] as Tool[]).map(k => <Opt key={k} on={d.tools.includes(k)} onClick={() => toggleTool(k)} icon={toolIcon(k, 28)} title={TOOL_NAME[k][es ? 0 : 1]}
-      sub={pro ? `${TOOLS[k].mass} kg · ${TOOLS[k].cost} M$ · ${TOOLS[k].watts} W` : TOOL_DESC[d.dest][k][es ? 0 : 1]} />)}</div>
+      sub={(pro ? `${TOOLS[k].mass} kg · ${TOOLS[k].cost} M$ · ${TOOLS[k].watts} W` : TOOL_DESC[d.dest][k][es ? 0 : 1]) + price(TOOL_PRICE[k])} />)}</div>
     {level === 'expert' && <small className="hint">{t(es, 'Pista: cada destino exige un instrumento distinto.', 'Hint: each destination requires a different instrument.')}</small>}
 
     {pro && <div className="stats" aria-label="stats">
@@ -115,7 +116,11 @@ export function Hangar({ es, level, design, setDesign, onNext, bonus = NO_BONUS,
       <span>Δv<b>{(S.dv + bonus.dv).toFixed(2)} / {DEST[d.dest].dv} km/s</b></span>
       <span>{t(es, 'Costo', 'Cost')}<b>{Math.round(S.cost)} / {BUDGET[level] + bonus.budget} M$</b></span>
       <span>{t(es, 'Energía', 'Power')}<b>{Math.round(S.supplyW)} / {Math.round(S.needW)} W</b></span></div>}
-    <button className="button button-primary" autoFocus onClick={onNext}><Rocket size={18} /> {level === 'easy' ? t(es, '¡Listo para despegar!', 'Ready to launch!') : t(es, 'Probar la nave', 'Test the ship')}</button>
+    {onWorkshop && <div className={`bill ${broke ? 'bad' : ''}`} aria-label="bill">
+      <span>{t(es, 'Equipo de esta misión (se paga en cada misión)', 'This mission’s gear (paid every mission)')}: {bill.lines.filter(l => l.cost > 0).map(l => `${es ? l.es : l.en} 🪙${l.cost}`).join(' + ') || t(es, 'todo gratis', 'all free')}</span>
+      <b>{t(es, 'Total', 'Total')} 🪙{bill.total} · {t(es, 'tienes', 'you have')} 🪙{scrap}</b>
+      {missingTool ? <small>{t(es, `Esta misión necesita: ${TOOL_NAME[needTool!][0]}. Llévala para poder hacer las fotos.`, `This mission needs: ${TOOL_NAME[needTool!][1]}. Bring it to take the photos.`)}</small> : broke && <small>{t(es, 'No te alcanza: elige equipo más barato (la cámara es gratis).', 'Not enough: pick cheaper gear (the camera is free).')}</small>}</div>}
+    <button className="button button-primary" autoFocus disabled={broke} onClick={onNext}><Rocket size={18} /> {level === 'easy' ? t(es, '¡Listo para despegar!', 'Ready to launch!') : t(es, 'Probar la nave', 'Test the ship')}</button>
   </div></div>;
 }
 

@@ -87,6 +87,25 @@ export function someDesignPasses(dest: Dest, level: Level): boolean {
   return false;
 }
 
+// ── what you buy for each mission (paid in scrap, every time) ──
+export const TOOL_PRICE: Record<Tool, number> = { camera: 0, spectrometer: 8, radar: 10 };
+export const ROCKET_PRICE: Record<RocketId, number> = { light: 0, standard: 8, heavy: 25 };
+export interface Line { es: string; en: string; cost: number }
+/** Equipment is consumed on every launch: you pay again each mission. Upgrades from the workshop are the permanent part. */
+export function supplyCost(raw: Design, level: Level): { lines: Line[]; total: number } {
+  const d = normalize(raw, level), lines: Line[] = [];
+  if (level !== 'easy') lines.push({ es: 'Cohete', en: 'Rocket', cost: ROCKET_PRICE[d.rocket] });
+  for (const t of d.tools) lines.push({ es: t === 'camera' ? 'Cámara' : t === 'spectrometer' ? 'Analizador' : 'Radar', en: t === 'camera' ? 'Camera' : t === 'spectrometer' ? 'Analyzer' : 'Radar', cost: TOOL_PRICE[t] });
+  if (level === 'medium' || level === 'hard') { if (d.solarM2 < 3) lines.push({ es: 'Batería grande', en: 'Big battery', cost: 4 }); }
+  if (level === 'expert') {
+    lines.push({ es: 'Paneles y batería', en: 'Panels and battery', cost: Math.max(0, d.solarM2 - 1) + Math.max(0, d.batteryKWh - 1) });
+    lines.push({ es: 'Escudo térmico', en: 'Heat shield', cost: Math.max(0, d.shield - 1) * 3 });
+  }
+  return { lines, total: lines.reduce((a, l) => a + l.cost, 0) };
+}
+/** Money that is always handed out so nobody gets stuck without being able to afford a legal ship. */
+export const EMERGENCY_FUND = 30;
+
 // ── travel events (hard and expert) ──────────────────────────────────────────
 export interface Effects { health?: number; energy?: number; time?: number }
 export interface EventOption { es: string; en: string; fx: Effects; noteEs?: string; noteEn?: string }

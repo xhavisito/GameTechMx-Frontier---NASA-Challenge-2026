@@ -46,3 +46,9 @@ Miller es un océano: el submarino (modelo CAD `sub`) sube y baja (Espacio/Q y C
 - **Cartas de misión.** Antes de cada misión eliges 1 de 3 cartas temporales; algunas son arriesgadas.
 - **Dificultad.** `levels.ts › modsFor` ahora también controla cantidad, velocidad, vida y daño de enemigos, oleadas, probabilidad del ladrón y multiplicador de chatarra.
 - Lógica pura con pruebas: `meta.ts`, `combat.ts`, `pois.ts`, `contracts.ts`, `runkit.ts`, `design.ts`.
+
+### Ajustes posteriores
+- **Fotos literales.** En el contrato de fotos aparece un visor: hay que acercarse (≤18 m) y girar el rover hasta encuadrar la formación rocosa (~20°); entonces E toma la foto (flash). Si no está encuadrada, no cuenta.
+- **Contacto con enemigos.** Se hinchan medio segundo antes de morder, muerden una vez, retroceden, y tienes ~0.9 s de gracia; el borde de pantalla parpadea en rojo al recibir daño.
+- **«¿Por qué esta calificación?»** en la pantalla final: desglose punto por punto de la calificación y de la chatarra ganada.
+- **Equipo de pago por misión.** Cohete, instrumentos y extras cuestan chatarra y se pagan al despegar, cada misión (la cámara es gratis; siempre queda un fondo mínimo de 30 para poder volar). Las mejoras del taller son permanentes. El dinero se ve siempre arriba a la izquierda.

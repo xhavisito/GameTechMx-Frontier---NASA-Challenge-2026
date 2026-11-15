@@ -69,8 +69,8 @@ export function Actors({ sim, pois, bulletColor = '#ffc857', groundY, sphere = f
       else if (dx * dx + dz * dz > 1e-5) g.rotation.y = Math.atan2(dx, dz);
       last.current[i] = { x: e.x, z: e.z };
       g.children.forEach((c, k) => { if (k < KINDS.length) c.visible = KINDS[k] === e.kind; });
-      const s = (e.elite ? 1.5 : 1) * (e.alive ? 1 : Math.max(0, e.flash / 0.4)) * (1 + (e.flash > 0 && e.alive ? 0.2 : 0));
-      g.scale.setScalar(s);
+      const s = (e.elite ? 1.5 : 1) * (e.alive ? 1 : Math.max(0, e.flash / 0.4)) * (1 + (e.flash > 0 && e.alive ? 0.2 : 0)) * (1 + e.wind * 0.5);   // it swells up right before biting
+      g.scale.setScalar(s); if (e.wind > 0.05) g.position.y += e.wind * 0.8;
       const bar = g.children[KINDS.length] as THREE.Mesh; bar.visible = e.alive && e.hp < e.maxHp && e.kind !== 'thief'; bar.scale.x = Math.max(0.02, e.hp / e.maxHp);
       const flag = g.children[KINDS.length + 1] as THREE.Mesh; flag.visible = e.alive && e.kind === 'thief' && e.flee > 0;
     }
@@ -95,7 +95,7 @@ export function Actors({ sim, pois, bulletColor = '#ffc857', groundY, sphere = f
       <group><mesh position={[0, 1.2, 0]}><cylinderGeometry args={[0.15, 0.3, 2.4, 5]} /><M c="#8d8f98" /></mesh><mesh position={[0, 2.6, 0]}><octahedronGeometry args={[0.5, 0]} /><M c="#ffc857" e={0.9} /></mesh><mesh position={[0, 6, 0]}><cylinderGeometry args={[0.1, 0.1, 8, 5]} /><meshBasicMaterial color="#ffc857" transparent opacity={0.35} fog={false} /></mesh></group>
       <group><mesh position={[0, 1, 0]}><boxGeometry args={[1.4, 1.1, 1.4]} /><M c="#ff8f4d" /></mesh><mesh position={[0, 1, 0]}><boxGeometry args={[1.5, 0.25, 1.5]} /><M c="#fff4e6" /></mesh><mesh position={[0, 6, 0]}><cylinderGeometry args={[0.1, 0.1, 10, 5]} /><meshBasicMaterial color="#ff8f4d" transparent opacity={0.35} fog={false} /></mesh></group>
       <mesh position={[0, 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[2.2, 2.7, 16]} /><meshBasicMaterial color="#5ee6a8" /></mesh>
-      <group><mesh position={[0, 2, 0]}><boxGeometry args={[1, 4, 1]} /><M c="#6b5a85" /></mesh><mesh position={[0, 4.4, 0]}><boxGeometry args={[1.6, 1, 1.6]} /><M c="#8a7aa8" /></mesh><mesh position={[0, 5.4, 0]}><coneGeometry args={[0.6, 1.2, 4]} /><M c="#b39ddb" e={0.4} /></mesh><mesh position={[0, 8, 0]}><cylinderGeometry args={[0.1, 0.1, 6, 5]} /><meshBasicMaterial color="#b39ddb" transparent opacity={0.35} fog={false} /></mesh></group>
+      <group scale={1.3}><mesh position={[-1.6, 1.6, 0]} rotation={[0, 0.3, 0.06]}><boxGeometry args={[1.3, 3.2, 1.2]} /><M c="#a8643d" /></mesh><mesh position={[1.6, 1.3, 0]} rotation={[0, -0.2, -0.08]}><boxGeometry args={[1.2, 2.6, 1.2]} /><M c="#8f5232" /></mesh><mesh position={[0, 3.3, 0]} rotation={[0, 0.1, 0.05]}><boxGeometry args={[4.6, 1, 1.5]} /><M c="#c07a4a" /></mesh><mesh position={[0, 4.1, 0]}><dodecahedronGeometry args={[0.5, 0]} /><M c="#d9b08a" /></mesh></group>
     </group>)}
   </>;
 }
