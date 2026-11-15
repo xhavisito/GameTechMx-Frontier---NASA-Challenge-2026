@@ -6,11 +6,11 @@ export type Ev =
   | { t: 'trip'; ids: string[] }
   | { t: 'mission'; dest: string; returned: boolean; grade: string; samples: string[]; kills: number; scrap: number }
   | { t: 'kill'; kind: string }
-  | { t: 'wallet'; scrap: number };
+  | { t: 'wallet'; scrap: number } | { t: 'visit' } | { t: 'daily'; returned: boolean; score: number };
 
-export interface Stats { goals: number; coins: number; rounds: number; jumps: number; launches: number; missions: number; kills: number; boss: number; brutes: number; bestCones: number; worlds: string[]; sGrades: number; maxScrap: number }
-export interface Progress { found: string[]; ach: string[]; s: Stats }
-export const emptyProgress = (): Progress => ({ found: [], ach: [], s: { goals: 0, coins: 0, rounds: 0, jumps: 0, launches: 0, missions: 0, kills: 0, boss: 0, brutes: 0, bestCones: 0, worlds: [], sGrades: 0, maxScrap: 0 } });
+export interface Stats { goals: number; coins: number; rounds: number; jumps: number; launches: number; missions: number; kills: number; boss: number; brutes: number; bestCones: number; worlds: string[]; sGrades: number; maxScrap: number; dailies: number }
+export interface Progress { found: string[]; ach: string[]; story: string[]; s: Stats }
+export const emptyProgress = (): Progress => ({ found: [], ach: [], story: [], s: { goals: 0, coins: 0, rounds: 0, jumps: 0, launches: 0, missions: 0, kills: 0, boss: 0, brutes: 0, bestCones: 0, worlds: [], sGrades: 0, maxScrap: 0, dailies: 0 } });
 
 export interface Ach { id: string; icon: string; es: string; en: string; descEs: string; descEn: string; ok: (s: Stats) => boolean }
 export const ACHIEVEMENTS: Ach[] = [
@@ -26,6 +26,7 @@ export const ACHIEVEMENTS: Ach[] = [
   { id: 'kills25', icon: '🛡️', es: 'Guardián', en: 'Guardian', descEs: 'Derrota 25 criaturas.', descEn: 'Defeat 25 creatures.', ok: s => s.kills >= 25 },
   { id: 'brute', icon: '💪', es: 'Rompe-corazas', en: 'Armor breaker', descEs: 'Derrota a un brute.', descEn: 'Defeat a brute.', ok: s => s.brutes >= 1 },
   { id: 'boss', icon: '👑', es: 'Cazajefes', en: 'Boss hunter', descEs: 'Derrota a un jefe.', descEn: 'Defeat a boss.', ok: s => s.boss >= 1 },
+  { id: 'daily', icon: '📅', es: 'Reto del día', en: 'Daily challenge', descEs: 'Juega el reto del día.', descEn: 'Play the daily challenge.', ok: s => s.dailies >= 1 },
   { id: 'rich', icon: '💰', es: 'Ahorrador', en: 'Saver', descEs: 'Ten 200 🪙 a la vez.', descEn: 'Hold 200 🪙 at once.', ok: s => s.maxScrap >= 200 },
 ];
 
@@ -59,7 +60,19 @@ export function discoveries(e: Ev): string[] {
 }
 
 /** Applies one event. Returns a new Progress plus what was just unlocked (so the game can celebrate). */
-export function apply(p: Progress, e: Ev): { p: Progress; newFound: string[]; newAch: string[] } {
+/** Which story beats an event triggers (each beat only once). */
+export function beatsFor(p: Progress, s: Stats, e: Ev, newAch: string[]): string[] {
+  const out: string[] = [];
+  if (e.t === 'visit') out.push('welcome');
+  if (e.t === 'launch' && s.launches === 1) out.push('first_launch');
+  if (e.t === 'mission') out.push(e.dest === 'mars' ? 'm_mars' : e.dest === 'jupiter' ? 'm_jupiter' : 'm_miller');
+  if (e.t === 'kill' && e.kind === 'boss') out.push('first_boss');
+  if (newAch.includes('worlds')) out.push('three_worlds');
+  if (e.t === 'daily') out.push('daily_first');
+  return out.filter((id, i) => out.indexOf(id) === i && !p.story.includes(id));
+}
+
+export function apply(p: Progress, e: Ev): { p: Progress; newFound: string[]; newAch: string[]; newBeats: string[] } {
   const s: Stats = { ...p.s, worlds: [...p.s.worlds] };
   switch (e.t) {
     case 'goal': s.goals++; break;
@@ -71,11 +84,13 @@ export function apply(p: Progress, e: Ev): { p: Progress; newFound: string[]; ne
     case 'mission': s.missions++; s.kills += 0; if (e.returned && !s.worlds.includes(e.dest)) s.worlds.push(e.dest); if (e.grade === 'S') s.sGrades++; break;
     case 'kill': s.kills++; if (e.kind === 'boss') s.boss++; if (e.kind === 'brute') s.brutes++; break;
     case 'wallet': s.maxScrap = Math.max(s.maxScrap, e.scrap); break;
+    case 'daily': s.dailies++; break;
   }
   const found = [...p.found], newFound = discoveries(e).filter((id, i, a) => !found.includes(id) && a.indexOf(id) === i);
   found.push(...newFound);
   const newAch = ACHIEVEMENTS.filter(a => !p.ach.includes(a.id) && a.ok(s)).map(a => a.id);
-  return { p: { found, ach: [...p.ach, ...newAch], s }, newFound, newAch };
+  const newBeats = beatsFor(p, s, e, newAch);
+  return { p: { found, ach: [...p.ach, ...newAch], story: [...p.story, ...newBeats], s }, newFound, newAch, newBeats };
 }
 
 // ── store ──
@@ -84,17 +99,17 @@ export function loadProgress(): Progress {
   try { const v = JSON.parse(localStorage.getItem(KEY) ?? 'null'); if (v && Array.isArray(v.found) && Array.isArray(v.ach) && v.s) return { ...emptyProgress(), ...v, s: { ...emptyProgress().s, ...v.s } }; } catch { /* corrupted or private mode */ }
   return emptyProgress();
 }
-let cur: Progress | null = null; const subs = new Set<(p: Progress, n: { found: string[]; ach: string[] }) => void>();
+let cur: Progress | null = null; const subs = new Set<(p: Progress, n: { found: string[]; ach: string[]; beats: string[] }) => void>();
 export const getProgress = () => (cur ??= loadProgress());
 export function track(e: Ev) {
   const r = apply(getProgress(), e); cur = r.p;
   try { localStorage.setItem(KEY, JSON.stringify(cur)); } catch { /* private mode */ }
-  subs.forEach(f => f(cur!, { found: r.newFound, ach: r.newAch }));
+  subs.forEach(f => f(cur!, { found: r.newFound, ach: r.newAch, beats: r.newBeats }));
   return r;
 }
 export function resetAll() {
   cur = emptyProgress();
-  for (const k of ['frontier-progress-v1', 'frontier-meta-v1', 'frontier-level', 'frontier-tutorial-done']) { try { localStorage.removeItem(k); } catch { /* private mode */ } }
-  subs.forEach(f => f(cur!, { found: [], ach: [] }));
+  for (const k of ['frontier-progress-v1', 'frontier-meta-v1', 'frontier-level', 'frontier-tutorial-done', 'frontier-daily-v1']) { try { localStorage.removeItem(k); } catch { /* private mode */ } }
+  subs.forEach(f => f(cur!, { found: [], ach: [], beats: [] }));
 }
-export function subscribe(f: (p: Progress, n: { found: string[]; ach: string[] }) => void) { subs.add(f); return () => { subs.delete(f); }; }
+export function subscribe(f: (p: Progress, n: { found: string[]; ach: string[]; beats: string[] }) => void) { subs.add(f); return () => { subs.delete(f); }; }

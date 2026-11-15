@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { Polish } from './polish';
+import { Polish, VehicleDust } from './polish';
 import { X, Zap, Heart, Compass, Gamepad2, Keyboard, Hand } from 'lucide-react';
 import { modsFor, type Mods } from './levels';
 import { Boom, type BoomState } from './fx';
@@ -10,7 +10,7 @@ import { createWorld, heightAt, normalAt, newRover, stepRover, visibleSamples, s
 import { fbm2, rng } from '../three/noise';
 import { useWorldInput, type WorldInput } from './worldInput';
 import { Rover, arm } from './models';
-import { CombatSim, type V3 } from './combat';
+import { CombatSim, type V3, BOSS_STYLES } from './combat';
 import { PoiSim, makePois } from './pois';
 import { Actors } from './actors';
 import { hurt, Viewfinder } from './hud';
@@ -58,7 +58,14 @@ export function Terrain({ world, palette = MARS_PALETTE }: { world: MarsWorldDat
     ng.computeVertexNormals();
     return ng;
   }, [world, palette]);
-  return <mesh geometry={geo}><meshStandardMaterial vertexColors flatShading roughness={1} /></mesh>;
+  const grain = useMemo(() => {   // fine speckle so big flat slopes don't look like plastic
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d')!, r = rng(world.seed + 77);
+    g.fillStyle = '#e8e8e8'; g.fillRect(0, 0, 64, 64);
+    for (let i = 0; i < 260; i++) { const v = 150 + Math.floor(r() * 105); g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(Math.floor(r() * 64), Math.floor(r() * 64), 1 + Math.floor(r() * 2), 1 + Math.floor(r() * 2)); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(110, 110); t.colorSpace = THREE.SRGBColorSpace; return t;
+  }, [world.seed]);
+  return <mesh geometry={geo}><meshStandardMaterial vertexColors map={grain} flatShading roughness={1} /></mesh>;
 }
 
 function Rocks({ world }: { world: MarsWorldData }) {
@@ -200,6 +207,7 @@ function Scene({ cfg, mods, need, perks, contract, sim, pois, tier, world, es, g
       if (e.type === 'hit') { hurt(); const dmg = Math.round(e.dmg * (1 - Math.min(0.6, perks.armor))); r = { ...r, health: Math.max(0, r.health - dmg), speed: r.speed * 0.5 }; s.shake = 0.5; say(es ? `¡Un bicho te mordió! −${dmg}` : `A bug bit you! −${dmg}`); }
       else if (e.type === 'wave') say(es ? '¡Oleada de bichos!' : 'Bug wave incoming!');
       else if (e.type === 'boss') say(es ? '👑 ¡Llegó el jefe de la zona!' : '👑 The area boss is here!');
+      else if (e.type === 'slamWarn') say(es ? '⚠️ ' + BOSS_STYLES.quake.sayEs : '⚠️ ' + BOSS_STYLES.quake.sayEn);
       else if (e.type === 'thief') say(es ? '¿Qué fue eso…? Un mapache espacial anda por aquí' : 'What was that…? A space raccoon is around');
       else if (e.type === 'kill' && e.enemy.kind !== 'thief') say(es ? 'Bicho derrotado' : 'Bug defeated');
       else if (e.type === 'kill') { restoreLoot(e.enemy); }
@@ -293,6 +301,7 @@ function Scene({ cfg, mods, need, perks, contract, sim, pois, tier, world, es, g
     <Terrain world={world} /><Rocks world={world} /><Lander />
     <mesh position={[-120, 70, -160]}><icosahedronGeometry args={[14, 1]} /><meshBasicMaterial color="#fff3c4" fog={false} /></mesh>
     <Boom boom={boom} />
+    <VehicleDust target={roverRef} />
     <group ref={roverRef} position={[0, 0, LANDER_R + 3]}><Rover radar={cfg.radar} spectrometer={cfg.spectrometer} tier={tier} laser={perks.weapon > 0} /></group>
     <Actors sim={sim} pois={pois} bulletColor="#fff4b0" />
     {contract.kind === 'rescue' && <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[LANDER_R + 2, LANDER_R + 3, 24]} /><meshBasicMaterial color="#5ee6a8" transparent opacity={0.6} /></mesh>}
@@ -354,7 +363,7 @@ export default function MarsWorld({ cfg, es, mods = modsFor('easy'), perks = bas
   const need = Math.min(mods.required, cfg.radar ? 6 : 5);
   const sim = useMemo(() => new CombatSim({
     kind: 'crawler', max: mods.enemyMax, spawnEvery: mods.spawnEvery, waveEvery: mods.waveEvery, hp: mods.enemyHp, speed: mods.enemySpeed * 7, damage: mods.enemyDmg, aggro: 42,
-    variants: mods.variants, boss: mods.boss, thiefChance: mods.thiefChance, slow: perks.enemySlow, more: perks.enemyMore * contract.danger, seed: cfg.seed + 11,
+    variants: mods.variants, boss: mods.boss, bossStyle: 'quake', thiefChance: mods.thiefChance, slow: perks.enemySlow, more: perks.enemyMore * contract.danger, seed: cfg.seed + 11,
     place: (p, r1, r2) => { const a = r1 * Math.PI * 2, d = 36 + r2 * 24, x = Math.max(-HALF + 4, Math.min(HALF - 4, p.x + Math.cos(a) * d)), z = Math.max(-HALF + 4, Math.min(HALF - 4, p.z + Math.sin(a) * d)); return { x, y: heightAt(world, x, z), z }; },
     constrain: e => { e.x = Math.max(-HALF + 2, Math.min(HALF - 2, e.x)); e.z = Math.max(-HALF + 2, Math.min(HALF - 2, e.z)); e.y = heightAt(world, e.x, e.z); },
   }), [world, mods, perks, contract, cfg.seed]);

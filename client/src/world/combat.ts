@@ -9,6 +9,13 @@ export const VARIANTS = {
 } as const;
 export type VariantKind = keyof typeof VARIANTS;
 /** The boss: one per boss mission. Slow, huge, lunges now and then, and counts for several kills. */
+export type BossStyle = 'quake' | 'storm' | 'wave';
+/** Each world's boss has its own slam: a warning ring grows for a moment, then a shockwave hurts anyone inside it. Step away to dodge. */
+export const BOSS_STYLES: Record<BossStyle, { radius: number; every: number; color: string; es: string; en: string; sayEs: string; sayEn: string }> = {
+  quake: { radius: 10, every: 7, color: '#ff8f4d', es: 'Coloso de roca', en: 'Rock Colossus', sayEs: '¡Cuidado con el temblor!', sayEn: 'Watch out for the quake!' },
+  storm: { radius: 13, every: 5.5, color: '#b39ddb', es: 'Tormenta viviente', en: 'Living Storm', sayEs: '¡Descarga eléctrica!', sayEn: 'Electric discharge!' },
+  wave: { radius: 11, every: 6.5, color: '#7fdcff', es: 'Rey del abismo', en: 'King of the Deep', sayEs: '¡Ola de choque!', sayEn: 'Shockwave!' },
+};
 export const BOSS = { hp: 9, speed: 0.6, dmg: 1.8, size: 2.4, hit: 3.6 } as const;
 const STATS = { ...VARIANTS, boss: BOSS } as const;
 export const statsOf = (k: EnemyKind) => (k in STATS ? STATS[k as keyof typeof STATS] : null);
@@ -18,7 +25,7 @@ export const setCombatListener = (f: ((e: CombatEvent) => void) | null) => { lis
 /** Never more than this many hostile creatures at once, however strong the player is. */
 export const MAX_ENEMIES = 4;
 export interface V3 { x: number; y: number; z: number }
-export interface Enemy extends V3 { id: number; kind: EnemyKind; hp: number; maxHp: number; speed: number; cd: number; flee: number; alive: boolean; seed: number; elite: boolean; flash: number; carry: string | null; age: number; wind: number; recoil: number; dash: number; dashIn: number }
+export interface Enemy extends V3 { id: number; kind: EnemyKind; hp: number; maxHp: number; speed: number; cd: number; flee: number; alive: boolean; seed: number; elite: boolean; flash: number; carry: string | null; age: number; wind: number; recoil: number; dash: number; dashIn: number; slam: number; slamIn: number }
 export interface Bullet extends V3 { dx: number; dy: number; dz: number; life: number; dmg: number; alive: boolean }
 
 export interface CombatCfg {
@@ -28,6 +35,7 @@ export interface CombatCfg {
   variants?: VariantKind[];
   /** a boss mission: one boss shows up after a while */
   boss?: boolean;
+  bossStyle?: BossStyle;
   thiefChance: number; /** chance that a thief shows up in a run */
   /** where new enemies appear, given the player and two random numbers */
   place: (p: V3, r1: number, r2: number) => V3;
@@ -35,6 +43,9 @@ export interface CombatCfg {
   constrain: (e: V3) => void;
   slow: number; more: number; seed: number;
 }
+/** Live boss info for the HUD (null when there is no boss alive). */
+export let bossHud: { hp: number; max: number; style: BossStyle } | null = null;
+export const resetBossHud = () => { bossHud = null; };
 export type CombatEvent =
   | { type: 'hit'; enemy: Enemy; dmg: number }
   | { type: 'steal'; enemy: Enemy }
@@ -42,13 +53,15 @@ export type CombatEvent =
   | { type: 'wave' }
   | { type: 'escape'; enemy: Enemy }
   | { type: 'thief' }
-  | { type: 'boss' };
+  | { type: 'boss' }
+  | { type: 'slamWarn'; enemy: Enemy }
+  | { type: 'slam'; enemy: Enemy };
 
 const mulberry = (a: number) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 export const dist3 = (a: V3, b: V3) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 
 export class CombatSim {
-  enemies: Enemy[] = []; bullets: Bullet[] = []; time = 0; kills = 0; invuln = 0; nextId = 1; stolen = 0;
+  enemies: Enemy[] = []; bullets: Bullet[] = []; impacts: V3[] = []; time = 0; kills = 0; invuln = 0; nextId = 1; stolen = 0;
   private next: number; private nextWave: number; private rnd: () => number; private thiefAt: number; private thiefDone = false; private bossDone = false; private spawned = 0;
   constructor(public cfg: CombatCfg) {
     this.rnd = mulberry(cfg.seed); this.next = Math.max(4, cfg.spawnEvery * 0.4);
@@ -69,7 +82,7 @@ export class CombatSim {
     const pos = this.cfg.place(p, this.rnd(), this.rnd());
     const grow = 1 + this.time / 240; // enemies get tougher as the run goes on
     const hp = kind === 'thief' ? 3 : this.cfg.hp * grow * (elite ? 2.5 : 1) * (vs?.hp ?? 1);   // (a boss is hp x9)
-    const e: Enemy = { id: this.nextId++, kind, x: pos.x, y: pos.y, z: pos.z, hp, maxHp: hp, speed: this.cfg.speed * this.cfg.slow * (elite ? 1.1 : 1) * (kind === 'thief' ? 1.25 : 1) * (vs?.speed ?? 1), cd: 0, flee: 0, alive: true, seed: this.rnd() * 100, elite, flash: 0, carry: null, age: 0, wind: 0, recoil: 0, dash: 0, dashIn: 2 + this.rnd() * 2 };
+    const e: Enemy = { id: this.nextId++, kind, x: pos.x, y: pos.y, z: pos.z, hp, maxHp: hp, speed: this.cfg.speed * this.cfg.slow * (elite ? 1.1 : 1) * (kind === 'thief' ? 1.25 : 1) * (vs?.speed ?? 1), cd: 0, flee: 0, alive: true, seed: this.rnd() * 100, elite, flash: 0, carry: null, age: 0, wind: 0, recoil: 0, dash: 0, dashIn: 2 + this.rnd() * 2, slam: 0, slamIn: 4 };
     this.enemies.push(e); this.spawned++; return e;
   }
   /** Advance everything. `p` is the player (speed in m/s). Returns what happened so the world can react. */
@@ -96,7 +109,12 @@ export class CombatSim {
         if (run && e.flee <= 0) { e.alive = false; e.flash = 0; ev.push({ type: 'escape', enemy: e }); }   // got away with it
         if (d > 160) e.alive = false;
       } else {
-        const chase = d < c.aggro;
+        const chase = d < c.aggro && e.slam <= 0;   // a boss stands still while it winds up its slam
+        if (e.kind === 'boss') {
+          const st = BOSS_STYLES[c.bossStyle ?? 'quake'];
+          if (e.slam > 0) { e.slam -= dt; if (e.slam <= 0) { ev.push({ type: 'slam', enemy: e }); if (d < st.radius && this.invuln <= 0) { this.invuln = 0.9; ev.push({ type: 'hit', enemy: e, dmg: c.damage * 1.3 }); } } }
+          else { e.slamIn -= dt; if (e.slamIn <= 0 && d < st.radius + 8) { e.slam = 1.2; e.slamIn = st.every; ev.push({ type: 'slamWarn', enemy: e }); } }
+        }
         e.recoil = Math.max(0, e.recoil - dt);
         if (e.recoil > 0) { const k = (e.speed * 1.4 * dt) / Math.max(0.001, d); e.x -= (p.x - e.x) * k; e.y -= (p.y - e.y) * k; e.z -= (p.z - e.z) * k; e.wind = 0; }   // bounce back after an attack
         else if (chase && d > 1.7) {
@@ -116,7 +134,8 @@ export class CombatSim {
     this.stepBullets(dt, ev);
     void speedNow;
     const SOUND = { hit: 'hurt', kill: 'kill', wave: 'wave', steal: 'steal' } as const;
-    for (const e of ev) { listener?.(e); if (e.type === 'boss') sfx('boss'); }
+    for (const e of ev) { listener?.(e); if (e.type === 'boss') sfx('boss'); else if (e.type === 'slam') sfx('boss'); else if (e.type === 'slamWarn') sfx('wave'); }
+    const bs = this.enemies.find(e => e.kind === 'boss' && e.alive); bossHud = bs ? { hp: bs.hp, max: bs.maxHp, style: c.bossStyle ?? 'quake' } : null;
     for (const e of ev) if (e.type in SOUND) sfx(SOUND[e.type as keyof typeof SOUND]);
     return ev;
   }
@@ -144,7 +163,7 @@ export class CombatSim {
       for (const e of this.enemies) {
         if (!e.alive || !b.alive) continue;
         if (dist3(b, e) < (e.elite ? 2.4 : statsOf(e.kind)?.hit ?? 1.8)) {
-          b.alive = false; e.hp -= b.dmg; e.flash = 0.25;
+          b.alive = false; e.hp -= b.dmg; e.flash = 0.25; this.impacts.push({ x: b.x, y: b.y, z: b.z }); if (this.impacts.length > 24) this.impacts.shift();
           if (e.hp <= 0) { e.alive = false; this.kills += e.kind === 'boss' ? 5 : 1; ev.push({ type: 'kill', enemy: e }); }
         }
       }

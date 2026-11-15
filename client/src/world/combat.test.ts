@@ -109,6 +109,17 @@ describe('pois and contracts', () => {
     expect(b.alive).toBe(false); expect(s.kills).toBeGreaterThanOrEqual(5); expect(seen.some(e => e.type === 'kill' && e.enemy.kind === 'boss')).toBe(true);
     setCombatListener(null);
   });
+  it('the boss winds up with a warning, then slams only what is inside the radius', () => {
+    const seen: CombatEvent[] = []; setCombatListener(e => seen.push(e));
+    const s = new CombatSim(cfg({ boss: true, bossStyle: 'quake', spawnEvery: 1e6, hp: 2, max: 4, aggro: 500, place: p => ({ x: p.x + 6, y: 0, z: p.z }) }));
+    for (let i = 0; i < 20 * 80; i++) s.update(0.05, P, 0);
+    const warn = seen.findIndex(e => e.type === 'slamWarn'), slam = seen.findIndex(e => e.type === 'slam');
+    expect(warn).toBeGreaterThanOrEqual(0); expect(slam).toBeGreaterThan(warn);
+    const far = { x: 500, y: 0, z: 500 }, s2 = new CombatSim(cfg({ boss: true, bossStyle: 'quake', spawnEvery: 1e6, hp: 2, max: 4, aggro: 900, place: p => ({ x: p.x + 6, y: 0, z: p.z }) }));
+    seen.length = 0; for (let i = 0; i < 20 * 40; i++) s2.update(0.05, i < 20 * 26 ? P : far, 0);
+    expect(seen.filter(e => e.type === 'hit').length).toBeLessThan(20);
+    setCombatListener(null);
+  });
   it('no boss when it is not a boss mission', () => {
     const s = new CombatSim(cfg({ spawnEvery: 1e6 })); for (let i = 0; i < 20 * 60; i++) s.update(0.05, { x: 500, y: 0, z: 0 }, 0);
     expect(s.enemies.some(e => e.kind === 'boss')).toBe(false);

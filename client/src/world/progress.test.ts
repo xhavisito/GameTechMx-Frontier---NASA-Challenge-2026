@@ -3,6 +3,14 @@ import { ACHIEVEMENTS, DISCOVERY, apply, discoveries, emptyProgress, type Ev } f
 import { SOURCES } from './sources';
 
 const run = (evs: Ev[]) => evs.reduce((p, e) => apply(p, e).p, emptyProgress());
+describe('story', () => {
+  it('the crew greets you on the first visit and each beat is told only once, pointing at real cards', async () => {
+    const { BEATS } = await import('./story');
+    const a = apply(emptyProgress(), { t: 'visit' }); expect(a.newBeats).toContain('welcome');
+    expect(apply(a.p, { t: 'visit' }).newBeats).not.toContain('welcome');
+    const ids = new Set(SOURCES.map(s => s.id)); for (const b of BEATS) if (b.card) expect(ids.has(b.card), b.id).toBe(true);
+  });
+});
 describe('progress', () => {
   it('every discoverable card exists in Science and sources, and every card has a way to be discovered', () => {
     const ids = new Set(SOURCES.map(s => s.id));
