@@ -6,11 +6,11 @@ export type Ev =
   | { t: 'trip'; ids: string[] }
   | { t: 'mission'; dest: string; returned: boolean; grade: string; samples: string[]; kills: number; scrap: number }
   | { t: 'kill'; kind: string }
-  | { t: 'wallet'; scrap: number } | { t: 'visit' } | { t: 'daily'; returned: boolean; score: number } | { t: 'quiz'; ok: number };
+  | { t: 'wallet'; scrap: number } | { t: 'visit' } | { t: 'daily'; returned: boolean; score: number } | { t: 'quiz'; ok: number } | { t: 'chapter'; n: number };
 
-export interface Stats { goals: number; coins: number; rounds: number; jumps: number; launches: number; missions: number; kills: number; boss: number; brutes: number; bestCones: number; worlds: string[]; sGrades: number; maxScrap: number; dailies: number; quizOk: number }
+export interface Stats { goals: number; coins: number; rounds: number; jumps: number; launches: number; missions: number; kills: number; boss: number; brutes: number; bestCones: number; worlds: string[]; sGrades: number; maxScrap: number; dailies: number; quizOk: number; chapters: number }
 export interface Progress { found: string[]; ach: string[]; story: string[]; s: Stats }
-export const emptyProgress = (): Progress => ({ found: [], ach: [], story: [], s: { goals: 0, coins: 0, rounds: 0, jumps: 0, launches: 0, missions: 0, kills: 0, boss: 0, brutes: 0, bestCones: 0, worlds: [], sGrades: 0, maxScrap: 0, dailies: 0, quizOk: 0 } });
+export const emptyProgress = (): Progress => ({ found: [], ach: [], story: [], s: { goals: 0, coins: 0, rounds: 0, jumps: 0, launches: 0, missions: 0, kills: 0, boss: 0, brutes: 0, bestCones: 0, worlds: [], sGrades: 0, maxScrap: 0, dailies: 0, quizOk: 0, chapters: 0 } });
 
 export interface Ach { id: string; icon: string; es: string; en: string; descEs: string; descEn: string; ok: (s: Stats) => boolean }
 export const ACHIEVEMENTS: Ach[] = [
@@ -28,6 +28,7 @@ export const ACHIEVEMENTS: Ach[] = [
   { id: 'boss', icon: '👑', es: 'Cazajefes', en: 'Boss hunter', descEs: 'Derrota a un jefe.', descEn: 'Defeat a boss.', ok: s => s.boss >= 1 },
   { id: 'daily', icon: '📅', es: 'Reto del día', en: 'Daily challenge', descEs: 'Juega el reto del día.', descEn: 'Play the daily challenge.', ok: s => s.dailies >= 1 },
   { id: 'scholar', icon: '🧠', es: 'Estudioso', en: 'Scholar', descEs: 'Acierta 10 preguntas de repaso.', descEn: 'Get 10 review questions right.', ok: s => s.quizOk >= 10 },
+  { id: 'saga', icon: '📖', es: 'Fin de la historia', en: 'Story complete', descEs: 'Termina los 6 capítulos de la historia.', descEn: 'Finish all 6 story chapters.', ok: s => s.chapters >= 6 },
   { id: 'rich', icon: '💰', es: 'Ahorrador', en: 'Saver', descEs: 'Ten 200 🪙 a la vez.', descEn: 'Hold 200 🪙 at once.', ok: s => s.maxScrap >= 200 },
 ];
 
@@ -70,6 +71,7 @@ export function beatsFor(p: Progress, s: Stats, e: Ev, newAch: string[]): string
   if (e.t === 'kill' && e.kind === 'boss') out.push('first_boss');
   if (newAch.includes('worlds')) out.push('three_worlds');
   if (e.t === 'daily') out.push('daily_first');
+  if (e.t === 'chapter') out.push(`ch${e.n}`);
   return out.filter((id, i) => out.indexOf(id) === i && !p.story.includes(id));
 }
 
@@ -87,6 +89,7 @@ export function apply(p: Progress, e: Ev): { p: Progress; newFound: string[]; ne
     case 'wallet': s.maxScrap = Math.max(s.maxScrap, e.scrap); break;
     case 'daily': s.dailies++; break;
     case 'quiz': s.quizOk += e.ok; break;
+    case 'chapter': s.chapters = Math.max(s.chapters, e.n); break;
   }
   const found = [...p.found], newFound = discoveries(e).filter((id, i, a) => !found.includes(id) && a.indexOf(id) === i);
   found.push(...newFound);
@@ -111,7 +114,7 @@ export function track(e: Ev) {
 }
 export function resetAll() {
   cur = emptyProgress();
-  for (const k of ['frontier-progress-v1', 'frontier-meta-v1', 'frontier-level', 'frontier-tutorial-done', 'frontier-daily-v1', 'frontier-run-v1', 'frontier-review-v1', 'frontier-sciday-v1', 'frontier-cosmetics-v1']) { try { localStorage.removeItem(k); } catch { /* private mode */ } }
+  for (const k of ['frontier-progress-v1', 'frontier-meta-v1', 'frontier-level', 'frontier-tutorial-done', 'frontier-daily-v1', 'frontier-run-v1', 'frontier-review-v1', 'frontier-sciday-v1', 'frontier-cosmetics-v1', 'frontier-crew-v1']) { try { localStorage.removeItem(k); } catch { /* private mode */ } }
   subs.forEach(f => f(cur!, { found: [], ach: [], beats: [] }));
 }
 export function subscribe(f: (p: Progress, n: { found: string[]; ach: string[]; beats: string[] }) => void) { subs.add(f); return () => { subs.delete(f); }; }

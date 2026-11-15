@@ -26,6 +26,8 @@ import { solidAt, keepClear, ROCKET_POS } from './lobby';
 import { SkyLife, RaceProps, RampProp } from './skylife';
 import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests } from './ui';
 import { Board, TripCard, RunChips } from './boardui';
+import { MATES, applyMate, applyMateMods, safeMate, useMate, setMate, type CrewCtx } from './crew';
+import { nextChapter, chapterJob, isChapterJob, chapterOf } from './chapters';
 import { offersFor, applyJobs, settle, jobById, slotsFor, type Job, type JobRow } from './board';
 import { loadRun, saveRun, grant, remember, applyRunPerks, applyRunMods } from './runstate';
 import { pickTrip, resolveOption, describeOut, type TEvent, type Out } from './tripevents';
@@ -301,7 +303,8 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const contracts = useMemo(() => contractsFor(dest, level), [dest, level]);
   const contract = contracts.find(c => c.id === contractId) ?? contractById(contractId) ?? defaultContract(dest);
   const activeContract = contract.world === dest ? contract : defaultContract(dest);
-  const perks0 = useMemo(() => applyRunPerks(withCard(perksFor(ship, meta), card), runSt), [ship, meta, card, runSt]);
+  const mateRaw = useMate(), crewCtx: CrewCtx = { missions: meta.runs, story: getProgress().story, ach: getProgress().ach }, mate = safeMate(mateRaw, crewCtx);   // the crew mate riding along (passive perks)
+  const perks0 = useMemo(() => applyMate(applyRunPerks(withCard(perksFor(ship, meta), card), runSt), mate), [ship, meta, card, runSt, mate]);
   const cards = useMemo(() => draw(run * 7919 + 13 + level.length, 3), [run, level]);
 
   useEffect(() => {
@@ -317,7 +320,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const shipOf = d.dest === 'mars' ? 'rover' : d.dest === 'jupiter' ? 'orbiter' : 'sub';
   const power = useMemo(() => powerOf(meta, shipOf), [meta, shipOf]);
   const bossNext = (meta.runs + 1) % 4 === 0;   // every 4th mission has a boss
-  const mods0 = useMemo(() => applyRunMods({ ...scaleForPower(mission.mods, power), boss: bossNext }, runSt), [mission.mods, power, bossNext, runSt]);   // stronger ship → tougher, more varied enemies (max 4); the run's effects stack on top
+  const mods0 = useMemo(() => applyMateMods(applyRunMods({ ...scaleForPower(mission.mods, power), boss: bossNext }, runSt), mate), [mission.mods, power, bossNext, runSt, mate]);   // stronger ship → tougher, more varied enemies (max 4); the run's effects stack on top
   const jobbed = useMemo(() => applyJobs(mods0, perks0, accepted), [mods0, perks0, accepted]);   // accepted board jobs change this mission for real
   const a11y = useA11y();
   const mods = useMemo(() => (a11y.noTimer ? { ...jobbed.mods, timeLimit: 0 } : jobbed.mods), [jobbed.mods, a11y.noTimer]), perks = jobbed.perks;
@@ -368,7 +371,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     sfx(r.returned ? 'win' : 'fail');
     const gain = scrapReward(r, mods, perks, activeContract), sp = scrapParts(r, mods, perks, activeContract), sub = sp.base.reduce((a, p) => a + p.pts, 0);
     const scrapWhy = [...sp.base, { es: 'Subtotal', en: 'Subtotal', pts: Math.round(sub * 10) / 10, max: -1 }, ...sp.mult.map(m => ({ es: m.es, en: m.en, pts: 0, k: Math.round(m.k * 100) / 100 }))];
-    const sj = settle(runSt, d.dest, accepted, r, contractN(activeContract, mods.required)); setRunSt(sj.state); setJobRows(sj.rows); setAccepted([]);
+    const sj = settle(runSt, d.dest, accepted, r, contractN(activeContract, mods.required)); setRunSt(sj.state); setJobRows(sj.rows); setAccepted([]); for (const row of sj.rows) { const c = row.ok ? chapterOf(row.job.id) : undefined; if (c) track({ t: 'chapter', n: c.n }); }
     setReward(gain + sj.scrap); setMeta({ ...meta, scrap: Math.max(EMERGENCY_FUND, meta.scrap + gain + sj.scrap), runs: meta.runs + 1, best: Math.max(meta.best, r.score), kills: meta.kills + (r.kills ?? 0) });
     track({ t: 'mission', dest: d.dest, returned: r.returned, grade: r.grade, samples: r.samples, kills: r.kills ?? 0, scrap: gain } as Ev);
     setResult({ ...r, scrapWhy }); setPhase('end');
@@ -421,8 +424,8 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     {phase === 'tests' && <Tests es={es} level={level} design={design} bonus={bonus} onBack={() => setPhase('hangar')} onGo={() => { setQuest(1); setPhase('earth'); }} />}
 
     {phase === 'workshop' && <Workshop es={es} meta={meta} setMeta={setMeta} initial={wsBack.current === 'hangar' ? ship : 'rover'} onClose={() => setPhase(wsBack.current)} />}
-    {phase === 'draft' && <Draft es={es} cards={cards} onPick={c => { setCard(c); setOffers(offersFor(dest, runSt.rep[dest])); setAccepted([]); setPhase('board'); }} />}
-    {phase === 'board' && <Board es={es} dest={dest} offers={offers} rep={runSt.rep[dest]} accepted={accepted.map(j => j.id)} onToggle={id => setAccepted(a => a.some(j => j.id === id) ? a.filter(j => j.id !== id) : a.length < slotsFor(runSt.rep[dest]) ? [...a, jobById(id)!] : a)} onGo={() => setPhase('mars')} />}
+    {phase === 'draft' && <Draft es={es} cards={cards} onPick={c => { setCard(c); { const ch = nextChapter(getProgress().story); setOffers([...(ch && ch.world === dest ? [chapterJob(ch)] : []), ...offersFor(dest, runSt.rep[dest])]); } setAccepted([]); setPhase('board'); }} />}
+    {phase === 'board' && <Board es={es} dest={dest} mate={mate} crew={crewCtx} onMate={setMate} next={nextChapter(crewCtx.story)} offers={offers} rep={runSt.rep[dest]} accepted={accepted.map(j => j.id)} onToggle={id => setAccepted(a => a.some(j => j.id === id) ? a.filter(j => j.id !== id) : a.filter(j => !isChapterJob(j.id)).length < slotsFor(runSt.rep[dest]) || isChapterJob(id) ? [...a, jobById(id) ?? offers.find(o => o.id === id)!] : a)} onGo={() => setPhase('mars')} />}
     {phase === 'launch' && count < 4 && <div className="adv-count" aria-live="assertive">{L.count[count]}</div>}
     {phase === 'travel' && <div className="adv-travel"><div className="adv-stars" /><div className={`adv-dest ${dest}`} aria-hidden="true" /><Rocket className="adv-ship" size={64} aria-hidden="true" /><h2>{L.travel}: {L[dest]}</h2><p>{L.travelD}</p><div className="adv-progress"><span /></div>
       {!pending && <button className="button button-secondary" onClick={() => setPhase('draft')}>{L.skip}</button>}

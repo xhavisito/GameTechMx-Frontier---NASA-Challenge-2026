@@ -3,6 +3,8 @@ import { objShort, type Job, type JobRow } from './board';
 import { modById, slotsFor, tierFor, type RunState } from './runstate';
 import { optionNote, type TEvent, type TOption } from './tripevents';
 import type { Dest } from './design';
+import { MATES, isOpen, type CrewCtx } from './crew';
+import { isChapterJob, type Chapter } from './chapters';
 
 const t = (es: boolean, a: string, b: string) => (es ? a : b);
 const WORLD: Record<Dest, { es: string; en: string; base: string; baseEn: string }> = {
@@ -21,14 +23,18 @@ export function TripCard({ es, ev, step, total, onPick }: { es: boolean; ev: TEv
 }
 
 /** The planet's mission board: pick up to a few jobs. Each one changes THIS mission and leaves something behind for the next ones. */
-export function Board({ es, dest, offers, rep, accepted, onToggle, onGo }: { es: boolean; dest: Dest; offers: Job[]; rep: number; accepted: string[]; onToggle: (id: string) => void; onGo: () => void }) {
+export function Board({ es, dest, offers, rep, accepted, onToggle, onGo, mate, crew, onMate, next }: { mate: string; crew: CrewCtx; onMate: (id: string) => void; next: Chapter | null; es: boolean; dest: Dest; offers: Job[]; rep: number; accepted: string[]; onToggle: (id: string) => void; onGo: () => void }) {
   const max = slotsFor(rep), w = WORLD[dest];
   return <div className="adv-modal ev"><div className="adv-card wide board">
     <h2>📋 {t(es, `Tablero de misiones · ${w.es}`, `Mission board · ${w.en}`)}</h2>
     <p>{t(es, `${w.base}. Acepta hasta ${max} trabajos. Cambian esta misión y, si los cumples (o fallas), dejan efectos en las siguientes.`, `${w.baseEn}. Take up to ${max} jobs. They change this mission and, win or lose, leave effects on the next ones.`)}</p>
     <div className="rep" aria-label="reputation">{t(es, 'Reputación', 'Reputation')}: {'⭐'.repeat(rep) || '—'} <small>{t(es, `(nivel ${tierFor(rep)}: más rep = trabajos mejores y más pago)`, `(tier ${tierFor(rep)}: more rep = better jobs and pay)`)}</small></div>
+    {next && !offers.some(j => isChapterJob(j.id)) && <p className="chap-hint">📖 {t(es, `Historia · capítulo ${next.n}: ${next.title.es} (en ${WORLD[next.world].es})`, `Story · chapter ${next.n}: ${next.title.en} (on ${WORLD[next.world].en})`)}</p>}
+    {!next && <p className="chap-hint">📖 {t(es, 'Historia completa. ¡Gracias por explorar!', 'Story complete. Thanks for exploring!')}</p>}
+    <div className="crew" role="radiogroup" aria-label={t(es, 'Tripulación', 'Crew')}>{MATES.map(m => { const open = isOpen(m, crew), on = mate === m.id; return <button key={m.id} role="radio" aria-checked={on} className={`chip crew-mate ${on ? 'on' : ''}`} disabled={!open} title={open ? (es ? m.desc.es : m.desc.en) : (es ? m.unlock.es : m.unlock.en)} onClick={() => onMate(m.id)}>{open ? m.icon : '🔒'} {es ? m.name.es : m.name.en}</button>; })}</div>
+    <small className="crew-desc">{(() => { const m = MATES.find(x => x.id === mate)!; return `${m.icon} ${es ? m.role.es : m.role.en}: ${es ? m.desc.es : m.desc.en}`; })()}</small>
     <div className="adv-row">{offers.map(j => {
-      const on = accepted.includes(j.id), full = !on && accepted.length >= max, win = j.win ? modById(j.win) : null, lose = j.lose ? modById(j.lose) : null;
+      const on = accepted.includes(j.id), full = !on && !isChapterJob(j.id) && accepted.filter(a => !isChapterJob(a)).length >= max, win = j.win ? modById(j.win) : null, lose = j.lose ? modById(j.lose) : null;
       return <button key={j.id} className={`adv-opt card job ${on ? 'on' : ''}`} aria-pressed={on} disabled={full} onClick={() => onToggle(j.id)}>
         <b>{j.icon} {es ? j.es : j.en} <span className="tier">{'●'.repeat(j.tier)}</span></b>
         <small>{es ? j.descEs : j.descEn}</small>

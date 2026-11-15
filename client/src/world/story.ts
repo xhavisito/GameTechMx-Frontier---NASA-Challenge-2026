@@ -42,5 +42,29 @@ export const BEATS: Beat[] = [
     A('El reto del día es igual para todos: mismo mundo, mismo equipo. Aquí cuenta la habilidad, no las mejoras.', 'The daily challenge is the same for everyone: same world, same gear. Skill counts here, not upgrades.'),
     T('Vuelve cada día para hacer racha. 🔥', 'Come back every day to build a streak. 🔥'),
   ] },
+  { id: 'ch1', lines: [
+    A('¡Recibimos algo! La señal de Marte no es ruido: parece un mensaje.', 'We got something! The Mars signal is not noise: it looks like a message.'),
+    T('Dice “AGUA”. Vamos a seguir el rastro.', 'It says “WATER”. Let’s follow the trail.'),
+  ] },
+  { id: 'ch2', lines: [
+    A('Hielo bajo la arena, justo donde marcaba la señal. Alguien lo dejó ahí a propósito.', 'Ice under the sand, right where the signal pointed. Someone left it there on purpose.'),
+    T('Nube quiere acompañarnos. ¡Ya es de la tripulación! 🐱', 'Cloud wants to join us. She is crew now! 🐱'),
+  ] },
+  { id: 'ch3', lines: [
+    A('La señal rebota en Júpiter. Cruzaste la tormenta y volviste entero. ¡Bien piloteado!', 'The signal bounces off Jupiter. You crossed the storm and came back in one piece. Well flown!'),
+    T('Ahora apunta hacia un mundo con océanos: Miller.', 'Now it points to an ocean world: Miller.'),
+  ] },
+  { id: 'ch4', lines: [
+    A('Algo late bajo las olas de Miller, como un corazón enorme. Es la misma señal.', 'Something beats under Miller’s waves, like a huge heart. It is the same signal.'),
+    T('La Dra. Lupa quiere estudiarlo contigo. ¡Bienvenida! 🔬', 'Dr. Lens wants to study it with you. Welcome! 🔬'),
+  ] },
+  { id: 'ch5', lines: [
+    A('Los guardianes del cráter caen uno a uno. Detrás había una antena antigua, aún encendida.', 'The crater guardians fall one by one. Behind them stood an ancient antenna, still powered on.'),
+    T('Solo falta escucharla completa. Hay que volver a Júpiter.', 'We only need to hear it in full. Back to Jupiter.'),
+  ] },
+  { id: 'ch6', lines: [
+    A('¡La gran señal! No era una amenaza: es una invitación a seguir explorando juntos.', 'The great signal! It was no threat: it is an invitation to keep exploring together.'),
+    T('Gracias por todo, explorador. El Capitán Brisa se une a tu tripulación. ¡Fin del capítulo… y comienzo de todo lo demás! 🚀', 'Thanks for everything, explorer. Captain Breeze joins your crew. End of the chapter… and the start of everything else! 🚀'),
+  ] },
 ];
 export const beatById = (id: string) => BEATS.find(b => b.id === id);

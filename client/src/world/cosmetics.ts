@@ -20,6 +20,7 @@ export const ITEMS: Item[] = [
   { id: 'flag-red', slot: 'flag', icon: '🚩', name: p('Banderín rojo', 'Red pennant'), colors: ['#ff4d5e'], ach: 'launch' },
   { id: 'flag-green', slot: 'flag', icon: '🟩', name: p('Banderín verde', 'Green pennant'), colors: ['#3ddc84'], ach: 'daily' },
   { id: 'flag-purple', slot: 'flag', icon: '🧠', name: p('Banderín de estudioso', 'Scholar pennant'), colors: ['#b39ddb'], ach: 'scholar' },
+  { id: 'flag-saga', slot: 'flag', icon: '📖', name: p('Banderín de la saga', 'Saga pennant'), colors: ['#ffd166'], ach: 'saga' },
   { id: 'flag-silver', slot: 'flag', icon: '🛡️', name: p('Banderín de guardián', 'Guardian pennant'), colors: ['#d6e4f0'], ach: 'kills25' },
 ];
 export const itemById = (id: string) => ITEMS.find(i => i.id === id);
