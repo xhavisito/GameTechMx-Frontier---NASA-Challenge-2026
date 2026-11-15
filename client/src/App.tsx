@@ -1,3 +1,5 @@
+import { SettingsPanel, Captions } from './world/settingsui';
+import { apply, getA11y, useA11y } from './world/a11y';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { nextQuality, setQuality, useQuality } from './world/quality';
 import { isMuted, setMuted, sfx, unlockAudio } from './world/audio';
@@ -15,7 +17,9 @@ function initialLang(): 'es' | 'en' {
 export function App() {
   const [lang, setLang] = useState<'es' | 'en'>(initialLang);
   const [run, setRun] = useState(0);
-  const [sci, setSci] = useState(false);
+  const [sci, setSci] = useState(false), [settings, setSettings] = useState(false);
+  const a11y = useA11y();
+  useEffect(() => { apply(getA11y()); }, []);
   useEffect(() => { const t = setTimeout(() => { void loadScience(); }, 4000); return () => clearTimeout(t); }, []);   // warm the chunk so the panel opens at once, even over the hangar
   const [muted, setMutedState] = useState(isMuted);
   const quality = useQuality();
@@ -34,6 +38,9 @@ export function App() {
     {sci && <Suspense fallback={<div className="sci-loading" role="status"><div>{lang === 'es' ? 'Cargando…' : 'Loading…'}</div></div>}><Science es={lang === 'es'} onClose={() => setSci(false)} /></Suspense>}
     <button className="mute-btn q-btn" onClick={() => setQuality(nextQuality(quality))} aria-label={lang === 'es' ? `Calidad gráfica: ${{ low: 'baja', medium: 'media', high: 'alta' }[quality]}` : `Graphics quality: ${quality}`} title={lang === 'es' ? 'Calidad gráfica (sombras)' : 'Graphics quality (shadows)'}>✨<small>{quality === 'low' ? 'B' : quality === 'medium' ? 'M' : 'A'}</small></button>
     <div className="vignette" aria-hidden="true" />
+    <button className="mute-btn set-btn" onClick={() => setSettings(true)} aria-label={lang === 'es' ? 'Ajustes y accesibilidad' : 'Settings and accessibility'} title={lang === 'es' ? 'Ajustes' : 'Settings'}>⚙️</button>
+    {settings && <SettingsPanel es={lang === 'es'} onClose={() => setSettings(false)} />}
+    <Captions es={lang === 'es'} on={a11y.captions} />
     <button className="mute-btn" onClick={() => { const m = !muted; setMuted(m); setMutedState(m); if (!m) { unlockAudio(); sfx('ui'); } }} aria-label={lang === 'es' ? (muted ? 'Activar sonido' : 'Silenciar') : (muted ? 'Turn sound on' : 'Mute')} aria-pressed={muted}>{muted ? '🔇' : '🔊'}</button>
     <button className="lang-btn" onClick={() => setLang(l => (l === 'es' ? 'en' : 'es'))} aria-label="Language">{lang === 'es' ? 'EN' : 'ES'}</button>
   </>;
