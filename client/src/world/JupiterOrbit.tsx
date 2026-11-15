@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Stars } from '@react-three/drei';
 import * as THREE from 'three';
+import { Polish } from './polish';
 import { X } from 'lucide-react';
 import { jupiterGeometry, SPOT } from '../three/lowpoly';
 import { rng } from '../three/noise';
@@ -161,7 +162,7 @@ function Scene({ tool, mods, perks, contract, sim, pois, tier, es, g, hud, input
   });
 
   return <>
-    <ambientLight intensity={0.7} /><directionalLight position={[80, 40, 60]} intensity={2.2} color="#fff1d6" />
+    <ambientLight intensity={0.7} /><directionalLight position={[80, 40, 60]} intensity={2.2} color="#fff1d6" /><Polish />
     <Stars radius={200} depth={60} count={2500} factor={5} saturation={0.5} fade speed={0} />
     <mesh geometry={geo}><meshStandardMaterial vertexColors flatShading roughness={1} /></mesh>
     <mesh ref={moon}><icosahedronGeometry args={[2.2, 1]} /><meshStandardMaterial color="#e8c46a" flatShading /></mesh>

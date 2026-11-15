@@ -19,3 +19,5 @@ button,input,select{font-family:inherit;color:inherit;cursor:pointer}
 .sci-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #1b1230}
 .mute-btn{position:fixed;top:64px;right:66px;z-index:400;width:46px;height:46px;border-radius:14px;border:3px solid #1b1230;background:#fff4e6;font-size:1.2rem;box-shadow:0 4px 0 #1b1230;cursor:pointer;display:grid;place-items:center;padding:0}
 .mute-btn:active{transform:translateY(3px);box-shadow:0 1px 0 #1b1230}
+.q-btn{right:120px;font-size:1rem;gap:1px}.q-btn small{font-size:.7rem;font-weight:900}
+.vignette{position:fixed;inset:0;pointer-events:none;z-index:1;background:radial-gradient(ellipse at center,transparent 62%,rgba(20,10,40,.28) 100%)}

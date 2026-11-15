@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { Polish } from './polish';
 import { X, Zap, Heart, Compass, Gamepad2, Keyboard, Hand } from 'lucide-react';
 import { modsFor, type Mods } from './levels';
 import { Boom, type BoomState } from './fx';
@@ -288,7 +289,7 @@ function Scene({ cfg, mods, need, perks, contract, sim, pois, tier, world, es, g
 
   return <>
     <hemisphereLight args={['#ffe7cc', '#a05a4a', 1.1]} />
-    <directionalLight position={[60, 90, 30]} intensity={1.9} color="#fff1d6" />
+    <directionalLight position={[60, 90, 30]} intensity={1.9} color="#fff1d6" /><Polish />
     <Terrain world={world} /><Rocks world={world} /><Lander />
     <mesh position={[-120, 70, -160]}><icosahedronGeometry args={[14, 1]} /><meshBasicMaterial color="#fff3c4" fog={false} /></mesh>
     <Boom boom={boom} />

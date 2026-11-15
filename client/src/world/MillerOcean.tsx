@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { Polish } from './polish';
 import { X, Heart, BatteryFull, ChevronUp, ChevronDown, Timer } from 'lucide-react';
 import { HALF, tally, type MarsResult } from './marsWorld';
 import { Joystick } from './MarsWorld';
@@ -214,7 +215,7 @@ function Scene({ tool, mods, perks, contract, sim, pois, tier, es, sites, g, hud
   });
 
   return <>
-    <hemisphereLight args={['#bfe9ff', '#1d3f78', 1.1]} /><directionalLight position={[40, 90, 30]} intensity={1.2} color="#fff6dd" />
+    <hemisphereLight args={['#bfe9ff', '#1d3f78', 1.1]} /><directionalLight position={[40, 90, 30]} intensity={1.2} color="#fff6dd" /><Polish />
     <pointLight ref={light} color="#bfe9ff" distance={70} intensity={0.2} />
     <mesh ref={surf} geometry={surfGeo} position={[0, 0, 0]}><meshStandardMaterial color="#7fd8f0" flatShading transparent opacity={0.55} side={THREE.DoubleSide} roughness={0.4} /></mesh>
     <mesh geometry={floorGeo}><meshStandardMaterial vertexColors flatShading roughness={1} /></mesh>
