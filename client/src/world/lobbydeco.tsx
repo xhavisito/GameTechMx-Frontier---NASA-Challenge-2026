@@ -117,23 +117,6 @@ function Paths({ world }: { world: MarsWorldData }) {
   </>;
 }
 
-/** Little worker robots wandering between two points. */
-function Bot({ world, a, b, k }: { world: MarsWorldData; a: [number, number]; b: [number, number]; k: number }) {
-  const g = useRef<THREE.Group>(null);
-  useFrame(({ clock }) => {
-    if (!g.current) return; const t = clock.elapsedTime * (0.12 + k * 0.03) + k * 2, u = (Math.sin(t) + 1) / 2, x = a[0] + (b[0] - a[0]) * u, z = a[1] + (b[1] - a[1]) * u;
-    g.current.position.set(x, heightAt(world, x, z), z); g.current.rotation.y = Math.atan2(b[0] - a[0], b[1] - a[1]) * 1 + (Math.cos(t) > 0 ? 0 : Math.PI);
-    g.current.children[3]!.rotation.z = Math.sin(clock.elapsedTime * 6 + k) * 0.5;   // waving arm
-  });
-  return <group ref={g}>
-    <mesh position={[0, 0.7, 0]}><boxGeometry args={[0.8, 0.9, 0.6]} /><M c={['#ffc857', '#7fdcff', '#ff8f4d'][k % 3]!} /></mesh>
-    <mesh position={[0, 1.5, 0]}><sphereGeometry args={[0.42, 12, 10]} /><M c="#fff4e6" /></mesh>
-    <mesh position={[0, 1.52, 0.32]}><boxGeometry args={[0.5, 0.16, 0.1]} /><M c="#2a1f3d" /></mesh>
-    <mesh position={[0.55, 0.9, 0]}><boxGeometry args={[0.14, 0.6, 0.14]} /><M c="#8d8f98" /></mesh>
-    {[-0.25, 0.25].map(x => <mesh key={x} position={[x, 0.15, 0]}><boxGeometry args={[0.22, 0.3, 0.3]} /><M c="#2a1f3d" /></mesh>)}
-  </group>;
-}
-
 /** Birds circling over the hangar and a hot-air balloon drifting around. */
 function Sky() {
   const birds = useRef<(THREE.Group | null)[]>([]), balloon = useRef<THREE.Group>(null);
@@ -167,7 +150,6 @@ export function LobbyDeco({ world }: { world: MarsWorldData }) {
     <Scenery world={world} /><Paths world={world} /><LaunchPad world={world} /><SolarFarm world={world} /><Dish world={world} />
     {[3, 4, 5].map((i, k) => <Turbine key={i} world={world} x={SOLIDS[i + 1]!.x} z={SOLIDS[i + 1]!.z} k={k} />)}
     {[7, 8, 9].map((i, k) => <Dome key={i} world={world} x={SOLIDS[i]!.x} z={SOLIDS[i]!.z} c={['#fff4e6', '#ffe7cc', '#e0f2ff'][k]!} />)}
-    <Bot world={world} a={[-30, 8]} b={[-22, 12]} k={0} /><Bot world={world} a={[14, -2]} b={[20, 6]} k={1} /><Bot world={world} a={[ROCKET_POS.x - 12, ROCKET_POS.z + 12]} b={[ROCKET_POS.x - 4, ROCKET_POS.z + 14]} k={2} /><Bot world={world} a={[-58, 52]} b={[-50, 56]} k={3} />
     <Sky />
   </>;
 }
