@@ -115,7 +115,7 @@ export function track(e: Ev) {
 }
 export function resetAll() {
   cur = emptyProgress();
-  for (const k of ['frontier-progress-v1', 'frontier-meta-v1', 'frontier-level', 'frontier-tutorial-done', 'frontier-daily-v1', 'frontier-run-v1', 'frontier-review-v1', 'frontier-sciday-v1', 'frontier-cosmetics-v1', 'frontier-crew-v1', 'frontier-map-v1']) { try { localStorage.removeItem(k); } catch { /* private mode */ } }
+  for (const k of ['frontier-progress-v1', 'frontier-meta-v1', 'frontier-level', 'frontier-tutorial-done', 'frontier-daily-v1', 'frontier-run-v1', 'frontier-review-v1', 'frontier-sciday-v1', 'frontier-cosmetics-v1', 'frontier-crew-v1', 'frontier-map-v1', 'frontier-salvage-v1']) { try { localStorage.removeItem(k); } catch { /* private mode */ } }
   resetMap();
   subs.forEach(f => f(cur!, { found: [], ach: [], beats: [] }));
 }

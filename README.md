@@ -1,3 +1,6 @@
+<p align="center"><img src="client/public/logos/frontier.png" alt="Frontier Mission Architect" width="360"/></p>
+<p align="center"><img src="client/public/logos/gametechmx.png" alt="Game Tech México" width="220"/></p>
+
 # GameTechMx Frontier
 
 Juego de exploración espacial en mundo abierto, pensado para todas las edades (NASA Space Apps 2026). Empiezas en la Tierra, preparas tu nave, despegas y exploras tres mundos:
@@ -92,3 +95,4 @@ Honesty rule: a figure counts as NASA-backed only if the linked NASA page states
 - **Lobby** (`lobby.ts`, `lobbydeco.tsx`): torre de lanzamiento y tanques junto al cohete, granja solar, aerogeneradores, domos habitables, antena parabólica, caminos con piedras y farolas, banderas, trabajadores robot, pájaros, globo aerostático, arbustos y parches de flores (instanciados). Los objetos sólidos bloquean al rover; una prueba verifica que nada tapa monedas, carrera, rampa ni caminos. / Launch tower, solar farm, wind turbines, habitat domes, dish, paths, lamps, flags, worker bots, birds, balloon, bushes and flowers.
 - **Llantas que giran / Spinning wheels**: giran según la distancia recorrida (adelante y reversa).
 - **Gráficos / Graphics** (`quality.ts`, `polish.tsx`): sombras suaves que siguen a la cámara, sombreado liso y más segmentos en naves, criaturas y props (el terreno y las rocas siguen facetados), viñeta suave. Botón ✨ cicla calidad Baja/Media/Alta (celulares y equipos de ≤4 núcleos arrancan en Baja, sin sombras).
+- **Muerte y rescate**: si tu vehículo explota pierdes toda la chatarra, las mejoras y la reputación de la expedición. Puedes pagar una sola vez, ahora mismo, para recuperarlo todo (más de la mitad de tu chatarra más una cuota por mejora; más barato en Fácil y más caro en Experto). Si lo dejas ir, no hay vuelta atrás. Las primeras misiones no arriesgan nada y el reto diario nunca te quita nada.
