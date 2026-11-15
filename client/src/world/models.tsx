@@ -27,12 +27,20 @@ const sm = (x: number) => { const c = Math.max(0, Math.min(1, x)); return c * c 
 const mix = (a: number, b: number, k: number) => a + (b - a) * k;
 
 const CLAW = (() => { const g = new THREE.BoxGeometry(0.07, 0.42, 0.1); g.translate(0, 0.22, 0); return g; })();
+const DEBUG = typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug');
 const GREY = '#8d8f98', DARK = '#4a4a56', BLUE = '#6f9bc4', ORANGE = '#ff8f4d', HUB = '#b9bcc6';
-const M = ({ c }: { c: string }) => <meshStandardMaterial color={c} flatShading roughness={0.9} />;
-function Wheel({ x, z }: { x: number; z: number }) {
+const M = ({ c }: { c: string }) => <meshStandardMaterial color={c} roughness={0.8} />;
+function Wheel({ x, z, reg }: { x: number; z: number; reg: (g: THREE.Group | null) => void }) {
+  const out = x > 0 ? 1 : -1;
   return <group position={[x, 0.42, z]} rotation={[0, 0, Math.PI / 2]}>
-    <mesh><cylinderGeometry args={[0.42, 0.42, 0.34, 9]} /><M c={DARK} /></mesh>
-    <mesh position={[0, x > 0 ? 0.18 : -0.18, 0]}><cylinderGeometry args={[0.26, 0.26, 0.04, 8]} /><M c={HUB} /></mesh>
+    <group ref={reg}>
+      <mesh><cylinderGeometry args={[0.42, 0.42, 0.34, 12]} /><M c={DARK} /></mesh>
+      {/* tread lugs and a three-spoke hub, so you can see it turn */}
+      {Array.from({ length: 8 }, (_, i) => <mesh key={i} position={[Math.sin((i * Math.PI) / 4) * 0.43, 0, Math.cos((i * Math.PI) / 4) * 0.43]} rotation={[0, (i * Math.PI) / 4, 0]}><boxGeometry args={[0.1, 0.36, 0.08]} /><M c="#2f2f3a" /></mesh>)}
+      <mesh position={[0, out * 0.18, 0]}><cylinderGeometry args={[0.28, 0.28, 0.04, 12]} /><M c={HUB} /></mesh>
+      {[0, 1, 2].map(i => <mesh key={i} position={[0, out * 0.205, 0]} rotation={[0, (i * Math.PI) / 3, 0]}><boxGeometry args={[0.5, 0.03, 0.07]} /><M c={GREY} /></mesh>)}
+      <mesh position={[0.17, out * 0.21, 0]}><cylinderGeometry args={[0.05, 0.05, 0.03, 14]} /><M c={ORANGE} /></mesh>
+    </group>
   </group>;
 }
 
@@ -41,8 +49,17 @@ export function Rover({ radar = false, spectrometer = false, tier = 0, laser = f
   const muzzle = useRef<THREE.Mesh>(null), shotSeen = useRef(arm.shot), flash = useRef(0);
   const turret = useRef<THREE.Group>(null), sh = useRef<THREE.Group>(null), el = useRef<THREE.Group>(null), wr = useRef<THREE.Group>(null);
   const c1 = useRef<THREE.Mesh>(null), c2 = useRef<THREE.Mesh>(null);
+  const root = useRef<THREE.Group>(null), wheels = useRef<THREE.Group[]>([]), lastPos = useRef<THREE.Vector3 | null>(null), roll = useRef(0), vp = useMemo(() => ({ p: new THREE.Vector3(), f: new THREE.Vector3() }), []);
+  const reg = (g: THREE.Group | null) => { if (g && !wheels.current.includes(g)) wheels.current.push(g); };
   const seen = useRef(arm.pulse), t = useRef(-1);
   useFrame((_, dt) => {
+    // wheels turn with the distance actually driven (forward = +z of the rover)
+    if (root.current && dt > 0) {
+      root.current.getWorldPosition(vp.p); root.current.getWorldDirection(vp.f);
+      if (lastPos.current) { const d = vp.p.clone().sub(lastPos.current); if (d.length() < 5) roll.current += d.dot(vp.f) / 0.42; lastPos.current.copy(vp.p); } else lastPos.current = vp.p.clone();
+      for (const w of wheels.current) w.rotation.y = -roll.current;
+      if (DEBUG) (window as unknown as Record<string, unknown>).__roll = { roll: roll.current, wheels: wheels.current.length };
+    }
     if (arm.pulse !== seen.current) { seen.current = arm.pulse; t.current = 0; }
     if (arm.shot !== shotSeen.current) { shotSeen.current = arm.shot; flash.current = 0.12; }
     flash.current = Math.max(0, flash.current - dt); if (muzzle.current) muzzle.current.visible = flash.current > 0;
@@ -60,13 +77,13 @@ export function Rover({ radar = false, spectrometer = false, tier = 0, laser = f
     if (c1.current) c1.current.rotation.z = a;
     if (c2.current) c2.current.rotation.z = -a;
   });
-  return <group>
+  return <group ref={root}>
     {/* body: blue front half, orange back half, grey fan panel on the sides */}
     <mesh position={[0, 1.3, 0.28]}><boxGeometry args={[1.2, 0.85, 0.6]} /><M c={BLUE} /></mesh>
     <mesh position={[0, 1.3, -0.32]}><boxGeometry args={[1.2, 0.85, 0.6]} /><M c={ORANGE} /></mesh>
     {[-1, 1].map(s => <group key={s} position={[s * 0.61, 1.3, 0.45]} rotation={[0, (s * Math.PI) / 2, 0]}>
       <mesh><boxGeometry args={[0.55, 0.55, 0.05]} /><M c={GREY} /></mesh>
-      <mesh position={[0, 0, 0.03]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.18, 0.18, 0.04, 8]} /><M c={DARK} /></mesh>
+      <mesh position={[0, 0, 0.03]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.18, 0.18, 0.04, 14]} /><M c={DARK} /></mesh>
     </group>)}
     {/* rocker frame and axles */}
     {[-1, 1].map(s => <group key={s}>
@@ -75,17 +92,17 @@ export function Rover({ radar = false, spectrometer = false, tier = 0, laser = f
       <mesh position={[s * 0.72, 1.1, -0.7]} rotation={[0, 0, s * 0.2]}><boxGeometry args={[0.12, 0.5, 0.12]} /><M c={GREY} /></mesh>
       {[-0.85, 0, 0.85].map(z => <group key={z}>
         <mesh position={[s * 0.88, 0.68, z]}><boxGeometry args={[0.1, 0.6, 0.1]} /><M c={GREY} /></mesh>
-        <Wheel x={s * 1.02} z={z} />
+        <Wheel x={s * 1.02} z={z} reg={reg} />
       </group>)}
     </group>)}
     {/* arm */}
     <group ref={turret} position={[0, 1.75, -0.05]}>
-      <mesh position={[0, 0.12, 0]}><cylinderGeometry args={[0.3, 0.34, 0.3, 8]} /><M c={GREY} /></mesh>
+      <mesh position={[0, 0.12, 0]}><cylinderGeometry args={[0.3, 0.34, 0.3, 14]} /><M c={GREY} /></mesh>
       <group ref={sh} position={[0, 0.3, 0]} rotation={[0.45, 0, 0]}>
         <mesh position={[0, 0.5, 0]}><boxGeometry args={[0.2, 1.0, 0.24]} /><M c={GREY} /></mesh>
-        <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.16, 0.16, 0.34, 7]} /><M c={DARK} /></mesh>
+        <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.16, 0.16, 0.34, 14]} /><M c={DARK} /></mesh>
         <group ref={el} position={[0, 1.0, 0]} rotation={[1.55, 0, 0]}>
-          <mesh rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.14, 0.14, 0.32, 7]} /><M c={DARK} /></mesh>
+          <mesh rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.14, 0.14, 0.32, 14]} /><M c={DARK} /></mesh>
           <mesh position={[0, 0.45, 0]}><boxGeometry args={[0.17, 0.9, 0.2]} /><M c={GREY} /></mesh>
           <group ref={wr} position={[0, 0.9, 0]} rotation={[0.4, 0, 0]}>
             <mesh><boxGeometry args={[0.24, 0.2, 0.24]} /><M c={DARK} /></mesh>
@@ -95,13 +112,13 @@ export function Rover({ radar = false, spectrometer = false, tier = 0, laser = f
         </group>
       </group>
     </group>
-    {tier >= 1 && <group><mesh position={[-0.45, 2.1, -0.5]}><cylinderGeometry args={[0.03, 0.03, 1.1, 4]} /><M c={HUB} /></mesh><mesh position={[-0.45, 2.7, -0.5]}><sphereGeometry args={[0.09, 5, 4]} /><meshStandardMaterial color="#ff5d73" emissive="#ff5d73" emissiveIntensity={0.9} /></mesh></group>}
+    {tier >= 1 && <group><mesh position={[-0.45, 2.1, -0.5]}><cylinderGeometry args={[0.03, 0.03, 1.1, 4]} /><M c={HUB} /></mesh><mesh position={[-0.45, 2.7, -0.5]}><sphereGeometry args={[0.09, 14, 10]} /><meshStandardMaterial color="#ff5d73" emissive="#ff5d73" emissiveIntensity={0.9} /></mesh></group>}
     {tier >= 2 && [-1, 1].map(s => <mesh key={s} position={[s * 0.66, 1.3, -0.3]}><boxGeometry args={[0.08, 0.7, 0.9]} /><M c="#5b6ee1" /></mesh>)}
     {tier >= 3 && [-1, 1].map(s => <group key={s} position={[s * 0.95, 1.9, -0.35]} rotation={[0, 0, s * 0.35]}><mesh position={[s * 0.5, 0, 0]}><boxGeometry args={[1, 0.05, 0.9]} /><meshStandardMaterial color="#2a4aa8" flatShading emissive="#5b6ee1" emissiveIntensity={0.25} /></mesh></group>)}
     {tier >= 3 && <mesh position={[0, 1.78, 0.55]}><boxGeometry args={[1.25, 0.06, 0.06]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.6} /></mesh>}
-    {laser && <group position={[0, 1.88, 0.62]}><mesh><boxGeometry args={[0.34, 0.2, 0.4]} /><M c={DARK} /></mesh><mesh position={[0, 0.02, 0.5]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.06, 0.08, 0.8, 6]} /><M c="#ff7a59" /></mesh><mesh ref={muzzle} position={[0, 0.02, 1]} visible={false}><icosahedronGeometry args={[0.28, 0]} /><meshBasicMaterial color="#fff4b0" /></mesh></group>}
-    {radar && <mesh position={[0, 1.95, -0.5]} rotation={[0.5, 0, 0]}><cylinderGeometry args={[0.4, 0.06, 0.3, 8]} /><meshStandardMaterial color="#7fdcff" flatShading /></mesh>}
-    {spectrometer && <mesh position={[0, 0.95, 0.95]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.1, 0.1, 0.5, 6]} /><meshStandardMaterial color="#b39ddb" flatShading /></mesh>}
+    {laser && <group position={[0, 1.88, 0.62]}><mesh><boxGeometry args={[0.34, 0.2, 0.4]} /><M c={DARK} /></mesh><mesh position={[0, 0.02, 0.5]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.06, 0.08, 0.8, 14]} /><M c="#ff7a59" /></mesh><mesh ref={muzzle} position={[0, 0.02, 1]} visible={false}><icosahedronGeometry args={[0.28, 1]} /><meshBasicMaterial color="#fff4b0" /></mesh></group>}
+    {radar && <mesh position={[0, 1.95, -0.5]} rotation={[0.5, 0, 0]}><cylinderGeometry args={[0.4, 0.06, 0.3, 14]} /><meshStandardMaterial color="#7fdcff" flatShading /></mesh>}
+    {spectrometer && <mesh position={[0, 0.95, 0.95]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.1, 0.1, 0.5, 14]} /><meshStandardMaterial color="#b39ddb" flatShading /></mesh>}
     <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}><circleGeometry args={[1.9, 8]} /><meshBasicMaterial color="#1b1230" transparent opacity={0.22} /></mesh>
   </group>;
 }
@@ -111,10 +128,10 @@ export function SubGLB({ tier = 0, weapon = false }: { tier?: number; weapon?: b
   const root = useStyled(SUB_URL());
   return <group>
     <primitive object={root} />
-    {tier >= 1 && [-1, 1].map(s => <mesh key={s} position={[s * 0.55, 0.1, 2.3]}><sphereGeometry args={[0.18, 6, 5]} /><meshStandardMaterial color="#fff4b0" emissive="#fff4b0" emissiveIntensity={1} /></mesh>)}
-    {tier >= 2 && <mesh position={[0, 0.95, 0.2]} rotation={[0.4, 0, 0]}><cylinderGeometry args={[0.5, 0.08, 0.2, 8]} /><meshStandardMaterial color="#7fdcff" flatShading /></mesh>}
+    {tier >= 1 && [-1, 1].map(s => <mesh key={s} position={[s * 0.55, 0.1, 2.3]}><sphereGeometry args={[0.18, 14, 10]} /><meshStandardMaterial color="#fff4b0" emissive="#fff4b0" emissiveIntensity={1} /></mesh>)}
+    {tier >= 2 && <mesh position={[0, 0.95, 0.2]} rotation={[0.4, 0, 0]}><cylinderGeometry args={[0.5, 0.08, 0.2, 14]} /><meshStandardMaterial color="#7fdcff" flatShading /></mesh>}
     {tier >= 3 && [-1, 1].map(s => <mesh key={s} position={[s * 0.9, -0.05, -0.8]} rotation={[0, 0, s * 0.3]}><boxGeometry args={[0.9, 0.06, 1.2]} /><meshStandardMaterial color="#ffc857" flatShading emissive="#ffc857" emissiveIntensity={0.25} /></mesh>)}
-    {weapon && [-1, 1].map(s => <mesh key={s} position={[s * 0.5, -0.45, 1.3]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.13, 0.13, 1.5, 6]} /><meshStandardMaterial color="#ff7a59" flatShading /></mesh>)}
+    {weapon && [-1, 1].map(s => <mesh key={s} position={[s * 0.5, -0.45, 1.3]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.13, 0.13, 1.5, 14]} /><meshStandardMaterial color="#ff7a59" flatShading /></mesh>)}
   </group>;
 }
 
@@ -123,11 +140,11 @@ export function Orbiter({ tier = 0, weapon = false }: { tier?: number; weapon?: 
   return <group>
     <mesh rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[0.8, 2.6, 6]} /><meshStandardMaterial color="#fff4e6" flatShading /></mesh>
     <mesh position={[0, 0, -0.6]}><boxGeometry args={[3.6 + tier * 0.7, 0.1, 1]} /><meshStandardMaterial color="#5b6ee1" flatShading /></mesh>
-    <mesh position={[0, 0.5, -0.3]}><sphereGeometry args={[0.35, 6, 5]} /><meshStandardMaterial color="#ffc857" flatShading /></mesh>
-    {tier >= 1 && [-1, 1].map(s => <mesh key={s} position={[s * 0.5, -0.1, -1.3]}><cylinderGeometry args={[0.2, 0.3, 0.7, 6]} /><meshStandardMaterial color="#3b3b44" flatShading /></mesh>)}
+    <mesh position={[0, 0.5, -0.3]}><sphereGeometry args={[0.35, 14, 10]} /><meshStandardMaterial color="#ffc857" flatShading /></mesh>
+    {tier >= 1 && [-1, 1].map(s => <mesh key={s} position={[s * 0.5, -0.1, -1.3]}><cylinderGeometry args={[0.2, 0.3, 0.7, 14]} /><meshStandardMaterial color="#3b3b44" flatShading /></mesh>)}
     {tier >= 2 && [-1, 1].map(s => <mesh key={s} position={[s * 1.9, 0.05, -0.6]}><boxGeometry args={[0.18, 0.3, 1.2]} /><meshStandardMaterial color="#ff7a59" flatShading /></mesh>)}
     {tier >= 3 && <mesh position={[0, 0.25, 0.2]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.7, 0.07, 4, 10]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.7} flatShading /></mesh>}
-    {weapon && <mesh position={[0, -0.3, 1.1]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.1, 0.14, 1.2, 6]} /><meshStandardMaterial color="#ff7a59" flatShading /></mesh>}
+    {weapon && <mesh position={[0, -0.3, 1.1]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.1, 0.14, 1.2, 14]} /><meshStandardMaterial color="#ff7a59" flatShading /></mesh>}
   </group>;
 }
 
@@ -163,6 +180,6 @@ export function Shuttle({ lift, flame, tier = 0 }: { lift: React.MutableRefObjec
   });
   return <group ref={g}><primitive object={root} />
     {tier >= 1 && [-1, 1].map(s => <mesh key={s} position={[s * 1.68, 0.5, 0]}><torusGeometry args={[0.55, 0.08, 4, 10]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.6} /></mesh>)}
-    {tier >= 2 && <mesh position={[0, 13.2, 0]}><sphereGeometry args={[0.28, 6, 5]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.8} /></mesh>}
+    {tier >= 2 && <mesh position={[0, 13.2, 0]}><sphereGeometry args={[0.28, 14, 10]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.8} /></mesh>}
   </group>;
 }

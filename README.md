@@ -73,3 +73,9 @@ Honesty rule: a figure counts as NASA-backed only if the linked NASA page states
 - **Progreso y logros / Progress** (`progress.ts`, `progressui.tsx`): botón 🏆 en la Tierra con estadísticas, 13 logros y «Reiniciar partida» (con confirmación).
 - **Tarjetas de ciencia descubribles / Discoverable science cards**: jugar desbloquea tarjetas de «Ciencia y fuentes» (📖); las no descubiertas siguen legibles (🔒) y dicen cómo conseguirlas. Una prueba verifica que cada tarjeta tiene forma de descubrirse.
 - **Jefes / Bosses**: cada 4.ª misión trae un jefe por mundo (vida ×9, lento, embiste, cuenta como 5 bajas). El garage avisa antes de despegar. Sigue habiendo máximo 4 enemigos a la vez.
+
+## Lobby más lleno y gráficos más pulidos / Fuller lobby and polished graphics
+
+- **Lobby** (`lobby.ts`, `lobbydeco.tsx`): torre de lanzamiento y tanques junto al cohete, granja solar, aerogeneradores, domos habitables, antena parabólica, caminos con piedras y farolas, banderas, trabajadores robot, pájaros, globo aerostático, arbustos y parches de flores (instanciados). Los objetos sólidos bloquean al rover; una prueba verifica que nada tapa monedas, carrera, rampa ni caminos. / Launch tower, solar farm, wind turbines, habitat domes, dish, paths, lamps, flags, worker bots, birds, balloon, bushes and flowers.
+- **Llantas que giran / Spinning wheels**: giran según la distancia recorrida (adelante y reversa).
+- **Gráficos / Graphics** (`quality.ts`, `polish.tsx`): sombras suaves que siguen a la cámara, sombreado liso y más segmentos en naves, criaturas y props (el terreno y las rocas siguen facetados), viñeta suave. Botón ✨ cicla calidad Baja/Media/Alta (celulares y equipos de ≤4 núcleos arrancan en Baja, sin sombras).

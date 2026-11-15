@@ -4,23 +4,23 @@ import * as THREE from 'three';
 import { statsOf, type CombatSim, type EnemyKind } from './combat';
 import type { PoiSim } from './pois';
 
-const M = ({ c, e = 0 }: { c: string; e?: number }) => <meshStandardMaterial color={c} flatShading emissive={e ? c : '#000'} emissiveIntensity={e} />;
+const M = ({ c, e = 0 }: { c: string; e?: number }) => <meshStandardMaterial color={c} emissive={e ? c : '#000'} emissiveIntensity={e} />;
 
 /** Rock beetle (Mars). */
 function Crawler() {
   return <group>
     <mesh position={[0, 0.7, 0]} scale={[1.2, 0.8, 1.5]}><dodecahedronGeometry args={[0.9, 0]} /><M c="#8a4a3a" /></mesh>
-    <mesh position={[0, 0.5, 1.2]}><icosahedronGeometry args={[0.5, 0]} /><M c="#5a2f2a" /></mesh>
-    {[-0.2, 0.2].map(x => <mesh key={x} position={[x, 0.75, 1.55]}><sphereGeometry args={[0.12, 5, 4]} /><M c="#ffc857" e={0.8} /></mesh>)}
+    <mesh position={[0, 0.5, 1.2]}><icosahedronGeometry args={[0.5, 1]} /><M c="#5a2f2a" /></mesh>
+    {[-0.2, 0.2].map(x => <mesh key={x} position={[x, 0.75, 1.55]}><sphereGeometry args={[0.12, 14, 10]} /><M c="#ffc857" e={0.8} /></mesh>)}
     {[-1, 1].flatMap(s => [-0.7, 0, 0.7].map(z => <mesh key={`${s}${z}`} position={[s * 1.1, 0.3, z]} rotation={[0, 0, s * 0.8]}><boxGeometry args={[0.9, 0.12, 0.12]} /><M c="#3b2430" /></mesh>))}
   </group>;
 }
 /** Storm drone (Jupiter). */
 function Drone() {
   return <group>
-    <mesh><icosahedronGeometry args={[0.9, 0]} /><M c="#7b5cc4" /></mesh>
+    <mesh><icosahedronGeometry args={[0.9, 1]} /><M c="#7b5cc4" /></mesh>
     <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[1.4, 0.12, 4, 8]} /><M c="#ffc857" e={0.6} /></mesh>
-    <mesh position={[0, 0, 0.8]}><sphereGeometry args={[0.28, 6, 5]} /><M c="#ff5d73" e={1} /></mesh>
+    <mesh position={[0, 0, 0.8]}><sphereGeometry args={[0.28, 14, 10]} /><M c="#ff5d73" e={1} /></mesh>
     {[0, 1, 2, 3].map(i => <mesh key={i} position={[Math.cos(i * 1.57) * 1.1, Math.sin(i * 1.57) * 1.1, 0]} rotation={[0, 0, i * 1.57]}><coneGeometry args={[0.18, 0.7, 4]} /><M c="#3a2c52" /></mesh>)}
   </group>;
 }
@@ -30,8 +30,8 @@ function Angler() {
     <mesh scale={[1, 0.9, 1.7]}><octahedronGeometry args={[1.1, 0]} /><M c="#4b3f8f" /></mesh>
     <mesh position={[0, 0.2, -1.9]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[0.7, 1, 4]} /><M c="#4b3f8f" /></mesh>
     <mesh position={[0, 0.95, 0.9]} rotation={[0.9, 0, 0]}><cylinderGeometry args={[0.04, 0.04, 1.4, 4]} /><M c="#2a1f3d" /></mesh>
-    <mesh position={[0, 1.6, 1.6]}><sphereGeometry args={[0.32, 6, 5]} /><M c="#7fdcff" e={1.2} /></mesh>
-    {[-0.35, 0.35].map(x => <mesh key={x} position={[x, 0.3, 1.35]}><sphereGeometry args={[0.16, 5, 4]} /><M c="#fff4e6" e={0.9} /></mesh>)}
+    <mesh position={[0, 1.6, 1.6]}><sphereGeometry args={[0.32, 14, 10]} /><M c="#7fdcff" e={1.2} /></mesh>
+    {[-0.35, 0.35].map(x => <mesh key={x} position={[x, 0.3, 1.35]}><sphereGeometry args={[0.16, 14, 10]} /><M c="#fff4e6" e={0.9} /></mesh>)}
     {[-0.3, 0, 0.3].map(x => <mesh key={x} position={[x, -0.25, 1.6]} rotation={[Math.PI, 0, 0]}><coneGeometry args={[0.07, 0.3, 3]} /><M c="#fff4e6" /></mesh>)}
   </group>;
 }
@@ -39,8 +39,8 @@ function Angler() {
 function Thief() {
   return <group scale={0.9}>
     <mesh position={[0, 0.7, 0]}><boxGeometry args={[0.9, 0.9, 0.7]} /><M c="#8d8f98" /></mesh>
-    <mesh position={[0, 1.55, 0.05]}><icosahedronGeometry args={[0.5, 0]} /><M c="#b9bcc6" /></mesh>
-    <mesh position={[0, 1.55, 0.05]} scale={1.18}><sphereGeometry args={[0.5, 8, 6]} /><meshStandardMaterial color="#9fdcff" transparent opacity={0.3} /></mesh>
+    <mesh position={[0, 1.55, 0.05]}><icosahedronGeometry args={[0.5, 1]} /><M c="#b9bcc6" /></mesh>
+    <mesh position={[0, 1.55, 0.05]} scale={1.18}><sphereGeometry args={[0.5, 14, 10]} /><meshStandardMaterial color="#9fdcff" transparent opacity={0.3} /></mesh>
     <mesh position={[0, 1.58, 0.45]}><boxGeometry args={[0.7, 0.2, 0.1]} /><M c="#2a1f3d" /></mesh>
     {[-0.3, 0.3].map(x => <mesh key={x} position={[x, 2.0, 0]}><coneGeometry args={[0.15, 0.3, 4]} /><M c="#8d8f98" /></mesh>)}
     {[0, 1, 2, 3].map(i => <mesh key={i} position={[0, 0.5 + i * 0.0, -0.55 - i * 0.2]} rotation={[0.9, 0, 0]}><boxGeometry args={[0.28, 0.28, 0.3]} /><M c={i % 2 ? '#2a1f3d' : '#e8dcc8'} /></mesh>)}
@@ -50,9 +50,9 @@ function Thief() {
 /** Fast little spiky ball (comes in with stronger ships). */
 function Swarmer() {
   return <group>
-    <mesh position={[0, 0.8, 0]}><icosahedronGeometry args={[0.7, 0]} /><M c="#ff7a59" /></mesh>
+    <mesh position={[0, 0.8, 0]}><icosahedronGeometry args={[0.7, 1]} /><M c="#ff7a59" /></mesh>
     {[0, 1, 2, 3, 4, 5].map(i => <mesh key={i} position={[Math.cos(i * 1.05) * 0.8, 0.8 + Math.sin(i * 2.1) * 0.35, Math.sin(i * 1.05) * 0.8]} rotation={[i, i * 0.7, 0]}><coneGeometry args={[0.16, 0.5, 4]} /><M c="#ffd166" e={0.4} /></mesh>)}
-    <mesh position={[0, 0.9, 0.62]}><sphereGeometry args={[0.16, 5, 4]} /><M c="#fff" e={0.9} /></mesh>
+    <mesh position={[0, 0.9, 0.62]}><sphereGeometry args={[0.16, 14, 10]} /><M c="#fff" e={0.9} /></mesh>
   </group>;
 }
 /** Lunging arrowhead: dashes at you every few seconds. */
@@ -61,7 +61,7 @@ function Dasher() {
     <mesh position={[0, 0.9, 0]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[0.8, 2.2, 5]} /><M c="#2ec4b6" /></mesh>
     <mesh position={[0, 0.9, -1]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.6, 0.1, 4, 8]} /><M c="#ffe66d" e={0.7} /></mesh>
     {[-1, 1].map(s => <mesh key={s} position={[s * 0.8, 0.9, -0.5]} rotation={[0, 0, s * 0.9]}><boxGeometry args={[0.9, 0.1, 0.7]} /><M c="#1b7f77" /></mesh>)}
-    <mesh position={[0, 1.1, 0.6]}><sphereGeometry args={[0.17, 5, 4]} /><M c="#ff5d73" e={1} /></mesh>
+    <mesh position={[0, 1.1, 0.6]}><sphereGeometry args={[0.17, 14, 10]} /><M c="#ff5d73" e={1} /></mesh>
   </group>;
 }
 /** Big slow armoured chunk. */
@@ -69,16 +69,16 @@ function Brute() {
   return <group>
     <mesh position={[0, 1, 0]} scale={[1.2, 0.9, 1.3]}><dodecahedronGeometry args={[1, 0]} /><M c="#6c4f9e" /></mesh>
     {[-0.55, 0, 0.55].map(x => <mesh key={x} position={[x, 1.9, -0.1]} rotation={[0.2, 0, x]}><boxGeometry args={[0.4, 0.5, 1.4]} /><M c="#3d2c63" /></mesh>)}
-    {[-0.4, 0.4].map(x => <mesh key={x} position={[x, 1.1, 1.2]}><sphereGeometry args={[0.2, 5, 4]} /><M c="#ffc857" e={1} /></mesh>)}
+    {[-0.4, 0.4].map(x => <mesh key={x} position={[x, 1.1, 1.2]}><sphereGeometry args={[0.2, 14, 10]} /><M c="#ffc857" e={1} /></mesh>)}
   </group>;
 }
 /** The boss: a crowned, glowing guardian. */
 function Boss() {
   return <group>
     <mesh position={[0, 1.2, 0]} scale={[1.3, 1, 1.4]}><dodecahedronGeometry args={[1.1, 0]} /><M c="#7a3fb0" /></mesh>
-    <mesh position={[0, 1.3, 0.2]}><icosahedronGeometry args={[0.6, 0]} /><M c="#ff5d73" e={1} /></mesh>
+    <mesh position={[0, 1.3, 0.2]}><icosahedronGeometry args={[0.6, 1]} /><M c="#ff5d73" e={1} /></mesh>
     {[0, 1, 2, 3, 4].map(i => <mesh key={i} position={[Math.cos(i * 1.26) * 0.9, 2.5, Math.sin(i * 1.26) * 0.9]} rotation={[0, 0, Math.cos(i * 1.26) * 0.3]}><coneGeometry args={[0.22, 0.9, 4]} /><M c="#ffc857" e={0.5} /></mesh>)}
-    {[-0.5, 0.5].map(x => <mesh key={x} position={[x, 1.5, 1.25]}><sphereGeometry args={[0.2, 5, 4]} /><M c="#fff" e={1} /></mesh>)}
+    {[-0.5, 0.5].map(x => <mesh key={x} position={[x, 1.5, 1.25]}><sphereGeometry args={[0.2, 14, 10]} /><M c="#fff" e={1} /></mesh>)}
     {[-1, 1].map(s => <mesh key={s} position={[s * 1.5, 0.7, 0]} rotation={[0, 0, s * 0.7]}><boxGeometry args={[1.2, 0.3, 0.5]} /><M c="#241233" /></mesh>)}
   </group>;
 }
@@ -125,10 +125,10 @@ export function Actors({ sim, pois, bulletColor = '#ffc857', groundY, sphere = f
       <mesh position={[0, 3, 0]} visible={false}><boxGeometry args={[1.6, 0.18, 0.18]} /><meshBasicMaterial color="#ff5d73" /></mesh>
       <mesh position={[0, 3.6, 0]} visible={false}><coneGeometry args={[0.3, 0.5, 4]} /><meshBasicMaterial color="#ffc857" /></mesh>
     </group>)}
-    {Array.from({ length: MAXB }, (_, i) => <mesh key={i} ref={n => { bg.current[i] = n; }} visible={false}><icosahedronGeometry args={[0.35, 0]} /><meshBasicMaterial color={bulletColor} fog={false} /></mesh>)}
+    {Array.from({ length: MAXB }, (_, i) => <mesh key={i} ref={n => { bg.current[i] = n; }} visible={false}><icosahedronGeometry args={[0.35, 1]} /><meshBasicMaterial color={bulletColor} fog={false} /></mesh>)}
     {Array.from({ length: 6 }, (_, i) => <group key={i} ref={n => { pg.current[i] = n; }} visible={false}>
-      <group><mesh position={[0, 1.2, 0]}><cylinderGeometry args={[0.15, 0.3, 2.4, 5]} /><M c="#8d8f98" /></mesh><mesh position={[0, 2.6, 0]}><octahedronGeometry args={[0.5, 0]} /><M c="#ffc857" e={0.9} /></mesh><mesh position={[0, 6, 0]}><cylinderGeometry args={[0.1, 0.1, 8, 5]} /><meshBasicMaterial color="#ffc857" transparent opacity={0.35} fog={false} /></mesh></group>
-      <group><mesh position={[0, 1, 0]}><boxGeometry args={[1.4, 1.1, 1.4]} /><M c="#ff8f4d" /></mesh><mesh position={[0, 1, 0]}><boxGeometry args={[1.5, 0.25, 1.5]} /><M c="#fff4e6" /></mesh><mesh position={[0, 6, 0]}><cylinderGeometry args={[0.1, 0.1, 10, 5]} /><meshBasicMaterial color="#ff8f4d" transparent opacity={0.35} fog={false} /></mesh></group>
+      <group><mesh position={[0, 1.2, 0]}><cylinderGeometry args={[0.15, 0.3, 2.4, 14]} /><M c="#8d8f98" /></mesh><mesh position={[0, 2.6, 0]}><octahedronGeometry args={[0.5, 0]} /><M c="#ffc857" e={0.9} /></mesh><mesh position={[0, 6, 0]}><cylinderGeometry args={[0.1, 0.1, 8, 14]} /><meshBasicMaterial color="#ffc857" transparent opacity={0.35} fog={false} /></mesh></group>
+      <group><mesh position={[0, 1, 0]}><boxGeometry args={[1.4, 1.1, 1.4]} /><M c="#ff8f4d" /></mesh><mesh position={[0, 1, 0]}><boxGeometry args={[1.5, 0.25, 1.5]} /><M c="#fff4e6" /></mesh><mesh position={[0, 6, 0]}><cylinderGeometry args={[0.1, 0.1, 10, 14]} /><meshBasicMaterial color="#ff8f4d" transparent opacity={0.35} fog={false} /></mesh></group>
       <mesh position={[0, 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[2.2, 2.7, 16]} /><meshBasicMaterial color="#5ee6a8" /></mesh>
       <group scale={1.3}><mesh position={[-1.6, 1.6, 0]} rotation={[0, 0.3, 0.06]}><boxGeometry args={[1.3, 3.2, 1.2]} /><M c="#a8643d" /></mesh><mesh position={[1.6, 1.3, 0]} rotation={[0, -0.2, -0.08]}><boxGeometry args={[1.2, 2.6, 1.2]} /><M c="#8f5232" /></mesh><mesh position={[0, 3.3, 0]} rotation={[0, 0.1, 0.05]}><boxGeometry args={[4.6, 1, 1.5]} /><M c="#c07a4a" /></mesh><mesh position={[0, 4.1, 0]}><dodecahedronGeometry args={[0.5, 0]} /><M c="#d9b08a" /></mesh></group>
     </group>)}

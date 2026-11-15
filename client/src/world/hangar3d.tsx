@@ -5,7 +5,8 @@ import { heightAt } from './marsWorld';
 
 /** The aircraft hangar on Earth: arched roof, open front, a parked plane, a control tower and a windsock.
  *  Local frame: +z is the front (the open side, facing the start point), +x is to the right. */
-export const HANGAR_POS = { x: -34, z: 26 };
+import { HANGAR_POS } from './lobby';
+export { HANGAR_POS };
 export const HANGAR_YAW = Math.atan2(-HANGAR_POS.x, -HANGAR_POS.z);
 const SLAB = { x0: -9, x1: 14, z0: -7.5, z1: 15 };   // the concrete apron, in local coordinates
 const PLANE = { x: 4.5, z: 10.5, r: 3.4 };
@@ -32,7 +33,7 @@ export const APRON_Y = (() => {
   return m + 0.15;
 })();
 
-const M = ({ c, e = 0, o = 1 }: { c: string; e?: number; o?: number }) => <meshStandardMaterial color={c} flatShading emissive={e ? c : '#000'} emissiveIntensity={e} transparent={o < 1} opacity={o} />;
+const M = ({ c, e = 0, o = 1 }: { c: string; e?: number; o?: number }) => <meshStandardMaterial color={c} emissive={e ? c : '#000'} emissiveIntensity={e} transparent={o < 1} opacity={o} />;
 const R = 5.6, LEN = 12;   // arch radius and hall length
 
 function Sign() {
@@ -50,16 +51,16 @@ export function PlaneBody({ wheels = true }: { wheels?: boolean }) {
   useFrame((_, dt) => { if (prop.current) prop.current.rotation.z += dt * 14; });
   return <group>
     {/* wheels and legs */}
-    {wheels && [[-1.1, 0.3], [1.1, 0.3], [0, -1.6]].map(([x, z], i) => <group key={i} position={[x!, 0, z!]}><mesh position={[0, 0.45, 0]}><cylinderGeometry args={[0.06, 0.06, 0.9, 4]} /><M c="#4a4a5a" /></mesh><mesh position={[0, 0.3, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.3, 0.3, 0.2, 8]} /><M c="#1b1230" /></mesh></group>)}
-    <mesh position={[0, 1.55, 0]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.75, 0.55, 4.6, 8]} /><M c="#fff4e6" /></mesh>
+    {wheels && [[-1.1, 0.3], [1.1, 0.3], [0, -1.6]].map(([x, z], i) => <group key={i} position={[x!, 0, z!]}><mesh position={[0, 0.45, 0]}><cylinderGeometry args={[0.06, 0.06, 0.9, 4]} /><M c="#4a4a5a" /></mesh><mesh position={[0, 0.3, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.3, 0.3, 0.2, 14]} /><M c="#1b1230" /></mesh></group>)}
+    <mesh position={[0, 1.55, 0]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.75, 0.55, 4.6, 14]} /><M c="#fff4e6" /></mesh>
     <mesh position={[0, 1.55, 2.75]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[0.75, 1.1, 8]} /><M c="#ff7a59" /></mesh>
-    <mesh position={[0, 1.95, 0.7]}><sphereGeometry args={[0.62, 7, 5]} /><M c="#7fdcff" o={0.85} /></mesh>
+    <mesh position={[0, 1.95, 0.7]}><sphereGeometry args={[0.62, 14, 10]} /><M c="#7fdcff" o={0.85} /></mesh>
     <mesh position={[0, 1.7, 0.2]}><boxGeometry args={[9.2, 0.14, 1.5]} /><M c="#5b6ee1" /></mesh>
     <mesh position={[0, 1.7, 0.2]}><boxGeometry args={[9.3, 0.15, 0.4]} /><M c="#ff7a59" /></mesh>
     <mesh position={[0, 2.55, -2.1]}><boxGeometry args={[0.14, 1.5, 1.1]} /><M c="#5b6ee1" /></mesh>
     <mesh position={[0, 1.75, -2.2]}><boxGeometry args={[3.2, 0.12, 0.8]} /><M c="#5b6ee1" /></mesh>
     <mesh ref={prop} position={[0, 1.55, 3.35]}><boxGeometry args={[2.3, 0.18, 0.06]} /><M c="#2a1f3d" /></mesh>
-    <mesh position={[0, 1.55, 3.3]}><sphereGeometry args={[0.2, 6, 5]} /><M c="#ffc857" /></mesh>
+    <mesh position={[0, 1.55, 3.3]}><sphereGeometry args={[0.2, 14, 10]} /><M c="#ffc857" /></mesh>
   </group>;
 }
 
@@ -93,17 +94,17 @@ export function HangarBuilding() {
       <mesh position={[0, 6.7, 0]}><boxGeometry args={[3.6, 1.5, 3.6]} /><M c="#7fdcff" o={0.8} /></mesh>
       <mesh position={[0, 7.7, 0]}><boxGeometry args={[4.2, 0.35, 4.2]} /><M c="#ff7a59" /></mesh>
       <mesh position={[0, 8.9, 0]}><cylinderGeometry args={[0.06, 0.06, 2.2, 4]} /><M c="#cdb9e0" /></mesh>
-      <mesh position={[0, 10.1, 0]}><sphereGeometry args={[0.22, 6, 5]} /><M c="#ff5d73" e={1} /></mesh>
+      <mesh position={[0, 10.1, 0]}><sphereGeometry args={[0.22, 14, 10]} /><M c="#ff5d73" e={1} /></mesh>
     </group>
     {/* windsock */}
     <group position={[-8, 0, 12]}>
-      <mesh position={[0, 2.5, 0]}><cylinderGeometry args={[0.08, 0.1, 5, 5]} /><M c="#cdb9e0" /></mesh>
+      <mesh position={[0, 2.5, 0]}><cylinderGeometry args={[0.08, 0.1, 5, 14]} /><M c="#cdb9e0" /></mesh>
       <mesh position={[0.9, 4.8, 0]} rotation={[0, 0, -Math.PI / 2]}><coneGeometry args={[0.55, 1.8, 6, 1, true]} /><meshStandardMaterial color="#ff7a59" flatShading side={THREE.DoubleSide} /></mesh>
     </group>
     {/* fuel drums, cones and apron lamps */}
-    {[[-7.8, 6], [-7.8, 7.3], [-6.5, 6.6]].map(([x, z], i) => <mesh key={i} position={[x!, 0.7, z!]}><cylinderGeometry args={[0.55, 0.55, 1.4, 8]} /><M c={i === 1 ? '#ffc857' : '#ff5d73'} /></mesh>)}
+    {[[-7.8, 6], [-7.8, 7.3], [-6.5, 6.6]].map(([x, z], i) => <mesh key={i} position={[x!, 0.7, z!]}><cylinderGeometry args={[0.55, 0.55, 1.4, 14]} /><M c={i === 1 ? '#ffc857' : '#ff5d73'} /></mesh>)}
     {[[-2.4, 13.6], [9, 13.6], [-2.4, 7.6]].map(([x, z], i) => <mesh key={i} position={[x!, 0.4, z!]}><coneGeometry args={[0.38, 0.8, 6]} /><M c="#ff8f4d" /></mesh>)}
-    {[[-8.3, 14.3], [13.3, 14.3]].map(([x, z], i) => <group key={i} position={[x!, 0, z!]}><mesh position={[0, 1.6, 0]}><cylinderGeometry args={[0.1, 0.12, 3.2, 5]} /><M c="#8d8f98" /></mesh><mesh position={[0, 3.3, 0]}><sphereGeometry args={[0.35, 6, 5]} /><M c="#fff6d0" e={1.2} /></mesh></group>)}
+    {[[-8.3, 14.3], [13.3, 14.3]].map(([x, z], i) => <group key={i} position={[x!, 0, z!]}><mesh position={[0, 1.6, 0]}><cylinderGeometry args={[0.1, 0.12, 3.2, 14]} /><M c="#8d8f98" /></mesh><mesh position={[0, 3.3, 0]}><sphereGeometry args={[0.35, 14, 10]} /><M c="#fff6d0" e={1.2} /></mesh></group>)}
     <Plane />
   </group>;
 }

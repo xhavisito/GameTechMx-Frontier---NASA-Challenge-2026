@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
+import { nextQuality, setQuality, useQuality } from './world/quality';
 import { isMuted, setMuted, sfx, unlockAudio } from './world/audio';
 
 const Adventure = lazy(() => import('./world/Adventure'));
@@ -15,6 +16,7 @@ export function App() {
   const [run, setRun] = useState(0);
   const [sci, setSci] = useState(false);
   const [muted, setMutedState] = useState(isMuted);
+  const quality = useQuality();
   useEffect(() => {   // browsers only allow sound after a first tap or key; every button click gets a small blip
     const first = () => unlockAudio(), click = (e: Event) => { if ((e.target as HTMLElement | null)?.closest('button')) sfx('ui'); };
     window.addEventListener('pointerdown', first, { once: true }); window.addEventListener('keydown', first, { once: true }); document.addEventListener('click', click);
@@ -27,6 +29,8 @@ export function App() {
     </Suspense>
     <button className="sci-btn" onClick={() => setSci(true)}>{lang === 'es' ? 'Ciencia y fuentes' : 'Science & sources'}</button>
     {sci && <Suspense fallback={null}><Science es={lang === 'es'} onClose={() => setSci(false)} /></Suspense>}
+    <button className="mute-btn q-btn" onClick={() => setQuality(nextQuality(quality))} aria-label={lang === 'es' ? `Calidad gráfica: ${{ low: 'baja', medium: 'media', high: 'alta' }[quality]}` : `Graphics quality: ${quality}`} title={lang === 'es' ? 'Calidad gráfica (sombras)' : 'Graphics quality (shadows)'}>✨<small>{quality === 'low' ? 'B' : quality === 'medium' ? 'M' : 'A'}</small></button>
+    <div className="vignette" aria-hidden="true" />
     <button className="mute-btn" onClick={() => { const m = !muted; setMuted(m); setMutedState(m); if (!m) { unlockAudio(); sfx('ui'); } }} aria-label={lang === 'es' ? (muted ? 'Activar sonido' : 'Silenciar') : (muted ? 'Turn sound on' : 'Mute')} aria-pressed={muted}>{muted ? '🔇' : '🔊'}</button>
     <button className="lang-btn" onClick={() => setLang(l => (l === 'es' ? 'en' : 'es'))} aria-label="Language">{lang === 'es' ? 'EN' : 'ES'}</button>
   </>;
