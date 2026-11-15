@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Camera, FlaskConical, Radar, Rocket, Orbit, Waves, Sun, BatteryFull, Check, X as XIcon, Star, Keyboard, Gamepad2, Hand } from 'lucide-react';
-import { BUDGET, DEST, ROCKETS, TOOLS, normalize, runTests, passed, stats, type Design, type Dest, type RocketId, type Tool, type TestResult, type TravelEvent, type EventOption } from './design';
+import { BUDGET, DEST, ROCKETS, TOOLS, NO_BONUS, normalize, runTests, passed, stats, type RocketBonus, type Design, type Dest, type RocketId, type Tool, type TestResult, type TravelEvent, type EventOption } from './design';
 import { LEVELS, LEVEL_INFO, type Level } from './levels';
+import { ContractPicker } from './workshop';
+import type { Contract } from './contracts';
 
 type Es = { es: boolean };
 const t = (es: boolean, a: string, b: string) => (es ? a : b);
@@ -79,19 +81,21 @@ function Slider({ label, unit, min, max, step = 1, value, onChange }: { label: s
   return <label className="slider"><span>{label}</span><input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} /><b>{value} {unit}</b></label>;
 }
 
-export function Hangar({ es, level, design, setDesign, onNext }: Es & { level: Level; design: Design; setDesign: (d: Design) => void; onNext: () => void }) {
+export function Hangar({ es, level, design, setDesign, onNext, bonus = NO_BONUS, contracts = [], contract = '', setContract, scrap = 0, onWorkshop }: Es & { level: Level; design: Design; setDesign: (d: Design) => void; onNext: () => void; bonus?: RocketBonus; contracts?: Contract[]; contract?: string; setContract?: (id: string) => void; scrap?: number; onWorkshop?: () => void }) {
   const d = normalize(design, level), S = stats(d), pro = level === 'hard' || level === 'expert', set = (p: Partial<Design>) => setDesign({ ...design, ...p });
   const multi = pro, toggleTool = (k: Tool) => { const has = d.tools.includes(k); set({ tools: multi ? (has ? d.tools.filter(x => x !== k) : [...d.tools, k]) : [k] }); };
   const lvl = LEVEL_INFO[level];
   return <div className="adv-modal"><div className="adv-card wide">
-    <div className="hang-head"><h2>{t(es, 'Prepara tu nave', 'Build your ship')}</h2><span className="lvl-chip" style={{ background: lvl.color }}>{es ? lvl.es : lvl.en}</span></div>
+    <div className="hang-head"><h2>{t(es, 'Prepara tu nave', 'Build your ship')}</h2><span className="lvl-chip" style={{ background: lvl.color }}>{es ? lvl.es : lvl.en}</span>{onWorkshop && <button className="button button-secondary" onClick={onWorkshop}>🔧 {t(es, 'Taller', 'Workshop')} · {scrap}</button>}</div>
     <h3>{t(es, '¿A dónde vas?', 'Where to?')}</h3>
     <div className="adv-row">{(['mars', 'jupiter', 'miller'] as Dest[]).map(k => <Opt key={k} on={d.dest === k} onClick={() => set({ dest: k, shield: DEST[k].shield })} icon={destIcon(k)} title={DEST_NAME[k][es ? 0 : 1]}
       sub={k === 'mars' ? t(es, 'Explora y recolecta muestras', 'Explore and collect samples') : k === 'jupiter' ? t(es, 'Escanea su atmósfera desde órbita', 'Scan its atmosphere from orbit') : t(es, 'Busca vida bajo el océano', 'Look for life under the ocean')} />)}</div>
 
+    {contracts.length > 1 && setContract && <><h3>{t(es, 'Misión', 'Mission')}</h3><ContractPicker es={es} list={contracts} value={contract} onPick={setContract} /></>}
+
     {level !== 'easy' && <><h3>{t(es, 'Cohete', 'Rocket')}</h3>
       <div className="adv-row">{(['light', 'standard', 'heavy'] as RocketId[]).map(k => <Opt key={k} on={d.rocket === k} onClick={() => set({ rocket: k })} title={ROCKET_TXT[k][es ? 0 : 1]}
-        sub={pro ? `${ROCKETS[k].cost} M$ · ${t(es, 'carga máx.', 'max payload')} ${ROCKETS[k].maxPayload} kg` : ROCKET_TXT[k][es ? 2 : 3]} />)}</div></>}
+        sub={pro ? `${ROCKETS[k].cost} M$ · ${t(es, 'carga máx.', 'max payload')} ${ROCKETS[k].maxPayload + bonus.payload} kg` : ROCKET_TXT[k][es ? 2 : 3]} />)}</div></>}
 
     {(level === 'medium' || level === 'hard') && <><h3>{t(es, 'Energía', 'Power')}</h3>
       <div className="adv-row"><Opt on={d.solarM2 >= 3} onClick={() => set({ solarM2: 3, batteryKWh: 1 })} icon={<Sun size={28} />} title={t(es, 'Paneles solares', 'Solar panels')} sub={t(es, 'Se recarga con el sol', 'Recharges in the sun')} />
@@ -107,18 +111,18 @@ export function Hangar({ es, level, design, setDesign, onNext }: Es & { level: L
     {level === 'expert' && <small className="hint">{t(es, 'Pista: cada destino exige un instrumento distinto.', 'Hint: each destination requires a different instrument.')}</small>}
 
     {pro && <div className="stats" aria-label="stats">
-      <span>{t(es, 'Carga', 'Payload')}<b>{Math.round(S.payload)} / {ROCKETS[d.rocket].maxPayload} kg</b></span>
-      <span>Δv<b>{S.dv.toFixed(2)} / {DEST[d.dest].dv} km/s</b></span>
-      <span>{t(es, 'Costo', 'Cost')}<b>{Math.round(S.cost)} / {BUDGET[level]} M$</b></span>
+      <span>{t(es, 'Carga', 'Payload')}<b>{Math.round(S.payload)} / {ROCKETS[d.rocket].maxPayload + bonus.payload} kg</b></span>
+      <span>Δv<b>{(S.dv + bonus.dv).toFixed(2)} / {DEST[d.dest].dv} km/s</b></span>
+      <span>{t(es, 'Costo', 'Cost')}<b>{Math.round(S.cost)} / {BUDGET[level] + bonus.budget} M$</b></span>
       <span>{t(es, 'Energía', 'Power')}<b>{Math.round(S.supplyW)} / {Math.round(S.needW)} W</b></span></div>}
     <button className="button button-primary" autoFocus onClick={onNext}><Rocket size={18} /> {level === 'easy' ? t(es, '¡Listo para despegar!', 'Ready to launch!') : t(es, 'Probar la nave', 'Test the ship')}</button>
   </div></div>;
 }
 
 // ── pre-flight tests ─────────────────────────────────────────────────────────
-export function Tests({ es, level, design, onBack, onGo }: Es & { level: Level; design: Design; onBack: () => void; onGo: () => void }) {
+export function Tests({ es, level, design, onBack, onGo, bonus = NO_BONUS }: Es & { level: Level; design: Design; onBack: () => void; onGo: () => void; bonus?: RocketBonus }) {
   const tr = (v: string) => v.replace(/camera|spectrometer|radar/g, k => TOOL_NAME[k as Tool][es ? 0 : 1]);
-  const results: TestResult[] = runTests(design, level), [shown, setShown] = useState(0);
+  const results: TestResult[] = runTests(design, level, bonus), [shown, setShown] = useState(0);
   useEffect(() => { setShown(0); const id = setInterval(() => setShown(n => { if (n >= results.length) { clearInterval(id); return n; } return n + 1; }), 450); return () => clearInterval(id); }, [results.length]);
   const done = shown >= results.length, ok = passed(results);
   return <div className="adv-modal"><div className="adv-card wide">

@@ -9,6 +9,12 @@ import { createWorld, heightAt, normalAt, newRover, stepRover, visibleSamples, s
 import { fbm2, rng } from '../three/noise';
 import { useWorldInput, type WorldInput } from './worldInput';
 import { Rover, arm } from './models';
+import { CombatSim, type V3 } from './combat';
+import { PoiSim, makePois } from './pois';
+import { Actors } from './actors';
+import { type Contract, defaultContract, contractN } from './contracts';
+import { basePerks, type Perks } from './meta';
+import { contractResult, weaponCd, weaponDmg } from './runkit';
 import './world.css';
 
 const KIND_COLOR: Record<SampleKind, string> = { regolith: '#ffd166', basalt: '#b39ddb', hematite: '#ff7a59', ice: '#7fdcff' };
@@ -20,9 +26,9 @@ const KIND_NAME: Record<'es' | 'en', Record<SampleKind, string>> = {
 interface Meteor { t: number; x: number; z: number; active: boolean; hit: boolean }
 interface Game {
   rover: RoverState; taken: Set<number>; kinds: SampleKind[]; time: number; scanT: number; dust: number;
-  meteors: Meteor[]; nextMeteor: number; msg: string; msgT: number; ended: boolean; stuck: number; result: MarsResult | null; shake: number; dying?: number;
+  meteors: Meteor[]; nextMeteor: number; msg: string; msgT: number; ended: boolean; stuck: number; result: MarsResult | null; shake: number; dying?: number; fireCd: number; lost: number; stolen: { id: number; kind: SampleKind } | { energy: number } | null; exploded: boolean;
 }
-interface Hud { energy: number; health: number; boost: number; taken: SampleKind[]; reach: SampleKind | null; atLander: boolean; heading: number; x: number; z: number; dist: number; bearing: number; msg: string; scan: number; visible: { x: number; z: number; kind: SampleKind }[]; dust: number; speed: number; left: number }
+interface Hud { energy: number; health: number; boost: number; taken: SampleKind[]; reach: SampleKind | null; atLander: boolean; heading: number; x: number; z: number; dist: number; bearing: number; msg: string; scan: number; visible: { x: number; z: number; kind: SampleKind }[]; dust: number; speed: number; left: number; poiDone: number; poiTotal: number; hold: number; carrying: boolean; kills: number; target: { x: number; z: number } | null; near: string | null }
 
 // ── Terrain ────────────────────────────────────────────────────────────────
 export interface Palette { low: string; mid: string; high: string; pale: string; pad: string }
@@ -80,9 +86,10 @@ function Lander() {
   </group>;
 }
 
+const isCollectGlobal = (c: Contract) => c.kind === 'collect';
 // ── Scene ──────────────────────────────────────────────────────────────────
-function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
-  cfg: WorldConfig; mods: Mods; need: number; world: MarsWorldData; es: boolean; g: React.MutableRefObject<Game>; hud: React.MutableRefObject<Hud>;
+function Scene({ cfg, mods, need, perks, contract, sim, pois, tier, world, es, g, hud, input, poll, onFinish }: {
+  cfg: WorldConfig; mods: Mods; need: number; perks: Perks; contract: Contract; sim: CombatSim; pois: PoiSim | null; tier: number; world: MarsWorldData; es: boolean; g: React.MutableRefObject<Game>; hud: React.MutableRefObject<Hud>;
   input: React.MutableRefObject<WorldInput>; poll: (dt: number) => void; onFinish: (r: MarsResult) => void;
 }) {
   const { camera, scene } = useThree();
@@ -100,7 +107,7 @@ function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
   const say = (m: string) => { g.current.msg = m; g.current.msgT = 3; };
 
   useFrame((_, rawDt) => {
-    const dt = Math.min(rawDt, 0.05), s = g.current, i = input.current;
+    const dt = Math.min(rawDt, 0.05), s = g.current, i = input.current, isCollect = contract.kind === 'collect';
     poll(dt);
     if (s.ended) return;
     s.time += dt;
@@ -108,7 +115,8 @@ function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
     if (mods.timeLimit && s.time >= mods.timeLimit) { say(es ? 'Se acabó el tiempo' : 'Time is up'); finish(false); return; }
     s.dust = Math.max(0, Math.sin(s.time * 0.03 - 0.7)) ** 2;
     const prev = s.rover;
-    let r = stepRover(world, cfg, prev, { throttle: i.throttle, steer: i.steer, boost: i.boost }, dt, s.dust);
+    const cfgNow = pois?.carrying ? { ...cfg, speedMul: (cfg.speedMul ?? 1) * 0.72 } : cfg;
+    let r = stepRover(world, cfgNow, prev, { throttle: i.throttle, steer: i.steer, boost: i.boost }, dt, s.dust);
     // rock collisions
     for (const k of world.rocks) {
       const dx = r.x - k.x, dz = r.z - k.z;
@@ -160,7 +168,7 @@ function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
     s.rover = r;
 
     // samples
-    const vis = visibleSamples(world, cfg, s.taken, r.x, r.z, s.scanT > 0 ? 45 : 0);
+    const vis = isCollect ? visibleSamples(world, cfg, s.taken, r.x, r.z, s.scanT > 0 ? 45 : 0) : [];
     const visIds = new Set(vis.map(v => v.id));
     world.samples.forEach((sm, idx) => {
       const node = sampleRefs.current[idx]; if (!node) return;
@@ -168,14 +176,61 @@ function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
       node.position.set(sm.x, heightAt(world, sm.x, sm.z), sm.z);
       node.children[0]!.rotation.y = s.time * 1.6; node.children[0]!.position.y = 1.4 + Math.sin(s.time * 2 + idx) * 0.25;
     });
-    const reach = sampleInReach(world, cfg, s.taken, r.x, r.z);
+    const reach = isCollect ? sampleInReach(world, cfg, s.taken, r.x, r.z) : null;
     const dl = Math.hypot(r.x, r.z), atLander = dl < LANDER_R + 2;
     if (i.scanPulse) {
       i.scanPulse = false;
       if (r.energy > cfg.battery * 0.04 && s.scanT <= 0) { s.scanT = 5; s.rover = { ...s.rover, energy: s.rover.energy - cfg.battery * 0.03 }; say(es ? 'Escaneo: alcance ampliado' : 'Scan: range extended'); }
     }
+    // ── enemies, weapon, thief and side objectives ──
+    const gy = heightAt(world, r.x, r.z), me: V3 = { x: r.x, y: gy, z: r.z };
+    s.fireCd = Math.max(0, s.fireCd - dt);
+    if (i.firePulse) {
+      i.firePulse = false;
+      if (perks.weapon <= 0) say(es ? 'Aún no tienes arma: mejora tu rover en el taller' : 'No weapon yet: upgrade your rover in the workshop');
+      else if (s.fireCd <= 0) {
+        const hd = { x: Math.sin(r.heading), y: 0, z: Math.cos(r.heading) }, aim = sim.aim(me, hd, 58);
+        sim.shoot({ x: r.x + hd.x * 1.6, y: gy + 1.9, z: r.z + hd.z * 1.6 }, aim ? { x: aim.x, y: aim.y - 1.2, z: aim.z } : hd, weaponDmg(perks.weapon));
+        s.fireCd = weaponCd(perks); arm.shot++;
+      }
+    }
+    for (const e of sim.update(dt, me, r.speed)) {
+      if (e.type === 'hit') { const dmg = Math.round(e.dmg * (1 - Math.min(0.6, perks.armor))); r = { ...r, health: Math.max(0, r.health - dmg), speed: r.speed * 0.5 }; s.shake = 0.5; say(es ? `¡Un bicho te mordió! −${dmg}` : `A bug bit you! −${dmg}`); }
+      else if (e.type === 'wave') say(es ? '¡Oleada de bichos!' : 'Bug wave incoming!');
+      else if (e.type === 'thief') say(es ? '¿Qué fue eso…? Un mapache espacial anda por aquí' : 'What was that…? A space raccoon is around');
+      else if (e.type === 'kill' && e.enemy.kind !== 'thief') say(es ? 'Bicho derrotado' : 'Bug defeated');
+      else if (e.type === 'kill') { restoreLoot(e.enemy); }
+      else if (e.type === 'escape') { if (e.enemy.carry) { s.lost++; say(es ? '¡El mapache se escapó con tu botín!' : 'The raccoon got away with your loot!'); } }
+      else if (e.type === 'steal') {
+        const th = e.enemy;
+        if (pois?.carrying) { const c = pois.drop({ x: th.x, y: gy, z: th.z }); th.carry = 'crate'; say(es ? '¡El mapache soltó tu carga al huir! Recógela' : 'The raccoon made you drop your cargo! Pick it up'); void c; }
+        else if (s.kinds.length > 0) { const k = s.kinds.pop()!; const id = [...s.taken].pop()!; s.taken.delete(id); s.stolen = { id, kind: k }; th.carry = 'sample'; say(es ? '¡Un mapache espacial te robó una muestra! Atrápalo (E)' : 'A space raccoon stole a sample! Catch it (E)'); }
+        else { const amt = cfg.battery * 0.25; r = { ...r, energy: Math.max(0, r.energy - amt) }; s.stolen = { energy: amt }; th.carry = 'energy'; say(es ? '¡Un mapache espacial te robó energía! Atrápalo (E)' : 'A space raccoon stole power! Catch it (E)'); }
+      }
+    }
+    function restoreLoot(th: { carry: string | null }) {
+      const st = s.stolen; th.carry = null;
+      if (st && 'kind' in st) { s.kinds.push(st.kind); s.taken.add(st.id); say(es ? '¡Recuperaste tu muestra!' : 'You got your sample back!'); }
+      else if (st) { r = { ...r, energy: Math.min(cfg.battery, r.energy + st.energy) }; say(es ? '¡Recuperaste tu energía!' : 'You got your power back!'); }
+      else say(es ? '¡Atrapaste al mapache!' : 'You caught the raccoon!');
+      s.stolen = null;
+    }
+    let held = i.interactHeld, pulse = false;
     if (i.collectPulse) {
-      i.collectPulse = false; arm.pulse++; // the arm always tries, whether or not there is a sample
+      i.collectPulse = false; arm.pulse++; pulse = true; // the arm always tries, whether or not there is a sample
+      const th = sim.grab(me, 4.8);
+      if (th) { th.flash = 0.4; restoreLoot(th); pulse = false; }
+    }
+    if (pois) {
+      for (const e of pois.update(dt, me, held && !pulse, pulse)) {
+        if (e.type === 'done' && e.poi.kind === 'beacon') say(es ? '¡Antena reparada!' : 'Antenna repaired!');
+        else if (e.type === 'done' && e.poi.kind === 'photo') { say(es ? '¡Foto tomada!' : 'Photo taken!'); }
+        else if (e.type === 'pickup') say(es ? 'Sonda a bordo. Llévala al módulo (E allá)' : 'Probe on board. Take it to the lander (E there)');
+        else if (e.type === 'nophoto') say(es ? 'Necesitas una cámara para fotografiar' : 'You need a camera to take photos');
+      }
+      if (pois.complete) { finish(true); return; }
+    }
+    if (isCollect && pulse) {
       if (reach) {
         s.taken.add(reach.id); s.kinds.push(reach.kind);
         say(es ? `Muestra recolectada: ${KIND_NAME.es[reach.kind]}${cfg.spectrometer ? ' (analizada)' : ''}` : `Sample collected: ${KIND_NAME.en[reach.kind]}${cfg.spectrometer ? ' (analyzed)' : ''}`);
@@ -183,8 +238,9 @@ function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
         finish(true);
       } else say(atLander ? (es ? 'Aún no tienes muestras' : 'No samples yet') : (es ? 'No hay muestras al alcance' : 'No sample in reach'));
     }
+    s.rover = r;
     if (i.exitPulse) { i.exitPulse = false; finish(false, true); }
-    if (s.rover.health <= 0) { say(es ? 'El rover explotó' : 'The rover exploded'); s.dying = 2.2; boom.current = { t: 0, x: s.rover.x, y: heightAt(world, s.rover.x, s.rover.z) + 1, z: s.rover.z }; if (roverRef.current) roverRef.current.visible = false; return; }
+    if (s.rover.health <= 0) { say(es ? 'El rover explotó' : 'The rover exploded'); s.dying = 2.2; s.exploded = true; boom.current = { t: 0, x: s.rover.x, y: heightAt(world, s.rover.x, s.rover.z) + 1, z: s.rover.z }; if (roverRef.current) roverRef.current.visible = false; return; }
     if (s.rover.energy <= 0 && Math.abs(s.rover.speed) < 0.4) { s.stuck += dt; if (s.stuck > 6) { say(es ? 'Sin energía: fin de la misión' : 'Out of power: mission over'); finish(false); } } else s.stuck = 0;
     s.msgT = Math.max(0, s.msgT - dt);
 
@@ -208,15 +264,20 @@ function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
 
     // HUD snapshot
     const h = hud.current;
-    h.energy = r.energy / cfg.battery; h.health = r.health / 100; h.boost = r.boost; h.taken = s.kinds.slice(); h.reach = reach?.kind ?? null; h.atLander = atLander;
-    h.heading = r.heading; h.x = r.x; h.z = r.z; h.dist = dl; h.bearing = Math.atan2(-r.x, -r.z); h.msg = s.msgT > 0 ? s.msg : ''; h.scan = s.scanT; h.dust = s.dust; h.speed = Math.abs(r.speed); h.left = mods.timeLimit ? Math.max(0, mods.timeLimit - s.time) : 0;
+    h.energy = r.energy / cfg.battery; h.health = Math.min(1, r.health / Math.max(1, cfg.health)); h.boost = r.boost; h.taken = s.kinds.slice(); h.reach = reach?.kind ?? null; h.atLander = atLander;
+    const tgt = !pois ? null : pois.carrying ? { x: 0, z: 0 } : pois.nearest(me);
+    h.target = tgt ? { x: tgt.x, z: tgt.z } : null; h.poiDone = pois?.doneCount ?? 0; h.poiTotal = pois?.pois.length ?? 0; h.carrying = !!pois?.carrying; h.kills = sim.kills;
+    h.hold = pois ? Math.max(0, ...pois.pois.map(q => (q.hold > 0 && !q.done ? q.hold / pois.o.holdTime : 0))) : 0;
+    h.near = pois ? (pois.carrying ? (dl < LANDER_R + 4 ? 'deliver' : null) : (pois.nearest(me) && Math.hypot(pois.nearest(me)!.x - r.x, pois.nearest(me)!.z - r.z) < (pois.nearest(me)!.kind === 'photo' ? pois.o.range * 2.4 : pois.o.range) ? pois.nearest(me)!.kind : null)) : null;
+    h.heading = r.heading; h.x = r.x; h.z = r.z; h.dist = tgt ? Math.hypot(tgt.x - r.x, tgt.z - r.z) : dl; h.bearing = tgt ? Math.atan2(tgt.x - r.x, tgt.z - r.z) : Math.atan2(-r.x, -r.z); h.msg = s.msgT > 0 ? s.msg : ''; h.scan = s.scanT; h.dust = s.dust; h.speed = Math.abs(r.speed); h.left = mods.timeLimit ? Math.max(0, mods.timeLimit - s.time) : 0;
     h.visible = vis.map(v => ({ x: v.x, z: v.z, kind: v.kind }));
   });
 
   function finish(returned: boolean, quit = false) {
     const s = g.current; if (s.ended) return;
     s.ended = true;
-    s.result = scoreRun(cfg, s.kinds, returned && !quit, s.rover, s.time, need);
+    const base = isCollectGlobal(contract) ? scoreRun(cfg, s.kinds, returned && !quit, s.rover, s.time, need) : contractResult(pois?.doneCount ?? 0, pois?.pois.length ?? 1, s.rover.health, s.time, sim.kills, s.exploded, s.lost);
+    s.result = { ...base, kills: sim.kills, pois: pois?.doneCount ?? s.kinds.length, exploded: s.exploded, lost: s.lost };
     onFinish(s.result);
   }
 
@@ -226,7 +287,9 @@ function Scene({ cfg, mods, need, world, es, g, hud, input, poll, onFinish }: {
     <Terrain world={world} /><Rocks world={world} /><Lander />
     <mesh position={[-120, 70, -160]}><icosahedronGeometry args={[14, 1]} /><meshBasicMaterial color="#fff3c4" fog={false} /></mesh>
     <Boom boom={boom} />
-    <group ref={roverRef} position={[0, 0, LANDER_R + 3]}><Rover radar={cfg.radar} spectrometer={cfg.spectrometer} /></group>
+    <group ref={roverRef} position={[0, 0, LANDER_R + 3]}><Rover radar={cfg.radar} spectrometer={cfg.spectrometer} tier={tier} laser={perks.weapon > 0} /></group>
+    <Actors sim={sim} pois={pois} bulletColor="#fff4b0" />
+    {contract.kind === 'rescue' && <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[LANDER_R + 2, LANDER_R + 3, 24]} /><meshBasicMaterial color="#5ee6a8" transparent opacity={0.6} /></mesh>}
     {world.samples.map((sm, idx) => <group key={sm.id} ref={n => { sampleRefs.current[idx] = n; }} visible={false}>
       <mesh><octahedronGeometry args={[0.55, 0]} /><meshStandardMaterial color={KIND_COLOR[sm.kind]} emissive={KIND_COLOR[sm.kind]} emissiveIntensity={0.5} flatShading /></mesh>
       <mesh position={[0, 6, 0]}><cylinderGeometry args={[0.12, 0.12, 12, 5]} /><meshBasicMaterial color={KIND_COLOR[sm.kind]} transparent opacity={0.35} fog={false} /></mesh>
@@ -280,14 +343,26 @@ export function Joystick({ input }: { input: React.MutableRefObject<WorldInput> 
 }
 
 // ── Root ───────────────────────────────────────────────────────────────────
-export default function MarsWorld({ cfg, es, mods = modsFor('easy'), onDone, onExit }: { cfg: WorldConfig; es: boolean; mods?: Mods; onDone: (r: MarsResult) => void; onExit: () => void }) {
+export default function MarsWorld({ cfg, es, mods = modsFor('easy'), perks = basePerks(), contract = defaultContract('mars'), tier = 0, onDone, onExit }: { cfg: WorldConfig; es: boolean; mods?: Mods; perks?: Perks; contract?: Contract; tier?: number; onDone: (r: MarsResult) => void; onExit: () => void }) {
   const world = useMemo(() => createWorld(cfg), [cfg]);
   const need = Math.min(mods.required, cfg.radar ? 6 : 5);
+  const sim = useMemo(() => new CombatSim({
+    kind: 'crawler', max: mods.enemyMax, spawnEvery: mods.spawnEvery, waveEvery: mods.waveEvery, hp: mods.enemyHp, speed: mods.enemySpeed * 7, damage: mods.enemyDmg, aggro: 42,
+    thiefChance: mods.thiefChance, slow: perks.enemySlow, more: perks.enemyMore * contract.danger, seed: cfg.seed + 11,
+    place: (p, r1, r2) => { const a = r1 * Math.PI * 2, d = 36 + r2 * 24, x = Math.max(-HALF + 4, Math.min(HALF - 4, p.x + Math.cos(a) * d)), z = Math.max(-HALF + 4, Math.min(HALF - 4, p.z + Math.sin(a) * d)); return { x, y: heightAt(world, x, z), z }; },
+    constrain: e => { e.x = Math.max(-HALF + 2, Math.min(HALF - 2, e.x)); e.z = Math.max(-HALF + 2, Math.min(HALF - 2, e.z)); e.y = heightAt(world, e.x, e.z); },
+  }), [world, mods, perks, contract, cfg.seed]);
+  const pois = useMemo(() => {
+    if (contract.kind === 'collect') return null;
+    const r = rng(cfg.seed + 5), n = contractN(contract, mods.required);
+    const place = (i: number): V3 => { const a = (i / n) * Math.PI * 2 + r() * 1.2, d = 45 + r() * 55, x = Math.cos(a) * d, z = Math.sin(a) * d; return { x, y: heightAt(world, x, z), z }; };
+    return new PoiSim(makePois(contract.kind === 'beacons' ? 'beacon' : contract.kind === 'rescue' ? 'crate' : 'photo', n, place), { x: 0, y: 0, z: 0 }, { holdTime: 2.2 + mods.enemyHp * 0.12, range: 5, homeRange: LANDER_R + 4, canPhoto: cfg.camera });
+  }, [contract, cfg.seed, cfg.camera, mods, world]);
   const { inp, poll } = useWorldInput();
-  const g = useRef<Game>({ rover: newRover(cfg), taken: new Set(), kinds: [], time: 0, scanT: 0, dust: 0, meteors: Array.from({ length: 3 }, () => ({ t: 0, x: 0, z: 0, active: false, hit: false })), nextMeteor: 7, msg: '', msgT: 0, ended: false, stuck: 0, result: null, shake: 0 });
-  const hud = useRef<Hud>({ energy: 1, health: 1, boost: 1, taken: [], reach: null, atLander: false, heading: 0, x: 0, z: 0, dist: 0, bearing: 0, msg: '', scan: 0, visible: [], dust: 0, speed: 0, left: 0 });
+  const g = useRef<Game>({ rover: newRover(cfg), taken: new Set(), kinds: [], time: 0, scanT: 0, dust: 0, meteors: Array.from({ length: 3 }, () => ({ t: 0, x: 0, z: 0, active: false, hit: false })), nextMeteor: 7, msg: '', msgT: 0, ended: false, stuck: 0, result: null, shake: 0, fireCd: 0, lost: 0, stolen: null, exploded: false });
+  const hud = useRef<Hud>({ energy: 1, health: 1, boost: 1, taken: [], reach: null, atLander: false, heading: 0, x: 0, z: 0, dist: 0, bearing: 0, msg: '', scan: 0, visible: [], dust: 0, speed: 0, left: 0, poiDone: 0, poiTotal: 0, hold: 0, carrying: false, kills: 0, target: null, near: null });
   const [snap, setSnap] = useState<Hud>(hud.current);
-  useEffect(() => { if (new URLSearchParams(location.search).has('debug')) (window as unknown as Record<string, unknown>).__frontierMars = { g: g.current, world }; }, [world]);
+  useEffect(() => { if (new URLSearchParams(location.search).has('debug')) (window as unknown as Record<string, unknown>).__frontierMars = { g: g.current, world, sim, pois }; }, [world, sim, pois]);
   const [result, setResult] = useState<MarsResult | null>(null);
   const [showHelp, setShowHelp] = useState(true);
 
@@ -295,6 +370,8 @@ export default function MarsWorld({ cfg, es, mods = modsFor('easy'), onDone, onE
   useEffect(() => { const t = setTimeout(() => setShowHelp(false), 9000); return () => clearTimeout(t); }, []);
 
   const drag = useRef<{ x: number; y: number } | null>(null);
+  const nP = pois?.pois.length ?? 0;
+  const goalText = (es: boolean) => contract.kind === 'beacons' ? (es ? `Repara ${nP} antenas (mantén E)` : `Repair ${nP} antennas (hold E)`) : contract.kind === 'rescue' ? (snap.carrying ? (es ? 'Lleva la sonda al módulo y pulsa E' : 'Bring the probe to the lander, press E') : (es ? 'Recoge la sonda varada (E)' : 'Pick up the stranded probe (E)')) : contract.kind === 'photo' ? (es ? `Fotografía ${nP} formaciones (E)` : `Photograph ${nP} formations (E)`) : null;
   const L = es
     ? { energy: 'Energía', health: 'Casco', boost: 'Turbo', samples: 'Muestras', goal: `Recolecta ${need} y regresa al módulo`, collect: 'Recolectar', deposit: 'Entregar muestras y terminar', scan: 'Escanear', quit: 'Salir', done: 'Misión terminada', dust: 'Tormenta de polvo', home: 'Módulo', radarNo: 'Sin radar: el hielo enterrado no se detecta', again: 'Cerrar' }
     : { energy: 'Power', health: 'Hull', boost: 'Boost', samples: 'Samples', goal: `Collect ${need} and return to the lander`, collect: 'Collect', deposit: 'Deliver samples and finish', scan: 'Scan', quit: 'Exit', done: 'Mission complete', dust: 'Dust storm', home: 'Lander', radarNo: 'No radar: buried ice cannot be detected', again: 'Close' };
@@ -304,7 +381,7 @@ export default function MarsWorld({ cfg, es, mods = modsFor('easy'), onDone, onE
     onPointerMove={e => { const d = drag.current; if (!d) return; inp.current.camYaw -= (e.clientX - d.x) * 0.006; inp.current.camPitch = Math.max(0.1, Math.min(1.1, inp.current.camPitch + (e.clientY - d.y) * 0.004)); drag.current = { x: e.clientX, y: e.clientY }; }}
     onPointerUp={() => { drag.current = null; }}>
     <Canvas dpr={[1, 1.6]} camera={{ fov: 62, near: 0.1, far: 500, position: [0, 6, 25] }} gl={{ antialias: true }}>
-      <Suspense fallback={null}><Scene cfg={cfg} mods={mods} need={need} world={world} es={es} g={g} hud={hud} input={inp} poll={poll} onFinish={r => setResult(r)} /></Suspense>
+      <Suspense fallback={null}><Scene cfg={cfg} mods={mods} need={need} perks={perks} contract={contract} sim={sim} pois={pois} tier={tier} world={world} es={es} g={g} hud={hud} input={inp} poll={poll} onFinish={r => setResult(r)} /></Suspense>
     </Canvas>
 
     <button className="w-btn w-exit" onClick={() => { inp.current.exitPulse = true; }} aria-label={L.quit}><X size={20} /></button>
@@ -316,9 +393,10 @@ export default function MarsWorld({ cfg, es, mods = modsFor('easy'), onDone, onE
         <div className="w-bar small"><span style={{ width: `${snap.boost * 100}%`, background: '#6ec6ff' }} /><b>{L.boost}</b></div>
       </div>
       <div className="w-goal">
-        <b>{L.goal}</b>
-        <div className="w-chips">{Array.from({ length: Math.max(need, snap.taken.length) }, (_, i) => <span key={i} className="w-chip" style={{ background: snap.taken[i] ? KIND_COLOR[snap.taken[i]!] : 'transparent' }}>{snap.taken[i] ? KIND_NAME[es ? 'es' : 'en'][snap.taken[i]!] : '?'}</span>)}</div>
-        {!cfg.radar && <small>{L.radarNo}</small>}
+        <b>{goalText(es) ?? L.goal}</b>
+        {contract.kind !== 'collect' && contract.kind !== 'rescue' && <div className="w-chips">{Array.from({ length: nP }, (_, i) => <span key={i} className="w-chip" style={{ background: i < snap.poiDone ? '#5ee6a8' : 'transparent' }}>{i < snap.poiDone ? '✓' : '?'}</span>)}</div>}
+        {contract.kind === 'collect' && <div className="w-chips">{Array.from({ length: Math.max(need, snap.taken.length) }, (_, i) => <span key={i} className="w-chip" style={{ background: snap.taken[i] ? KIND_COLOR[snap.taken[i]!] : 'transparent' }}>{snap.taken[i] ? KIND_NAME[es ? 'es' : 'en'][snap.taken[i]!] : '?'}</span>)}</div>}
+        {!cfg.radar && contract.kind === 'collect' && <small>{L.radarNo}</small>}
         {mods.timeLimit > 0 && <small className="w-warn">⏱ {Math.floor(snap.left / 60)}:{String(Math.floor(snap.left % 60)).padStart(2, '0')}</small>}
         {snap.dust > 0.35 && <small className="w-warn">{L.dust}</small>}
       </div>
@@ -329,11 +407,13 @@ export default function MarsWorld({ cfg, es, mods = modsFor('easy'), onDone, onE
     <Minimap hud={hud} world={world} cfg={cfg} />
 
     {snap.msg && <div className="w-toast" role="status">{snap.msg}</div>}
-    {(snap.reach || (snap.atLander && snap.taken.length > 0)) && <div className="w-prompt">
-      <span className="w-key">E</span><span className="w-key pad">A</span>{snap.reach ? `${L.collect}: ${KIND_NAME[es ? 'es' : 'en'][snap.reach]}` : L.deposit}
+    {(snap.reach || (contract.kind === 'collect' && snap.atLander && snap.taken.length > 0) || snap.near) && <div className="w-prompt">
+      <span className="w-key">E</span><span className="w-key pad">A</span>{snap.reach ? `${L.collect}: ${KIND_NAME[es ? 'es' : 'en'][snap.reach]}` : snap.near === 'beacon' ? (es ? 'Mantén para reparar' : 'Hold to repair') : snap.near === 'crate' ? (es ? 'Recoger la sonda' : 'Pick up the probe') : snap.near === 'photo' ? (es ? 'Tomar foto' : 'Take photo') : snap.near === 'deliver' ? (es ? 'Entregar la sonda' : 'Deliver the probe') : L.deposit}
+      {snap.hold > 0 && <span className="w-hold"><i style={{ width: `${snap.hold * 100}%` }} /></span>}
     </div>}
+    <div className="w-kills" aria-label="kills">{perks.weapon > 0 ? `☠ ${snap.kills}` : (es ? 'Esquiva a los bichos' : 'Dodge the bugs')}</div>
     {showHelp && <div className="w-help" onClick={() => setShowHelp(false)}>
-      <span><Keyboard size={16} /> WASD · Shift {L.boost} · E {L.collect} · F {L.scan} · J/L</span>
+      <span><Keyboard size={16} /> WASD · Shift {L.boost} · E {L.collect} · F {L.scan} · R {es ? 'disparar' : 'fire'} · J/L</span>
       <span><Gamepad2 size={16} /> {es ? 'Stick · A recolectar · X escanear · RT/B turbo' : 'Stick · A collect · X scan · RT/B boost'}</span>
       <span><Hand size={16} /> {es ? 'Joystick + botones · arrastra para la cámara' : 'Joystick + buttons · drag for camera'}</span>
     </div>}
@@ -341,7 +421,8 @@ export default function MarsWorld({ cfg, es, mods = modsFor('easy'), onDone, onE
     <div className="w-touch">
       <Joystick input={inp} />
       <div className="w-btns">
-        <button className="w-btn big" onPointerDown={() => { inp.current.collectPulse = true; }}>E</button>
+        {perks.weapon > 0 && <button className="w-btn fire" onPointerDown={() => { inp.current.firePulse = true; }}>R</button>}
+        <button className="w-btn big" onPointerDown={() => { inp.current.collectPulse = true; inp.current.touchInteract = true; }} onPointerUp={() => { inp.current.touchInteract = false; }} onPointerCancel={() => { inp.current.touchInteract = false; }} onPointerLeave={() => { inp.current.touchInteract = false; }}>E</button>
         <button className="w-btn" onPointerDown={() => { inp.current.scanPulse = true; }}>{L.scan}</button>
         <button className="w-btn" onPointerDown={() => { inp.current.touchBoost = true; }} onPointerUp={() => { inp.current.touchBoost = false; }} onPointerCancel={() => { inp.current.touchBoost = false; }}>{L.boost}</button>
       </div>

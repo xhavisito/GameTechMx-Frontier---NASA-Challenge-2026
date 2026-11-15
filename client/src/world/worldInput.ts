@@ -8,8 +8,10 @@ export interface WorldInput {
   usingPad: boolean;
   /** vertical movement for the submarine: +1 up, -1 down */
   vert: number; touchUp: boolean; touchDown: boolean;
+  /** weapon, and 'E held' for hold-to-repair objectives */
+  firePulse: boolean; interactHeld: boolean; touchInteract: boolean;
 }
-export const blankInput = (): WorldInput => ({ throttle: 0, steer: 0, boost: false, camYaw: 0, camPitch: 0.35, collectPulse: false, scanPulse: false, exitPulse: false, joyX: 0, joyY: 0, touchBoost: false, usingPad: false, vert: 0, touchUp: false, touchDown: false });
+export const blankInput = (): WorldInput => ({ throttle: 0, steer: 0, boost: false, camYaw: 0, camPitch: 0.35, collectPulse: false, scanPulse: false, exitPulse: false, joyX: 0, joyY: 0, touchBoost: false, usingPad: false, vert: 0, touchUp: false, touchDown: false, firePulse: false, interactHeld: false, touchInteract: false });
 
 const dead = (v: number) => (Math.abs(v) < 0.14 ? 0 : v);
 
@@ -18,7 +20,7 @@ export function useWorldInput(opts: { sub?: boolean } = {}) {
   const sub = !!opts.sub;
   const inp = useRef<WorldInput>(blankInput());
   const keys = useRef(new Set<string>());
-  const prevPad = useRef({ a: false, x: false, b: false });
+  const prevPad = useRef({ a: false, x: false, b: false, lb: false });
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -27,6 +29,7 @@ export function useWorldInput(opts: { sub?: boolean } = {}) {
       if (!keys.current.has(k)) {
         if (k === 'e' || k === 'enter' || (!sub && k === ' ')) inp.current.collectPulse = true;
         if (k === 'f') inp.current.scanPulse = true;
+        if (k === 'r') inp.current.firePulse = true;
         if (k === 'escape') inp.current.exitPulse = true;
       }
       keys.current.add(k);
@@ -45,6 +48,7 @@ export function useWorldInput(opts: { sub?: boolean } = {}) {
     let boost = k.has('shift');
     let cy = (k.has('l') ? 1 : 0) - (k.has('j') ? 1 : 0);
     let vert = sub ? (k.has(' ') || k.has('q') ? 1 : 0) - (k.has('c') || k.has('z') ? 1 : 0) : 0;
+    let padHeld = false;
     const pad = (navigator.getGamepads?.() ?? []).find(p => p && p.connected);
     if (pad) {
       const ax = (n: number) => dead(pad.axes[n] ?? 0), bt = (n: number) => !!pad.buttons[n]?.pressed;
@@ -56,12 +60,15 @@ export function useWorldInput(opts: { sub?: boolean } = {}) {
       boost = boost || bt(5) || bt(1);
       cy += ax(2);
       i.camPitch = Math.max(0.1, Math.min(1.1, i.camPitch + ax(3) * dt * 1.2));
-      const a = bt(0), x = bt(2), b = bt(9);
+      const a = bt(0), x = bt(2), b = bt(9), lb = bt(4);
       if (a && !prevPad.current.a) i.collectPulse = true;
+      if (lb && !prevPad.current.lb) i.firePulse = true;
+      padHeld = a;
       if (x && !prevPad.current.x) i.scanPulse = true;
       if (b && !prevPad.current.b) i.exitPulse = true;
-      prevPad.current = { a, x, b };
+      prevPad.current = { a, x, b, lb };
     }
+    i.interactHeld = k.has('e') || k.has('enter') || (!sub && k.has(' ')) || padHeld || i.touchInteract;
     if (sub) vert += (i.touchUp ? 1 : 0) - (i.touchDown ? 1 : 0);
     i.vert = Math.max(-1, Math.min(1, vert));
     t += -i.joyY; s += i.joyX; boost = boost || i.touchBoost;

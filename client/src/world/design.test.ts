@@ -38,3 +38,16 @@ describe('levels get harder', () => {
     for (let i = 1; i < m.length; i++) { expect(m[i]!.required).toBeGreaterThanOrEqual(m[i - 1]!.required); expect(m[i]!.hazardDmg).toBeGreaterThan(m[i - 1]!.hazardDmg); expect(m[i]!.hullDepth).toBeLessThan(m[i - 1]!.hullDepth); expect(m[i]!.drainMul).toBeGreaterThan(m[i - 1]!.drainMul); }
   });
 });
+
+import { NO_BONUS } from './design';
+describe('rocket workshop bonus', () => {
+  it('extra dv / payload / budget can only make tests easier', () => {
+    const d = { ...defaultDesign('jupiter'), rocket: 'light' as const };
+    const a = runTests(d, 'expert', NO_BONUS), b = runTests(d, 'expert', { dv: 5, payload: 5000, budget: 500 });
+    expect(b.filter(x => x.ok).length).toBeGreaterThanOrEqual(a.filter(x => x.ok).length);
+  });
+  it('trip shield reduces event damage', () => {
+    const a = applyEffects(modsFor('hard'), [{ health: -20 }]), b = applyEffects(modsFor('hard'), [{ health: -20 }], 0.5);
+    expect(b.health).toBeGreaterThan(a.health);
+  });
+});

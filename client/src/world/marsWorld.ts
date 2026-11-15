@@ -3,7 +3,7 @@ import { fbm2, rng } from '../three/noise';
 export const HALF = 130; // world is a square of side 2*HALF metres
 export const LANDER_R = 9;
 
-export interface WorldConfig { seed: number; camera: boolean; spectrometer: boolean; radar: boolean; battery: number; solar: number; health: number; }
+export interface WorldConfig { seed: number; camera: boolean; spectrometer: boolean; radar: boolean; battery: number; solar: number; health: number; speedMul?: number; reach?: number; scan?: number; science?: number }
 export type SampleKind = 'regolith' | 'basalt' | 'hematite' | 'ice';
 export interface SampleSite { id: number; kind: SampleKind; x: number; z: number; /** ice is buried: only radar reveals it */ buried: boolean; }
 export interface Rock { x: number; z: number; s: number; r: number; tint: number; }
@@ -64,7 +64,7 @@ export function stepRover(w: Pick<MarsWorldData, 'seed' | 'craters' | 'amp'>, cf
   const fx = Math.max(-1, Math.min(1, input.throttle)), fs = Math.max(-1, Math.min(1, input.steer));
   const hasPower = s.energy > 0;
   const boosting = input.boost && hasPower && s.boost > 0.05 && fx > 0;
-  const top = (boosting ? BOOST_SPEED : MAX_SPEED) * (hasPower ? 1 : 0.15);
+  const top = (boosting ? BOOST_SPEED : MAX_SPEED) * (hasPower ? 1 : 0.15) * (cfg.speedMul ?? 1);
   const target = fx * top;
   let speed = s.speed + (target - s.speed) * Math.min(1, dt * (Math.abs(target) > Math.abs(s.speed) ? 2.2 : 3.5));
   const nx0 = normalAt(w, s.x, s.z);
@@ -85,7 +85,7 @@ export function stepRover(w: Pick<MarsWorldData, 'seed' | 'craters' | 'amp'>, cf
 }
 
 export const COLLECT_RADIUS = 3.2;
-export const detectRange = (cfg: WorldConfig) => (cfg.camera ? 46 : 26);
+export const detectRange = (cfg: WorldConfig) => (cfg.camera ? 46 : 26) + (cfg.scan ?? 0);
 
 /** Which sample sites can the player currently see? Buried ice needs radar. */
 export function visibleSamples(w: MarsWorldData, cfg: WorldConfig, taken: ReadonlySet<number>, x: number, z: number, scanBoost = 0): SampleSite[] {
@@ -93,7 +93,7 @@ export function visibleSamples(w: MarsWorldData, cfg: WorldConfig, taken: Readon
   return w.samples.filter(s => !taken.has(s.id) && (!s.buried || cfg.radar) && Math.hypot(s.x - x, s.z - z) <= range);
 }
 export function sampleInReach(w: MarsWorldData, cfg: WorldConfig, taken: ReadonlySet<number>, x: number, z: number): SampleSite | null {
-  let best: SampleSite | null = null, bd = COLLECT_RADIUS;
+  let best: SampleSite | null = null, bd = COLLECT_RADIUS + (cfg.reach ?? 0);
   for (const s of w.samples) {
     if (taken.has(s.id) || (s.buried && !cfg.radar)) continue;
     const d = Math.hypot(s.x - x, s.z - z);
@@ -102,11 +102,11 @@ export function sampleInReach(w: MarsWorldData, cfg: WorldConfig, taken: Readonl
   return best;
 }
 
-export interface MarsResult { score: number; science: number; returned: boolean; grade: string; samples: string[] }
+export interface MarsResult { score: number; science: number; returned: boolean; grade: string; samples: string[]; kills?: number; pois?: number; exploded?: boolean; lost?: number }
 export const REQUIRED_SAMPLES = 3;
 const SCIENCE: Record<SampleKind, number> = { regolith: 8, basalt: 10, hematite: 14, ice: 18 };
 export function scoreRun(cfg: WorldConfig, kinds: SampleKind[], returned: boolean, rover: RoverState, secondsUsed: number, need = REQUIRED_SAMPLES): MarsResult {
-  const science = kinds.reduce((a, k) => a + SCIENCE[k] * (cfg.spectrometer ? 1.5 : 1), 0);
+  const science = kinds.reduce((a, k) => a + SCIENCE[k] * (cfg.spectrometer ? 1.5 : 1) * (cfg.science ?? 1), 0);
   const raw = Math.min(55, science * 1.1) + (returned ? 25 : 0) + (rover.health / 100) * 8 + (rover.energy / cfg.battery) * 6 + Math.max(0, 6 - secondsUsed / 120) ;
   const score = Math.max(0, Math.min(100, Math.round(kinds.length >= need ? raw : raw * 0.7)));
   const grade = score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 50 ? 'B' : score >= 30 ? 'C' : 'D';

@@ -6,6 +6,10 @@ import { heightAt, newRover, normalAt, stepRover, type MarsResult, type MarsWorl
 import { Terrain, Joystick, type Palette } from './MarsWorld';
 import { Rover, Shuttle } from './models';
 import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests, EventCard } from './ui';
+import { Workshop, Draft, Reward } from './workshop';
+import { loadMeta, saveMeta, perksFor, tierOf, withCard, draw, type Meta, type RunCard, type Ship } from './meta';
+import { contractsFor, contractById, defaultContract } from './contracts';
+import { scrapReward } from './runkit';
 import { defaultDesign, normalize, eventsFor, applyEffects, type Design, type EventOption, type Dest } from './design';
 import { LEVEL_INFO, modsFor, readLevel, saveLevel, tutorialDone, markTutorialDone, type Level } from './levels';
 import { useWorldInput, type WorldInput } from './worldInput';
@@ -20,7 +24,7 @@ const MillerOcean = lazy(() => import('./MillerOcean'));
 const EARTH: Palette = { low: '#4fae5d', mid: '#6cc56a', high: '#9bdc7a', pale: '#d8f0a8', pad: '#cfd3dc' };
 const HANGAR = new THREE.Vector3(-34, 0, 26), ROCKET = new THREE.Vector3(34, 0, -22), NEAR = 7;
 
-type Phase = 'intro' | 'earth' | 'hangar' | 'tests' | 'launch' | 'travel' | 'mars' | 'end';
+type Phase = 'intro' | 'earth' | 'hangar' | 'workshop' | 'tests' | 'launch' | 'travel' | 'draft' | 'mars' | 'end';
 
 const T = {
   es: {
@@ -78,7 +82,7 @@ function Hangar() {
   </group>;
 }
 
-function RocketModel({ lift, flame }: { lift: React.MutableRefObject<number>; flame: boolean }) {
+function RocketModel({ lift, flame, tier = 0 }: { lift: React.MutableRefObject<number>; flame: boolean; tier?: number }) {
   const smoke = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
     if (!smoke.current) return;
@@ -88,13 +92,14 @@ function RocketModel({ lift, flame }: { lift: React.MutableRefObject<number>; fl
   return <group position={[ROCKET.x, 0, ROCKET.z]}>
     <group ref={smoke} visible={false}>{Array.from({ length: 18 }, (_, i) => <mesh key={i}><icosahedronGeometry args={[0.9, 0]} /><meshBasicMaterial color="#fff4e6" transparent opacity={0.8} depthWrite={false} /></mesh>)}</group>
     <mesh position={[0, 0.15, 0]}><cylinderGeometry args={[7, 7.5, 0.3, 8]} /><meshStandardMaterial color="#b9a8d0" flatShading /></mesh>
-    <Shuttle lift={lift} flame={flame} />
+    <Shuttle lift={lift} flame={flame} tier={tier} />
   </group>;
 }
 
 interface Hud { near: 'hangar' | 'rocket' | null; dist: number; bearing: number; heading: number }
 
-function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct }: {
+function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverTier, rocketTier, laser }: {
+  roverTier: number; rocketTier: number; laser: boolean;
   world: MarsWorldData; phase: Phase; quest: number; input: React.MutableRefObject<WorldInput>; poll: (dt: number) => void;
   hud: React.MutableRefObject<Hud>; lift: React.MutableRefObject<number>; onAct: (w: 'hangar' | 'rocket') => void;
 }) {
@@ -148,8 +153,8 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct }: {
     <directionalLight position={[80, 120, 40]} intensity={1.8} color="#fff6dd" />
     <mesh position={[0, -1.6, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[1500, 1500]} /><meshStandardMaterial color="#3fa7e8" flatShading /></mesh>
     <Terrain world={world} palette={EARTH} /><Trees world={world} /><Hangar />
-    <RocketModel lift={lift} flame={phase === 'launch' && launchT.current > 3} />
-    <group ref={roverRef}><Rover /></group>
+    <RocketModel lift={lift} flame={phase === 'launch' && launchT.current > 3} tier={rocketTier} />
+    <group ref={roverRef}><Rover tier={roverTier} laser={laser} /></group>
     {phase === 'earth' && <group ref={markers}>
       <mesh position={[0, 16, 0]} rotation={[Math.PI, 0, 0]}><coneGeometry args={[1.6, 3, 4]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.7} flatShading /></mesh>
       <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[NEAR - 0.8, NEAR, 24]} /><meshBasicMaterial color="#ffc857" transparent opacity={0.85} /></mesh>
@@ -169,6 +174,12 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const [run, setRun] = useState(0);
   const [evIdx, setEvIdx] = useState(0);
   const [picked, setPicked] = useState<EventOption[]>([]);
+  const [meta, setMetaState] = useState<Meta>(loadMeta);
+  const setMeta = (m: Meta) => { setMetaState(m); saveMeta(m); };
+  const [card, setCard] = useState<RunCard | null>(null);
+  const [contractId, setContractId] = useState('');
+  const [reward, setReward] = useState(0);
+  const wsBack = useRef<Phase>('hangar');
   const [snap, setSnap] = useState<Hud>({ near: null, dist: 0, bearing: 0, heading: 0 });
   const world = useMemo(earthWorld, []);
   const { inp, poll } = useWorldInput();
@@ -177,6 +188,14 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const d = useMemo(() => normalize(design, level), [design, level]);
   const dest: Dest = d.dest;
   const events = useMemo(() => eventsFor(level, run + 1), [level, run]);
+  const ship: Ship = dest === 'jupiter' ? 'orbiter' : dest === 'miller' ? 'sub' : 'rover';
+  const rocketPerks = useMemo(() => perksFor('rocket', meta), [meta]);
+  const bonus = useMemo(() => ({ dv: rocketPerks.dv, payload: rocketPerks.payload, budget: rocketPerks.budget }), [rocketPerks]);
+  const contracts = useMemo(() => contractsFor(dest, level), [dest, level]);
+  const contract = contracts.find(c => c.id === contractId) ?? contractById(contractId) ?? defaultContract(dest);
+  const activeContract = contract.world === dest ? contract : defaultContract(dest);
+  const perks = useMemo(() => withCard(perksFor(ship, meta), card), [ship, meta, card]);
+  const cards = useMemo(() => draw(run * 7919 + 13 + level.length, 3), [run, level]);
 
   useEffect(() => {
     if (phase !== 'launch') return;
@@ -185,29 +204,34 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     return () => ts.forEach(clearTimeout);
   }, [phase]);
   const pending = phase === 'travel' && evIdx < events.length;
-  useEffect(() => { if (phase !== 'travel' || pending) return; const t = setTimeout(() => setPhase('mars'), 4500); return () => clearTimeout(t); }, [phase, pending]);
+  useEffect(() => { if (phase !== 'travel' || pending) return; const t = setTimeout(() => setPhase('draft'), 4500); return () => clearTimeout(t); }, [phase, pending]);
 
-  const mission = useMemo(() => applyEffects(modsFor(level), picked.map(p => p.fx)), [level, picked]);
+  const mission = useMemo(() => applyEffects(modsFor(level), picked.map(p => p.fx), rocketPerks.tripShield), [level, picked, rocketPerks]);
   const mods = mission.mods;
   const cfg: WorldConfig = useMemo(() => ({
-    seed: 1000 + run * 7, health: mission.health,
-    battery: ((d.batteryKWh * 100 + 20) * mission.energy) / mods.drainMul, solar: d.solarM2 * 45,
+    seed: 1000 + run * 7, health: mission.health * (perks.health / 100),
+    battery: ((d.batteryKWh * 100 + 20) * mission.energy * perks.energyMul) / mods.drainMul, solar: d.solarM2 * 45,
     camera: d.tools.includes('camera'), spectrometer: d.tools.includes('spectrometer'), radar: d.tools.includes('radar'),
   }), [d, run, mission, mods.drainMul]);
   // Jupiter and Miller take one main tool: the one that sees farthest
   const tool = d.tools.includes('radar') ? 'radar' : d.tools.includes('camera') ? 'camera' : 'spectrometer';
 
   const onAct = (w: 'hangar' | 'rocket') => { if (w === 'hangar') setPhase('hangar'); else setPhase('launch'); };
-  const reset = () => { setPhase('earth'); setQuest(0); setResult(null); setRun(r => r + 1); setPicked([]); lift.current = 0; };
+  const reset = () => { setPhase('earth'); setQuest(0); setResult(null); setRun(r => r + 1); setPicked([]); setCard(null); lift.current = 0; };
+  const openWorkshop = (back: Phase) => { wsBack.current = back; setPhase('workshop'); };
   const pickLevel = (l: Level) => { setLevel(l); saveLevel(l); setPhase('earth'); };
-  const done = (r: MarsResult) => { setResult(r); setPhase('end'); };
+  const done = (r: MarsResult) => {
+    const gain = scrapReward(r, mods, perks, activeContract);
+    setReward(gain); setMeta({ ...meta, scrap: meta.scrap + gain, runs: meta.runs + 1, best: Math.max(meta.best, r.score), kills: meta.kills + (r.kills ?? 0) });
+    setResult(r); setPhase('end');
+  };
 
   if (phase === 'mars') return <Suspense fallback={<div className="w-root adv-center">…</div>}>
     {dest === 'jupiter'
-      ? <JupiterOrbit tool={tool} es={es} mods={mods} onDone={done} onExit={onExit} />
+      ? <JupiterOrbit tool={tool} es={es} mods={mods} perks={perks} contract={activeContract} tier={tierOf(meta, 'orbiter')} onDone={done} onExit={onExit} />
       : dest === 'miller'
-      ? <MillerOcean tool={tool} es={es} mods={mods} onDone={done} onExit={onExit} />
-      : <MarsWorld cfg={cfg} es={es} mods={mods} onDone={done} onExit={onExit} />}
+      ? <MillerOcean tool={tool} es={es} mods={mods} perks={perks} contract={activeContract} tier={tierOf(meta, 'sub')} onDone={done} onExit={onExit} />
+      : <MarsWorld cfg={cfg} es={es} mods={mods} perks={perks} contract={activeContract} tier={tierOf(meta, 'rover')} onDone={done} onExit={onExit} />}
   </Suspense>;
 
   const lvl = LEVEL_INFO[level];
@@ -216,7 +240,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     onPointerMove={e => { const el = e.currentTarget as HTMLElement, dr = el.dataset.drag; if (!dr) return; const [x, y] = dr.split(',').map(Number); inp.current.camYaw -= (e.clientX - x!) * 0.006; inp.current.camPitch = Math.max(0.1, Math.min(1.1, inp.current.camPitch + (e.clientY - y!) * 0.004)); el.dataset.drag = `${e.clientX},${e.clientY}`; }}
     onPointerUp={e => { delete (e.currentTarget as HTMLElement).dataset.drag; }}>
     <Canvas dpr={[1, 1.6]} camera={{ fov: 62, near: 0.1, far: 600, position: [0, 8, -10] }}>
-      <Suspense fallback={null}><EarthScene world={world} phase={phase} quest={quest} input={inp} poll={poll} hud={hud} lift={lift} onAct={onAct} /></Suspense>
+      <Suspense fallback={null}><EarthScene world={world} phase={phase} quest={quest} input={inp} poll={poll} hud={hud} lift={lift} onAct={onAct} roverTier={tierOf(meta, 'rover')} rocketTier={tierOf(meta, 'rocket')} laser={perksFor('rover', meta).weapon > 0} /></Suspense>
     </Canvas>
     <button className="w-btn w-exit" onClick={onExit} aria-label={L.quit}><X size={20} /></button>
 
@@ -232,16 +256,15 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
 
     {phase === 'intro' && !tut && <LevelPicker es={es} level={level} onPick={pickLevel} onHelp={() => setTut(true)} />}
     {tut && <Tutorial es={es} onClose={() => { markTutorialDone(); setTut(false); }} />}
-    {phase === 'hangar' && <HangarPanel es={es} level={level} design={design} setDesign={setDesign} onNext={() => { if (level === 'easy') { setQuest(1); setPhase('earth'); } else setPhase('tests'); }} />}
-    {phase === 'tests' && <Tests es={es} level={level} design={design} onBack={() => setPhase('hangar')} onGo={() => { setQuest(1); setPhase('earth'); }} />}
+    {phase === 'hangar' && <HangarPanel es={es} level={level} design={design} setDesign={setDesign} bonus={bonus} contracts={contracts} contract={activeContract.id} setContract={setContractId} scrap={meta.scrap} onWorkshop={() => openWorkshop('hangar')} onNext={() => { if (level === 'easy') { setQuest(1); setPhase('earth'); } else setPhase('tests'); }} />}
+    {phase === 'tests' && <Tests es={es} level={level} design={design} bonus={bonus} onBack={() => setPhase('hangar')} onGo={() => { setQuest(1); setPhase('earth'); }} />}
 
+    {phase === 'workshop' && <Workshop es={es} meta={meta} setMeta={setMeta} initial={wsBack.current === 'hangar' ? ship : 'rover'} onClose={() => setPhase(wsBack.current)} />}
+    {phase === 'draft' && <Draft es={es} cards={cards} onPick={c => { setCard(c); setPhase('mars'); }} />}
     {phase === 'launch' && count < 4 && <div className="adv-count" aria-live="assertive">{L.count[count]}</div>}
     {phase === 'travel' && <div className="adv-travel"><div className="adv-stars" /><div className={`adv-dest ${dest}`} aria-hidden="true" /><Rocket className="adv-ship" size={64} aria-hidden="true" /><h2>{L.travel}: {L[dest]}</h2><p>{L.travelD}</p><div className="adv-progress"><span /></div>
-      {!pending && <button className="button button-secondary" onClick={() => setPhase('mars')}>{L.skip}</button>}
+      {!pending && <button className="button button-secondary" onClick={() => setPhase('draft')}>{L.skip}</button>}
       {pending && <EventCard es={es} ev={events[evIdx]!} onPick={o => { setPicked(p => [...p, o]); setEvIdx(i => i + 1); }} />}</div>}
-    {phase === 'end' && result && <div className="adv-modal"><div className="adv-card center">
-      <h2>{L.endTitle}</h2><div className="w-grade">{result.grade}</div><p><b>{result.score}</b>/100 · {es ? lvl.es : lvl.en}</p><p className="adv-next">{L.next}</p>
-      <div className="adv-row"><button className="button button-primary" autoFocus onClick={reset}>{L.again}</button></div>
-    </div></div>}
+    {phase === 'end' && result && <Reward es={es} result={result} scrap={reward} total={meta.scrap} level={es ? lvl.es : lvl.en} onWorkshop={() => { reset(); openWorkshop('earth'); }} onAgain={reset} />}
   </div>;
 }

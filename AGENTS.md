@@ -10,3 +10,6 @@ A bilingual (Spanish/English), open-world, low-poly space exploration game for N
 - Everything is in `client/` (React, TypeScript, Vite, Three.js via react-three-fiber). Pure game logic (`src/world/marsWorld.ts`) stays deterministic and tested with Vitest.
 - `npm test` and `npm run build` must pass before every PR. Work on a branch, open a PR, merge, and verify the GitHub Pages deploy. Never commit secrets, node_modules or dist.
 - Report only what was actually verified; say what was not tested (real gamepad/touch devices, live site gameplay).
+
+## Roguelite layer
+Pure logic lives in `meta.ts` (upgrade tree, perks, draft cards, save), `combat.ts` (`CombatSim`), `pois.ts` (`PoiSim`), `contracts.ts`, `runkit.ts`. Worlds (`MarsWorld`, `JupiterOrbit`, `MillerOcean`) take `perks`, `contract`, `tier` props and report `kills/pois/exploded/lost` in `MarsResult`; `Adventure.tsx` owns meta state, draft, rewards. UI: `workshop.tsx`. Keep it readable for all ages and keep keyboard + gamepad + touch working.
