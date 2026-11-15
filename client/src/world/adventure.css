@@ -166,3 +166,12 @@
 .crew{display:flex;flex-wrap:wrap;gap:.35rem;justify-content:center;margin:.4rem 0 .2rem}.crew-mate{font:800 .8rem/1 inherit;padding:.4rem .6rem;border-radius:999px;background:#2a1f3d;color:#fff4e6;border:2px solid #1b1230;box-shadow:0 2px 0 #1b1230;cursor:pointer;font-family:inherit}.crew-mate.on{background:#ffc857;color:#2a1f3d}.crew-mate:disabled{opacity:.55;cursor:not-allowed}.crew-desc{display:block;text-align:center;margin-bottom:.5rem}.chap-hint{background:#ffd16633;border:2px dashed #ffd166;border-radius:12px;padding:.35rem .6rem;font-weight:700;text-align:center}
 
 .minimap{display:flex;flex-direction:column;align-items:center;gap:.25rem;margin:.3rem 0}.minimap svg{width:min(200px,60%);height:auto;border:2px solid #1b1230;border-radius:8px}
+
+/* arrival: the card draft and mission board happen on the destination, not on Earth */
+.arrival{position:absolute;inset:0;z-index:4;overflow:hidden}
+.arrival-sun{position:absolute;right:14%;top:14%;width:84px;height:84px;border-radius:50%;background:#fff4c2;box-shadow:0 0 60px 20px #fff4c288}
+.arrival-ground{position:absolute;left:-10%;right:-10%;bottom:-8%;height:42%;border-radius:50% 50% 0 0/22% 22% 0 0}
+.arrival.mars{background:linear-gradient(#e8946a,#f7b98a 62%)}.arrival.mars .arrival-ground{background:#b5532f;box-shadow:inset 0 14px 0 #c8643d}
+.arrival.jupiter{background:linear-gradient(#120c20,#2c1f4a)}.arrival.jupiter .arrival-sun{background:#ffd9a0;box-shadow:0 0 50px 14px #ffd9a055}.arrival.jupiter .arrival-ground{background:linear-gradient(#f2dfc0 0 25%,#d9a066 25% 50%,#b9703f 50% 75%,#efd2a0 75%);height:48%}
+.arrival.miller{background:linear-gradient(#5cc0f0,#2a86cf 60%)}.arrival.miller .arrival-ground{background:#145f9e;box-shadow:inset 0 14px 0 #2a86cf}
+.arrival~.adv-modal{background:#1b123033}

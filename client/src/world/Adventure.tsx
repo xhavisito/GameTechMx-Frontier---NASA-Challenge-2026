@@ -27,7 +27,9 @@ import { SkyLife, RaceProps, RampProp } from './skylife';
 import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests } from './ui';
 import { Board, TripCard, RunChips } from './boardui';
 import { claim } from './explore';
-import { useCoop, withCoop } from './coop';
+import { useCoop } from './coop';
+import { CoopRun } from './coopui';
+import type { Player } from './worldInput';
 import { MATES, applyMate, applyMateMods, safeMate, useMate, setMate, type CrewCtx } from './crew';
 import { nextChapter, chapterJob, isChapterJob, chapterOf } from './chapters';
 import { offersFor, applyJobs, settle, jobById, slotsFor, type Job, type JobRow } from './board';
@@ -323,8 +325,8 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const power = useMemo(() => powerOf(meta, shipOf), [meta, shipOf]);
   const bossNext = (meta.runs + 1) % 4 === 0;   // every 4th mission has a boss
   const mods0 = useMemo(() => applyMateMods(applyRunMods({ ...scaleForPower(mission.mods, power), boss: bossNext }, runSt), mate), [mission.mods, power, bossNext, runSt, mate]);   // stronger ship → tougher, more varied enemies (max 4); the run's effects stack on top
-  const coop = useCoop(), perks1 = useMemo(() => withCoop(perks0, coop), [perks0, coop]);
-  const jobbed = useMemo(() => applyJobs(mods0, perks1, accepted), [mods0, perks1, accepted]);   // accepted board jobs change this mission for real
+  const coop = useCoop();
+  const jobbed = useMemo(() => applyJobs(mods0, perks0, accepted), [mods0, perks0, accepted]);   // accepted board jobs change this mission for real
   const a11y = useA11y();
   const mods = useMemo(() => (a11y.noTimer ? { ...jobbed.mods, timeLimit: 0 } : jobbed.mods), [jobbed.mods, a11y.noTimer]), perks = jobbed.perks;
   const cfg: WorldConfig = useMemo(() => ({
@@ -381,12 +383,15 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     setResult({ ...r, scrapWhy }); setPhase('end');
   };
 
-  if (phase === 'mars') return <><Suspense fallback={<div className="w-root adv-center">…</div>}>
+  const worldEl = (pl: Player | undefined, od: (r: MarsResult) => void) => <>
     {(dailyRun?.dest ?? dest) === 'jupiter'
-      ? <JupiterOrbit tool={dailyRun?.tool ?? tool} es={es} mods={dailyRun?.mods ?? mods} perks={dailyRun?.perks ?? perks} contract={dailyRun?.contract ?? activeContract} tier={dailyRun ? 0 : tierOf(meta, 'orbiter')} onDone={done} onExit={onExit} />
+      ? <JupiterOrbit player={pl} tool={dailyRun?.tool ?? tool} es={es} mods={dailyRun?.mods ?? mods} perks={dailyRun?.perks ?? perks} contract={dailyRun?.contract ?? activeContract} tier={dailyRun ? 0 : tierOf(meta, 'orbiter')} onDone={od} onExit={onExit} />
       : (dailyRun?.dest ?? dest) === 'miller'
-      ? <MillerOcean tool={dailyRun?.tool ?? tool} es={es} mods={dailyRun?.mods ?? mods} perks={dailyRun?.perks ?? perks} contract={dailyRun?.contract ?? activeContract} tier={dailyRun ? 0 : tierOf(meta, 'sub')} onDone={done} onExit={onExit} />
-      : <MarsWorld cfg={dailyRun?.cfg ?? cfg} es={es} mods={dailyRun?.mods ?? mods} perks={dailyRun?.perks ?? perks} contract={dailyRun?.contract ?? activeContract} tier={dailyRun ? 0 : tierOf(meta, 'rover')} onDone={done} onExit={onExit} />}
+      ? <MillerOcean player={pl} tool={dailyRun?.tool ?? tool} es={es} mods={dailyRun?.mods ?? mods} perks={dailyRun?.perks ?? perks} contract={dailyRun?.contract ?? activeContract} tier={dailyRun ? 0 : tierOf(meta, 'sub')} onDone={od} onExit={onExit} />
+      : <MarsWorld player={pl} cfg={dailyRun?.cfg ?? cfg} es={es} mods={dailyRun?.mods ?? mods} perks={dailyRun?.perks ?? perks} contract={dailyRun?.contract ?? activeContract} tier={dailyRun ? 0 : tierOf(meta, 'rover')} onDone={od} onExit={onExit} />}
+  </>;
+  if (phase === 'mars') return <><Suspense fallback={<div className="w-root adv-center">…</div>}>
+    {coop && !dailyRun ? <CoopRun es={es} onDone={done} onExit={onExit} render={(pl, od) => worldEl(pl, od)} /> : worldEl(undefined, done)}
   </Suspense><BossBar es={es} />{!daily && <RunChips es={es} run={runSt} jobs={accepted} />}<Money n={meta.scrap} es={es} />{unlock && <div className="adv-unlock" role="status">{unlock}</div>}<HurtFlash /></>;
 
   const lvl = LEVEL_INFO[level];
@@ -428,10 +433,11 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     {phase === 'tests' && <Tests es={es} level={level} design={design} bonus={bonus} onBack={() => setPhase('hangar')} onGo={() => { setQuest(1); setPhase('earth'); }} />}
 
     {phase === 'workshop' && <Workshop es={es} meta={meta} setMeta={setMeta} initial={wsBack.current === 'hangar' ? ship : 'rover'} onClose={() => setPhase(wsBack.current)} />}
+    {(phase === 'draft' || phase === 'board') && <div className={`arrival ${dest}`} aria-hidden="true"><span className="arrival-sun" /><span className="arrival-ground" /></div>}
     {phase === 'draft' && <Draft es={es} cards={cards} onPick={c => { setCard(c); { const ch = nextChapter(getProgress().story); setOffers([...(ch && ch.world === dest ? [chapterJob(ch)] : []), ...offersFor(dest, runSt.rep[dest])]); } setAccepted([]); setPhase('board'); }} />}
     {phase === 'board' && <Board es={es} dest={dest} mate={mate} crew={crewCtx} onMate={setMate} next={nextChapter(crewCtx.story)} offers={offers} rep={runSt.rep[dest]} accepted={accepted.map(j => j.id)} onToggle={id => setAccepted(a => a.some(j => j.id === id) ? a.filter(j => j.id !== id) : a.filter(j => !isChapterJob(j.id)).length < slotsFor(runSt.rep[dest]) || isChapterJob(id) ? [...a, jobById(id) ?? offers.find(o => o.id === id)!] : a)} onGo={() => setPhase('mars')} />}
     {phase === 'launch' && count < 4 && <div className="adv-count" aria-live="assertive">{L.count[count]}</div>}
-    {phase === 'travel' && <div className="adv-travel"><div className="adv-stars" /><div className={`adv-dest ${dest}`} aria-hidden="true" /><Rocket className="adv-ship" size={64} aria-hidden="true" /><h2>{L.travel}: {L[dest]}</h2><p>{L.travelD}</p><div className="adv-progress"><span /></div>
+    {phase === 'travel' && <div className="adv-travel"><div className="adv-stars" /><div className={`adv-dest ${dest}`} aria-hidden="true" /><Rocket className="adv-ship" size={64} aria-hidden="true" /><h2>{L.travel}: {L[dest]}</h2><p>{events.length === 0 ? (es ? 'Viaje tranquilo: no pasó nada raro. ¡Qué suerte!' : 'Quiet trip: nothing strange happened. Lucky you!') : L.travelD}</p><div className="adv-progress"><span /></div>
       {!pending && <button className="button button-secondary" onClick={() => setPhase('draft')}>{L.skip}</button>}
       {tripNote && !pending && <div className="trip-note" role="status">{tripNote}</div>}
       {pending && <TripCard es={es} ev={events[evIdx]!} step={evIdx + 1} total={events.length} onPick={o => { const { out, won } = resolveOption(o); setPicked(p => [...p, out]); if (out.scrap) setMeta({ ...meta, scrap: Math.max(0, meta.scrap + out.scrap) }); if (out.mod) setRunSt(s => grant(s, out.mod!)); setTripNote(`${won === null ? '' : won ? (es ? '🎲 ¡Salió bien! ' : '🎲 It worked! ') : (es ? '🎲 Salió mal… ' : '🎲 It backfired… ')}${describeOut(out, es)}`); setEvIdx(i => i + 1); }} />}</div>}

@@ -14,7 +14,7 @@ import { hurt } from './hud';
 import { type Contract, defaultContract, contractN } from './contracts';
 import { basePerks, type Perks } from './meta';
 import { contractResult, weaponCd, weaponDmg } from './runkit';
-import { useWorldInput, type WorldInput } from './worldInput';
+import { useWorldInput, type WorldInput, type Player } from './worldInput';
 import { modsFor, type Mods } from './levels';
 import { Boom, type BoomState } from './fx';
 import { fbm2, rng } from '../three/noise';
@@ -264,8 +264,8 @@ function Minimap({ hud }: { hud: React.MutableRefObject<Hud> }) {
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-export default function MillerOcean({ tool, es, mods = modsFor('easy'), perks = basePerks(), contract = defaultContract('miller'), tier = 0, onDone, onExit }: { tool: MillerTool; es: boolean; mods?: Mods; perks?: Perks; contract?: Contract; tier?: number; onDone: (r: MarsResult) => void; onExit: () => void }) {
-  const { inp, poll } = useWorldInput({ sub: true });
+export default function MillerOcean({ tool, es, mods = modsFor('easy'), perks = basePerks(), contract = defaultContract('miller'), tier = 0, onDone, onExit, player }: { player?: Player; tool: MillerTool; es: boolean; mods?: Mods; perks?: Perks; contract?: Contract; tier?: number; onDone: (r: MarsResult) => void; onExit: () => void }) {
+  const { inp, poll } = useWorldInput({ sub: true, player });
   const sites = useMemo(() => makeSites(4242, mods.hullDepth), [mods.hullDepth]);
   const g = useRef<Game>({ x: 0, y: -6, z: 0, heading: 0, speed: 0, vy: 0, found: new Set(), kinds: [], time: 0, waves: Array.from({ length: 3 }, () => ({ t: 0, x: 0, z: 0, active: false, hit: false })), nextWave: 8, msg: '', msgT: 0, ended: false, health: (mods.startHealth ?? 100) * (perks.health / 100), battery: Math.min(100, 100 * (mods.startEnergy ?? 1)), shake: 0, fireCd: 0, lost: 0, exploded: false, stolen: null });
   const sim = useMemo(() => new CombatSim({
@@ -294,7 +294,7 @@ export default function MillerOcean({ tool, es, mods = modsFor('easy'), perks = 
   const hold = (k: 'touchUp' | 'touchDown') => ({ onPointerDown: (e: React.PointerEvent) => { (e.target as Element).setPointerCapture?.(e.pointerId); inp.current[k] = true; }, onPointerUp: () => { inp.current[k] = false; }, onPointerCancel: () => { inp.current[k] = false; }, onPointerLeave: () => { inp.current[k] = false; } });
   const hullD = mods.hullDepth + perks.depth, over = snap.depth > hullD;
   const goalText = contract.kind === 'beacons' ? (es ? `Repara ${pois?.pois.length} nodos (mantén E)` : `Repair ${pois?.pois.length} nodes (hold E)`) : contract.kind === 'rescue' ? (snap.carrying ? (es ? 'Lleva la cápsula a la boya (E)' : 'Take the capsule to the buoy (E)') : (es ? 'Recoge la cápsula del fondo (E)' : 'Pick up the capsule on the seabed (E)')) : L.goal;
-  return <div className="w-root adv-root" style={{ background: '#1a6fb0' }}>
+  return <div className={`w-root adv-root${player ? ' p' + player : ''}`} style={{ background: '#1a6fb0' }}>
     <Canvas dpr={[1, 1.5]} camera={{ fov: 62, near: 0.1, far: 500, position: [0, -8, -14] }}>
       <Scene tool={tool} mods={mods} perks={perks} contract={contract} sim={sim} pois={pois} tier={tier} es={es} sites={sites} g={g} hud={hud} input={inp} poll={poll} onFinish={finish} />
     </Canvas>

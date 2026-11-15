@@ -128,7 +128,15 @@ export const TRIP_EVENTS: TEvent[] = [
 export const eventById = (id: string) => TRIP_EVENTS.find(e => e.id === id);
 
 /** How many questions you get before a mission: more as the level goes up. */
-export const eventCount = (level: Level) => ({ easy: 1, medium: 1, hard: 2, expert: 3 })[level];
+/** Chance of each number of events (index = how many). A quiet trip with nothing happening is possible but rare (3–4 %); harder levels tend to have more. */
+export const EVENT_ODDS: Record<Level, number[]> = {
+  easy: [0.04, 0.5, 0.35, 0.11], medium: [0.04, 0.4, 0.38, 0.18], hard: [0.03, 0.3, 0.4, 0.2, 0.07], expert: [0.03, 0.2, 0.35, 0.3, 0.12],
+};
+export function eventCount(level: Level, rnd: () => number = Math.random): number {
+  const odds = EVENT_ODDS[level]; let r = rnd() * odds.reduce((a, b) => a + b, 0);
+  for (let n = 0; n < odds.length; n++) { r -= odds[n]!; if (r < 0) return n; }
+  return odds.length - 1;
+}
 
 function shuffle<T>(a: T[], rnd: () => number): T[] {
   const o = a.slice();
@@ -140,7 +148,7 @@ export function pickTrip(level: Level, dest: Dest, rnd: () => number = Math.rand
   const li = LEVELS.indexOf(level);
   const pool = TRIP_EVENTS.filter(e => (!e.dests || e.dests.includes(dest)) && LEVELS.indexOf(e.min ?? 'easy') <= li);
   const fresh = shuffle(pool.filter(e => !seen.includes(e.id)), rnd), stale = shuffle(pool.filter(e => seen.includes(e.id)), rnd);
-  return [...fresh, ...stale].slice(0, eventCount(level)).map(e => ({ ...e, options: shuffle(e.options, rnd) }));
+  return [...fresh, ...stale].slice(0, eventCount(level, rnd)).map(e => ({ ...e, options: shuffle(e.options, rnd) }));
 }
 /** Resolves a choice: a gamble rolls the dice once, everything else is exactly what it says. */
 export function resolveOption(o: TOption, rnd: () => number = Math.random): { out: Out; won: boolean | null } {
