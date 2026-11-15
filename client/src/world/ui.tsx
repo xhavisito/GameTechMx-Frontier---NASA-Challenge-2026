@@ -81,7 +81,7 @@ function Slider({ label, unit, min, max, step = 1, value, onChange }: { label: s
   return <label className="slider"><span>{label}</span><input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} /><b>{value} {unit}</b></label>;
 }
 
-export function Hangar({ es, level, design, setDesign, onNext, bonus = NO_BONUS, contracts = [], contract = '', setContract, scrap = 0, onWorkshop, onClose, onLevel }: Es & { level: Level; design: Design; setDesign: (d: Design) => void; onNext: () => void; bonus?: RocketBonus; contracts?: Contract[]; contract?: string; setContract?: (id: string) => void; scrap?: number; onWorkshop?: () => void; onClose?: () => void; onLevel?: () => void }) {
+export function Hangar({ es, level, design, setDesign, onNext, bonus = NO_BONUS, contracts = [], contract = '', setContract, scrap = 0, onWorkshop, onClose, onLevel, boss }: Es & { level: Level; design: Design; setDesign: (d: Design) => void; onNext: () => void; bonus?: RocketBonus; contracts?: Contract[]; contract?: string; setContract?: (id: string) => void; scrap?: number; onWorkshop?: () => void; onClose?: () => void; onLevel?: () => void; boss?: boolean }) {
   useEffect(() => { if (!onClose) return; const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   const d = normalize(design, level), S = stats(d), pro = level === 'hard' || level === 'expert', set = (p: Partial<Design>) => setDesign({ ...design, ...p });
   const multi = pro, toggleTool = (k: Tool) => { const has = d.tools.includes(k); set({ tools: multi ? (has ? d.tools.filter(x => x !== k) : [...d.tools, k]) : [k] }); };
@@ -89,6 +89,7 @@ export function Hangar({ es, level, design, setDesign, onNext, bonus = NO_BONUS,
   const price = (n: number) => (n > 0 ? ` · 🪙${n}` : ` · ${t(es, 'gratis', 'free')}`);
   return <div className="adv-modal"><div className="adv-card wide">
     <div className="hang-head">{onClose && <button className="hang-x" onClick={onClose} aria-label={t(es, 'Salir del garage', 'Leave the garage')} title="Esc">✕ {t(es, 'Salir', 'Exit')}</button>}<h2>{t(es, 'Prepara tu nave', 'Build your ship')}</h2><span className="lvl-chip" style={{ background: lvl.color }}>{es ? lvl.es : lvl.en}</span>{onWorkshop && <button className="button button-secondary" onClick={onWorkshop}>🔧 {t(es, 'Taller', 'Workshop')} · {scrap}</button>}</div>
+    {boss && <div className="boss-warn" role="note">👑 {t(es, 'Esta misión tiene un JEFE esperándote: lleva arma y mejoras. Pagará 5 bajas.', 'This mission has a BOSS waiting: bring a weapon and upgrades. It counts as 5 kills.')}</div>}
     <h3>{t(es, '¿A dónde vas?', 'Where to?')}</h3>
     <div className="adv-row">{(['mars', 'jupiter', 'miller'] as Dest[]).map(k => <Opt key={k} on={d.dest === k} onClick={() => set({ dest: k, shield: DEST[k].shield })} icon={destIcon(k)} title={DEST_NAME[k][es ? 0 : 1]}
       sub={k === 'mars' ? t(es, 'Explora y recolecta muestras', 'Explore and collect samples') : k === 'jupiter' ? t(es, 'Escanea su atmósfera desde órbita', 'Scan its atmosphere from orbit') : t(es, 'Busca vida bajo el océano', 'Look for life under the ocean')} />)}</div>

@@ -198,6 +198,7 @@ function Scene({ cfg, mods, need, perks, contract, sim, pois, tier, world, es, g
     for (const e of sim.update(dt, me, r.speed)) {
       if (e.type === 'hit') { hurt(); const dmg = Math.round(e.dmg * (1 - Math.min(0.6, perks.armor))); r = { ...r, health: Math.max(0, r.health - dmg), speed: r.speed * 0.5 }; s.shake = 0.5; say(es ? `¡Un bicho te mordió! −${dmg}` : `A bug bit you! −${dmg}`); }
       else if (e.type === 'wave') say(es ? '¡Oleada de bichos!' : 'Bug wave incoming!');
+      else if (e.type === 'boss') say(es ? '👑 ¡Llegó el jefe de la zona!' : '👑 The area boss is here!');
       else if (e.type === 'thief') say(es ? '¿Qué fue eso…? Un mapache espacial anda por aquí' : 'What was that…? A space raccoon is around');
       else if (e.type === 'kill' && e.enemy.kind !== 'thief') say(es ? 'Bicho derrotado' : 'Bug defeated');
       else if (e.type === 'kill') { restoreLoot(e.enemy); }
@@ -352,7 +353,7 @@ export default function MarsWorld({ cfg, es, mods = modsFor('easy'), perks = bas
   const need = Math.min(mods.required, cfg.radar ? 6 : 5);
   const sim = useMemo(() => new CombatSim({
     kind: 'crawler', max: mods.enemyMax, spawnEvery: mods.spawnEvery, waveEvery: mods.waveEvery, hp: mods.enemyHp, speed: mods.enemySpeed * 7, damage: mods.enemyDmg, aggro: 42,
-    variants: mods.variants, thiefChance: mods.thiefChance, slow: perks.enemySlow, more: perks.enemyMore * contract.danger, seed: cfg.seed + 11,
+    variants: mods.variants, boss: mods.boss, thiefChance: mods.thiefChance, slow: perks.enemySlow, more: perks.enemyMore * contract.danger, seed: cfg.seed + 11,
     place: (p, r1, r2) => { const a = r1 * Math.PI * 2, d = 36 + r2 * 24, x = Math.max(-HALF + 4, Math.min(HALF - 4, p.x + Math.cos(a) * d)), z = Math.max(-HALF + 4, Math.min(HALF - 4, p.z + Math.sin(a) * d)); return { x, y: heightAt(world, x, z), z }; },
     constrain: e => { e.x = Math.max(-HALF + 2, Math.min(HALF - 2, e.x)); e.z = Math.max(-HALF + 2, Math.min(HALF - 2, e.z)); e.y = heightAt(world, e.x, e.z); },
   }), [world, mods, perks, contract, cfg.seed]);

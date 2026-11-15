@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BACKING_LABEL, GROUPS, SOURCES, type Group } from './sources';
+import { DISCOVERY, getProgress } from './progress';
 import './science.css';
 
 /** "Ciencia y fuentes": one card per resource with NASA link, fact, screen, simplification and game parameters. */
@@ -7,6 +8,7 @@ export function Science({ es, onClose }: { es: boolean; onClose: () => void }) {
   const [group, setGroup] = useState<Group | 'all'>('all');
   const body = useRef<HTMLDivElement>(null);
   const t = (l: { es: string; en: string }) => (es ? l.es : l.en);
+  const found = getProgress().found, nFound = SOURCES.filter(s => found.includes(s.id)).length;
 
   useEffect(() => {
     // The game keeps listening to the window; while this is open only Esc (and native scrolling/Tab) should work.
@@ -42,7 +44,7 @@ export function Science({ es, onClose }: { es: boolean; onClose: () => void }) {
     <div className="sci-back" role="dialog" aria-modal="true" aria-label={es ? 'Ciencia y fuentes' : 'Science and sources'} data-testid="science">
       <div className="sci-card">
         <header className="sci-head">
-          <h2>{es ? 'Ciencia y fuentes' : 'Science and sources'}</h2>
+          <h2>{es ? 'Ciencia y fuentes' : 'Science and sources'} <small className="sci-count">📖 {nFound}/{SOURCES.length} {es ? 'descubiertas jugando' : 'discovered by playing'}</small></h2>
           <button className="w-btn sci-close" onClick={onClose} autoFocus aria-label={es ? 'Cerrar' : 'Close'}>✕</button>
         </header>
         <p className="sci-note">
@@ -57,7 +59,8 @@ export function Science({ es, onClose }: { es: boolean; onClose: () => void }) {
         <div className="sci-body" ref={body} tabIndex={0}>
           {shown.map(s => (
             <article key={s.id} className={`sci-item b-${s.backing}`} data-testid={`src-${s.id}`}>
-              <h3>{t(s.name)} <span className="sci-badge">{t(BACKING_LABEL[s.backing])}</span></h3>
+              <h3>{found.includes(s.id) ? '📖 ' : '🔒 '}{t(s.name)} <span className="sci-badge">{t(BACKING_LABEL[s.backing])}</span></h3>
+              {!found.includes(s.id) && DISCOVERY[s.id] && <p className="sci-hint">{es ? 'Para descubrirla: ' : 'To discover it: '}{t(DISCOVERY[s.id]!)}</p>}
               <dl>
                 <dt>{es ? 'Dato o concepto' : 'Fact or concept'}</dt><dd>{t(s.fact)}</dd>
                 <dt>{es ? 'Dónde influye' : 'Where it matters'}</dt><dd>{t(s.screen)}</dd>

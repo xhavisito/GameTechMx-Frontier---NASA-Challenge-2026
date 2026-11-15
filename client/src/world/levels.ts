@@ -25,6 +25,8 @@ export interface Mods {
   /** set by the trip: hull % and energy fraction the mission starts with */
   /** extra creature types unlocked by the player's power (set by threat.ts) */
   variants?: import('./combat').VariantKind[];
+  /** this mission has a boss */
+  boss?: boolean;
   startHealth?: number;
   startEnergy?: number;
 }

@@ -47,3 +47,33 @@ export function stepCoins(f: CoinField, rv: { x: number; z: number }, dt: number
   return { got, round };
 }
 export const coinsLeft = (f: CoinField) => f.coins.filter(c => !c.got).length;
+
+// ── cone race: drive through the start gate, touch the cones in order, come back ──
+export const RACE = { start: { x: 46, z: -8 }, cones: [{ x: 62, z: -16 }, { x: 70, z: 4 }, { x: 56, z: 18 }, { x: 38, z: 12 }, { x: 30, z: -2 }], limit: 90, gate: 4, hit: 3.6 };
+export interface Race { run: boolean; t: number; next: number; cd: number }
+export const newRace = (): Race => ({ run: false, t: 0, next: 0, cd: 0 });
+export const raceReward = (secs: number) => (secs < 40 ? 10 : secs < 60 ? 6 : 3);
+export type RaceEvent = { type: 'start' } | { type: 'cone'; n: number } | { type: 'finish'; secs: number; reward: number } | { type: 'timeout' } | null;
+export function stepRace(r: Race, rv: { x: number; z: number }, dt: number): RaceEvent {
+  r.cd = Math.max(0, r.cd - dt);
+  const ds = Math.hypot(rv.x - RACE.start.x, rv.z - RACE.start.z);
+  if (!r.run) { if (r.cd <= 0 && ds < RACE.gate) { r.run = true; r.t = 0; r.next = 0; return { type: 'start' }; } return null; }
+  r.t += dt;
+  if (r.t > RACE.limit) { r.run = false; r.cd = 4; return { type: 'timeout' }; }
+  if (r.next < RACE.cones.length) { const c = RACE.cones[r.next]!; if (Math.hypot(rv.x - c.x, rv.z - c.z) < RACE.hit) { r.next++; return { type: 'cone', n: r.next }; } return null; }
+  if (ds < RACE.gate) { r.run = false; r.cd = 5; const secs = Math.round(r.t * 10) / 10; return { type: 'finish', secs, reward: raceReward(secs) }; }
+  return null;
+}
+
+// ── stunt ramp: hit it fast and the rover flies for a moment ──
+export const RAMP = { x: -32, z: -46, r: 3.6, minSpeed: 5, air: 0.9, height: 3 };
+export interface Air { t: number; cd: number }
+export const newAir = (): Air => ({ t: 0, cd: 0 });
+/** Returns the rover's height above the ground and whether a jump just started. */
+export function stepAir(a: Air, rv: { x: number; z: number; speed: number }, dt: number): { lift: number; jumped: boolean } {
+  a.cd = Math.max(0, a.cd - dt);
+  let jumped = false;
+  if (a.t <= 0 && a.cd <= 0 && rv.speed > RAMP.minSpeed && Math.hypot(rv.x - RAMP.x, rv.z - RAMP.z) < RAMP.r) { a.t = 0.0001; a.cd = 1.5; jumped = true; }
+  if (a.t > 0) { a.t += dt / RAMP.air; if (a.t >= 1) a.t = 0; }
+  return { lift: a.t > 0 ? Math.sin(Math.PI * a.t) * RAMP.height : 0, jumped };
+}

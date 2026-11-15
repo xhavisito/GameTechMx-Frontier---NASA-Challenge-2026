@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { VARIANTS, type CombatSim, type EnemyKind, type VariantKind } from './combat';
+import { statsOf, type CombatSim, type EnemyKind } from './combat';
 import type { PoiSim } from './pois';
 
 const M = ({ c, e = 0 }: { c: string; e?: number }) => <meshStandardMaterial color={c} flatShading emissive={e ? c : '#000'} emissiveIntensity={e} />;
@@ -72,7 +72,17 @@ function Brute() {
     {[-0.4, 0.4].map(x => <mesh key={x} position={[x, 1.1, 1.2]}><sphereGeometry args={[0.2, 5, 4]} /><M c="#ffc857" e={1} /></mesh>)}
   </group>;
 }
-const KINDS: EnemyKind[] = ['crawler', 'drone', 'angler', 'thief', 'swarmer', 'dasher', 'brute'];
+/** The boss: a crowned, glowing guardian. */
+function Boss() {
+  return <group>
+    <mesh position={[0, 1.2, 0]} scale={[1.3, 1, 1.4]}><dodecahedronGeometry args={[1.1, 0]} /><M c="#7a3fb0" /></mesh>
+    <mesh position={[0, 1.3, 0.2]}><icosahedronGeometry args={[0.6, 0]} /><M c="#ff5d73" e={1} /></mesh>
+    {[0, 1, 2, 3, 4].map(i => <mesh key={i} position={[Math.cos(i * 1.26) * 0.9, 2.5, Math.sin(i * 1.26) * 0.9]} rotation={[0, 0, Math.cos(i * 1.26) * 0.3]}><coneGeometry args={[0.22, 0.9, 4]} /><M c="#ffc857" e={0.5} /></mesh>)}
+    {[-0.5, 0.5].map(x => <mesh key={x} position={[x, 1.5, 1.25]}><sphereGeometry args={[0.2, 5, 4]} /><M c="#fff" e={1} /></mesh>)}
+    {[-1, 1].map(s => <mesh key={s} position={[s * 1.5, 0.7, 0]} rotation={[0, 0, s * 0.7]}><boxGeometry args={[1.2, 0.3, 0.5]} /><M c="#241233" /></mesh>)}
+  </group>;
+}
+const KINDS: EnemyKind[] = ['crawler', 'drone', 'angler', 'thief', 'swarmer', 'dasher', 'brute', 'boss'];
 const MAXE = 14, MAXB = 40;
 
 /** Draws every enemy, bullet and objective marker of a world from the shared sims. */
@@ -94,7 +104,7 @@ export function Actors({ sim, pois, bulletColor = '#ffc857', groundY, sphere = f
       else if (dx * dx + dz * dz > 1e-5) g.rotation.y = Math.atan2(dx, dz);
       last.current[i] = { x: e.x, z: e.z };
       g.children.forEach((c, k) => { if (k < KINDS.length) c.visible = KINDS[k] === e.kind; });
-      const s = (e.elite ? 1.5 : 1) * (e.kind in VARIANTS ? VARIANTS[e.kind as VariantKind].size : 1) * (e.alive ? 1 : Math.max(0, e.flash / 0.4)) * (1 + (e.flash > 0 && e.alive ? 0.2 : 0)) * (1 + e.wind * 0.5);   // it swells up right before biting
+      const s = (e.elite ? 1.5 : 1) * (statsOf(e.kind)?.size ?? 1) * (e.alive ? 1 : Math.max(0, e.flash / 0.4)) * (1 + (e.flash > 0 && e.alive ? 0.2 : 0)) * (1 + e.wind * 0.5);   // it swells up right before biting
       g.scale.setScalar(s); if (e.wind > 0.05) g.position.y += e.wind * 0.8;
       const bar = g.children[KINDS.length] as THREE.Mesh; bar.visible = e.alive && e.hp < e.maxHp && e.kind !== 'thief'; bar.scale.x = Math.max(0.02, e.hp / e.maxHp);
       const flag = g.children[KINDS.length + 1] as THREE.Mesh; flag.visible = e.alive && e.kind === 'thief' && e.flee > 0;
@@ -111,7 +121,7 @@ export function Actors({ sim, pois, bulletColor = '#ffc857', groundY, sphere = f
   });
   return <>
     {Array.from({ length: MAXE }, (_, i) => <group key={i} ref={n => { eg.current[i] = n; }} visible={false}>
-      <group visible={false}><Crawler /></group><group visible={false}><Drone /></group><group visible={false}><Angler /></group><group visible={false}><Thief /></group><group visible={false}><Swarmer /></group><group visible={false}><Dasher /></group><group visible={false}><Brute /></group>
+      <group visible={false}><Crawler /></group><group visible={false}><Drone /></group><group visible={false}><Angler /></group><group visible={false}><Thief /></group><group visible={false}><Swarmer /></group><group visible={false}><Dasher /></group><group visible={false}><Brute /></group><group visible={false}><Boss /></group>
       <mesh position={[0, 3, 0]} visible={false}><boxGeometry args={[1.6, 0.18, 0.18]} /><meshBasicMaterial color="#ff5d73" /></mesh>
       <mesh position={[0, 3.6, 0]} visible={false}><coneGeometry args={[0.3, 0.5, 4]} /><meshBasicMaterial color="#ffc857" /></mesh>
     </group>)}

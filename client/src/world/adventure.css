@@ -109,8 +109,19 @@
 .hang-x:hover,.hang-x:focus-visible{background:#ffffff33}
 .diff-legend{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin:.6rem 0;padding:.6rem .8rem;border-radius:12px;background:#ffc85722;border:1px solid #ffc85788}
 .diff-legend span{flex:1 1 220px;font-size:.92rem}
-.adv-play{position:absolute;left:12px;top:66px;display:flex;gap:.9rem;padding:.3rem .8rem;border-radius:999px;background:#0b1530b3;color:#fff;font-size:.85rem;pointer-events:none;white-space:nowrap}
+.adv-play{position:absolute;right:12px;top:122px;align-items:flex-end;display:flex;flex-direction:column;gap:.15rem;padding:.4rem .8rem;border-radius:14px;background:#0b1530b3;color:#fff;font-size:.85rem;pointer-events:none;white-space:nowrap}
 .adv-toast{position:absolute;left:50%;top:32%;transform:translateX(-50%);padding:.5rem 1.1rem;border-radius:999px;background:#ffc857;color:#2a1f3d;font-weight:800;font-size:1.2rem;pointer-events:none;animation:advpop .35s ease-out}
 @keyframes advpop{from{transform:translateX(-50%) scale(.6);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
 @media (max-width:760px){.adv-quest{top:64px;left:12px}.w-top{top:64px}}
 @media (max-width:760px){.adv-play{top:118px;font-size:.78rem}}
+
+.prog-stats{display:flex;flex-wrap:wrap;gap:.5rem;margin:.4rem 0}
+.prog-stats span{background:#ffffff1a;border-radius:999px;padding:.25rem .7rem;font-weight:700}
+.prog-ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.5rem}
+.ach{display:grid;grid-template-columns:auto 1fr;column-gap:.5rem;padding:.5rem .6rem;border-radius:12px;background:#ffffff10;opacity:.6}
+.ach.on{opacity:1;background:#ffc85730;border:1px solid #ffc857aa}
+.ach-i{grid-row:span 2;font-size:1.6rem;align-self:center}.ach small{opacity:.85}
+.prog-reset{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-top:1rem}
+.prog-reset span{flex:1 1 240px}
+.adv-unlock{position:absolute;left:50%;top:84px;transform:translateX(-50%);padding:.45rem 1rem;border-radius:12px;background:#2a1f3d;border:3px solid #ffc857;color:#fff;font-weight:800;z-index:30;pointer-events:none;animation:advpop .35s ease-out;max-width:92vw;text-align:center}
+.boss-warn{margin:.4rem 0;padding:.5rem .8rem;border-radius:12px;background:#ff5d7333;border:1px solid #ff5d73;font-weight:700}
