@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { markSquare, markSphere } from './explore';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Polish } from './polish';
@@ -106,6 +107,7 @@ function Scene({ tool, mods, perks, contract, sim, pois, tier, es, sites, g, hud
     s.vy += (i.vert * 6 - s.vy) * Math.min(1, dt * 3);
     s.x += Math.sin(s.heading) * s.speed * dt; s.z += Math.cos(s.heading) * s.speed * dt;
     s.x = Math.max(-HALF, Math.min(HALF, s.x)); s.z = Math.max(-HALF, Math.min(HALF, s.z));
+    markSquare('miller', s.x, s.z, HALF);
     const floor = floorAt(s.x, s.z);
     s.y = Math.max(floor + 2.5, Math.min(-1.2, s.y + s.vy * dt));
     const depth = -s.y;

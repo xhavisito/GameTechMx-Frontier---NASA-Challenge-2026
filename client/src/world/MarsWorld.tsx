@@ -1,5 +1,6 @@
 import { colorsOf, useChoice } from './cosmetics';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { markSquare, markSphere } from './explore';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { Polish, VehicleDust } from './polish';
@@ -194,6 +195,7 @@ function Scene({ cfg, mods, need, perks, contract, sim, pois, tier, world, es, g
       if (r.energy > cfg.battery * 0.04 && s.scanT <= 0) { s.scanT = 5; s.rover = { ...s.rover, energy: s.rover.energy - cfg.battery * 0.03 }; say(es ? 'Escaneo: alcance ampliado' : 'Scan: range extended'); }
     }
     // ── enemies, weapon, thief and side objectives ──
+    markSquare('mars', r.x, r.z, HALF);
     const gy = heightAt(world, r.x, r.z), me: V3 = { x: r.x, y: gy, z: r.z };
     s.fireCd = Math.max(0, s.fireCd - dt);
     if (i.firePulse) {

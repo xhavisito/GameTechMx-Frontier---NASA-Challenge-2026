@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { markSquare, markSphere } from './explore';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Stars } from '@react-three/drei';
 import * as THREE from 'three';
@@ -84,6 +85,7 @@ function Scene({ tool, mods, perks, contract, sim, pois, tier, es, g, hud, input
     s.lat = Math.max(-1.3, Math.min(1.3, s.lat + i.throttle * sp * dt));
     s.lon += (i.steer * sp * dt) / Math.max(0.4, Math.cos(s.lat));
     if (i.throttle || i.steer) s.heading = Math.atan2(i.steer, i.throttle);
+    markSphere(s.lat, s.lon);
     const p = posAt(s.lat, s.lon);
     n.copy(p).normalize();
     north.set(-Math.sin(s.lat) * Math.sin(s.lon), Math.cos(s.lat), -Math.sin(s.lat) * Math.cos(s.lon)).normalize();
