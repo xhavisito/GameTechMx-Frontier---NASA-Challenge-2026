@@ -18,8 +18,8 @@ export const ROCKETS: Record<RocketId, { dry: number; prop: number; cost: number
 export const TOOLS: Record<Tool, { mass: number; cost: number; watts: number }> = {
   camera: { mass: 10, cost: 5, watts: 25 }, spectrometer: { mass: 18, cost: 12, watts: 60 }, radar: { mass: 32, cost: 20, watts: 110 },
 };
-const ROVER_MASS = 220, ROVER_COST = 25, ROVER_WATTS = 180;
-const ISP = 350, G0 = 9.81;
+export const ROVER_MASS = 220, ROVER_COST = 25, ROVER_WATTS = 180;
+export const ISP = 350, G0 = 9.81;
 /** Δv in km/s (stylised numbers for the game), sunlight relative to Earth, and the heat shield level the trip needs. */
 export const DEST: Record<Dest, { dv: number; sun: number; shield: number; needs: Tool }> = {
   mars: { dv: 4.1, sun: 0.43, shield: 1, needs: 'radar' },

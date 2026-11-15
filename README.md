@@ -52,3 +52,9 @@ Miller es un océano: el submarino (modelo CAD `sub`) sube y baja (Espacio/Q y C
 - **Contacto con enemigos.** Se hinchan medio segundo antes de morder, muerden una vez, retroceden, y tienes ~0.9 s de gracia; el borde de pantalla parpadea en rojo al recibir daño.
 - **«¿Por qué esta calificación?»** en la pantalla final: desglose punto por punto de la calificación y de la chatarra ganada.
 - **Equipo de pago por misión.** Cohete, instrumentos y extras cuestan chatarra y se pagan al despegar, cada misión (la cámara es gratis; siempre queda un fondo mínimo de 30 para poder volar). Las mejoras del taller son permanentes. El dinero se ve siempre arriba a la izquierda.
+
+## Ciencia y fuentes / Science and sources
+
+The **Ciencia y fuentes** button (top right, next to the language button) opens a bilingual screen with one card per game resource: NASA link, the fact or concept used, the screen where it matters, and what was simplified. Data lives in `client/src/world/sources.ts`.
+
+Honesty rule: a figure counts as NASA-backed only if the linked NASA page states it. Everything else is shown as a **game parameter** (instrument mass/cost/power, rocket masses and costs, per-destination Δv, sunlight except Jupiter's ~1/25, event costs, budget). Miller's planet is fiction from the film *Interstellar* and has no NASA link. The parameter lines are built from `design.ts` constants and checked by `sources.test.ts`, so they cannot drift. GameTechMx Frontier is independent and not endorsed by NASA.
