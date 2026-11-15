@@ -10,7 +10,7 @@ import { Boom, type BoomState } from './fx';
 import { createWorld, heightAt, normalAt, newRover, stepRover, visibleSamples, sampleInReach, scoreRun, HALF, LANDER_R, REQUIRED_SAMPLES, detectRange,
   type MarsResult, type MarsWorldData, type RoverState, type SampleKind, type WorldConfig } from './marsWorld';
 import { fbm2, rng } from '../three/noise';
-import { useWorldInput, type WorldInput } from './worldInput';
+import { useWorldInput, type WorldInput, type Player } from './worldInput';
 import { Rover, arm } from './models';
 import { CombatSim, type V3, BOSS_STYLES } from './combat';
 import { PoiSim, makePois } from './pois';
@@ -362,7 +362,7 @@ export function Joystick({ input }: { input: React.MutableRefObject<WorldInput> 
 }
 
 // ── Root ───────────────────────────────────────────────────────────────────
-export default function MarsWorld({ cfg, es, mods = modsFor('easy'), perks = basePerks(), contract = defaultContract('mars'), tier = 0, onDone, onExit }: { cfg: WorldConfig; es: boolean; mods?: Mods; perks?: Perks; contract?: Contract; tier?: number; onDone: (r: MarsResult) => void; onExit: () => void }) {
+export default function MarsWorld({ cfg, es, mods = modsFor('easy'), perks = basePerks(), contract = defaultContract('mars'), tier = 0, onDone, onExit, player }: { player?: Player; cfg: WorldConfig; es: boolean; mods?: Mods; perks?: Perks; contract?: Contract; tier?: number; onDone: (r: MarsResult) => void; onExit: () => void }) {
   const world = useMemo(() => createWorld(cfg), [cfg]);
   const need = Math.min(mods.required, cfg.radar ? 6 : 5);
   const sim = useMemo(() => new CombatSim({
@@ -377,7 +377,7 @@ export default function MarsWorld({ cfg, es, mods = modsFor('easy'), perks = bas
     const place = (i: number): V3 => { const a = (i / n) * Math.PI * 2 + r() * 1.2, d = 45 + r() * 55, x = Math.cos(a) * d, z = Math.sin(a) * d; return { x, y: heightAt(world, x, z), z }; };
     return new PoiSim(makePois(contract.kind === 'beacons' ? 'beacon' : contract.kind === 'rescue' ? 'crate' : 'photo', n, place), { x: 0, y: 0, z: 0 }, { holdTime: 2.2 + mods.enemyHp * 0.12, range: 5, homeRange: LANDER_R + 4, canPhoto: cfg.camera });
   }, [contract, cfg.seed, cfg.camera, mods, world]);
-  const { inp, poll } = useWorldInput();
+  const { inp, poll } = useWorldInput({ player });
   const g = useRef<Game>({ rover: newRover(cfg), taken: new Set(), kinds: [], time: 0, scanT: 0, dust: 0, meteors: Array.from({ length: 3 }, () => ({ t: 0, x: 0, z: 0, active: false, hit: false })), nextMeteor: 7, msg: '', msgT: 0, ended: false, stuck: 0, result: null, shake: 0, fireCd: 0, lost: 0, stolen: null, exploded: false });
   const hud = useRef<Hud>({ energy: 1, health: 1, boost: 1, taken: [], reach: null, atLander: false, heading: 0, x: 0, z: 0, dist: 0, bearing: 0, msg: '', scan: 0, visible: [], dust: 0, speed: 0, left: 0, poiDone: 0, poiTotal: 0, hold: 0, carrying: false, kills: 0, target: null, near: null, photo: 'none' });
   const [snap, setSnap] = useState<Hud>(hud.current);
@@ -395,7 +395,7 @@ export default function MarsWorld({ cfg, es, mods = modsFor('easy'), perks = bas
     ? { energy: 'Energía', health: 'Casco', boost: 'Turbo', samples: 'Muestras', goal: `Recolecta ${need} y regresa al módulo`, collect: 'Recolectar', deposit: 'Entregar muestras y terminar', scan: 'Escanear', quit: 'Salir', done: 'Misión terminada', dust: 'Tormenta de polvo', home: 'Módulo', radarNo: 'Sin radar: el hielo enterrado no se detecta', again: 'Cerrar' }
     : { energy: 'Power', health: 'Hull', boost: 'Boost', samples: 'Samples', goal: `Collect ${need} and return to the lander`, collect: 'Collect', deposit: 'Deliver samples and finish', scan: 'Scan', quit: 'Exit', done: 'Mission complete', dust: 'Dust storm', home: 'Lander', radarNo: 'No radar: buried ice cannot be detected', again: 'Close' };
 
-  return <div className="w-root" data-input={inp.current.usingPad ? 'gamepad' : undefined}
+  return <div className={`w-root${player ? ' p' + player : ''}`} data-input={inp.current.usingPad ? 'gamepad' : undefined}
     onPointerDown={e => { if ((e.target as HTMLElement).tagName === 'CANVAS') drag.current = { x: e.clientX, y: e.clientY }; }}
     onPointerMove={e => { const d = drag.current; if (!d) return; inp.current.camYaw -= (e.clientX - d.x) * 0.006; inp.current.camPitch = Math.max(0.1, Math.min(1.1, inp.current.camPitch + (e.clientY - d.y) * 0.004)); drag.current = { x: e.clientX, y: e.clientY }; }}
     onPointerUp={() => { drag.current = null; }}>

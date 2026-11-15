@@ -64,3 +64,15 @@
 .w-vf-tip{position:absolute;left:50%;top:calc(46% + min(20vw,165px));transform:translateX(-50%);z-index:3;background:#2a1f3dd9;color:#fff4e6;border:3px solid #1b1230;border-radius:12px;padding:.25rem .8rem;font-weight:800;text-align:center;pointer-events:none;max-width:90vw}
 .w-vf-tip.ready{background:#2f8f64}
 @media (max-width:640px){.w-money{top:8px;left:8px;height:40px}.w-exit{right:8px}.w-top{left:100px}}
+
+/* split-screen co-op: two worlds side by side (stacked on tall screens) */
+.coop-split{position:fixed;inset:0;z-index:300;display:flex;background:#000}
+.coop-half{position:relative;flex:1;min-width:0;min-height:0;overflow:hidden}
+.coop-half+.coop-half{border-left:3px solid #1b1230}
+.coop-split .w-root{position:absolute;inset:0;z-index:auto}
+.coop-split .w-touch{display:none}
+.coop-tag{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);z-index:5;font:800 .7rem/1 inherit;padding:.3rem .6rem;border-radius:999px;background:#1b1230cc;color:#fff4e6;white-space:nowrap;pointer-events:none}
+.coop-half.p1 .coop-tag{background:#2a6fdbd9}.coop-half.p2 .coop-tag{background:#d9482ad9}
+.coop-wait{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1b1230;color:#fff4e6;text-align:center}
+@media (max-aspect-ratio:1/1){.coop-split{flex-direction:column}.coop-half+.coop-half{border-left:0;border-top:3px solid #1b1230}}
+body.coop-on .sci-btn,body.coop-on .mute-btn,body.coop-on .lang-btn,body.coop-on .job-chips,body.coop-on .w-money{display:none}

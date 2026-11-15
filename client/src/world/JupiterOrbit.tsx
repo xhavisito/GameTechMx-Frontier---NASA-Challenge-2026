@@ -7,7 +7,7 @@ import { Polish } from './polish';
 import { X } from 'lucide-react';
 import { jupiterGeometry, SPOT } from '../three/lowpoly';
 import { rng } from '../three/noise';
-import { useWorldInput, type WorldInput } from './worldInput';
+import { useWorldInput, type WorldInput, type Player } from './worldInput';
 import { Joystick } from './MarsWorld';
 import { tally, type MarsResult } from './marsWorld';
 import { modsFor, type Mods } from './levels';
@@ -203,8 +203,8 @@ function MapView({ hud }: { hud: React.MutableRefObject<Hud> }) {
   return <canvas ref={ref} className="jup-map" width={260} height={130} aria-label="map" />;
 }
 
-export default function JupiterOrbit({ tool, es, mods = modsFor('easy'), perks = basePerks(), contract = defaultContract('jupiter'), tier = 0, onDone, onExit }: { tool: JupiterTool; es: boolean; mods?: Mods; perks?: Perks; contract?: Contract; tier?: number; onDone: (r: MarsResult) => void; onExit: () => void }) {
-  const { inp, poll } = useWorldInput();
+export default function JupiterOrbit({ tool, es, mods = modsFor('easy'), perks = basePerks(), contract = defaultContract('jupiter'), tier = 0, onDone, onExit, player }: { player?: Player; tool: JupiterTool; es: boolean; mods?: Mods; perks?: Perks; contract?: Contract; tier?: number; onDone: (r: MarsResult) => void; onExit: () => void }) {
+  const { inp, poll } = useWorldInput({ player });
   const g = useRef<Game>({ lat: 0, lon: 0, heading: 0, scanned: new Set(), time: 0, msg: '', msgT: 0, ended: false, health: (mods.startHealth ?? 100) * (perks.health / 100), fuel: 100, fireCd: 0, lost: 0, exploded: false, stolen: null });
   const sim = useMemo(() => new CombatSim({
     kind: 'drone', max: mods.enemyMax, spawnEvery: mods.spawnEvery, waveEvery: mods.waveEvery, hp: mods.enemyHp, speed: mods.enemySpeed * 12, damage: mods.enemyDmg, aggro: 45,
@@ -232,7 +232,7 @@ export default function JupiterOrbit({ tool, es, mods = modsFor('easy'), perks =
   const finish = () => { const gg = g.current, base = contract.kind === 'collect' ? jupiterScore(tool, gg.scanned.size, mods.required, gg.health, gg.time) : contractResult(pois?.doneCount ?? 0, pois?.pois.length ?? 1, gg.health, gg.time, sim.kills, gg.exploded, gg.lost); setResult({ ...base, kills: sim.kills, pois: pois?.doneCount ?? gg.scanned.size, exploded: gg.exploded, lost: gg.lost }); };
   const zone = contract.kind === 'collect' ? ZONES.find(z => z.id === snap.near) : undefined;
   const goalText = contract.kind === 'beacons' ? (es ? `Instala ${pois?.pois.length} boyas (mantén E)` : `Deploy ${pois?.pois.length} buoys (hold E)`) : contract.kind === 'rescue' ? (snap.carrying ? (es ? 'Lleva el satélite a la estación (E)' : 'Take the satellite to the station (E)') : (es ? 'Recoge el satélite a la deriva (E)' : 'Pick up the drifting satellite (E)')) : L.goal;
-  return <div className="w-root adv-root" style={{ background: '#1d1530' }}>
+  return <div className={`w-root adv-root${player ? ' p' + player : ''}`} style={{ background: '#1d1530' }}>
     <Canvas dpr={[1, 1.6]} camera={{ fov: 60, near: 0.1, far: 600, position: [0, 10, 40] }}>
       <Scene tool={tool} mods={mods} perks={perks} contract={contract} sim={sim} pois={pois} tier={tier} es={es} g={g} hud={hud} input={inp} poll={poll} onFinish={finish} />
     </Canvas>

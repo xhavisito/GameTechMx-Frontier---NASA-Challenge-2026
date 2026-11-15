@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { getCoop } from './coop';
 
 export interface WorldInput {
   throttle: number; steer: number; boost: boolean; camYaw: number; camPitch: number;
@@ -16,24 +15,32 @@ export const blankInput = (): WorldInput => ({ throttle: 0, steer: 0, boost: fal
 
 const dead = (v: number) => (Math.abs(v) < 0.14 ? 0 : v);
 
-/** Keyboard + gamepad + touch merged into one mutable object read every frame by the scene. */
-export function useWorldInput(opts: { sub?: boolean } = {}) {
-  const sub = !!opts.sub;
+/** Key sets. Solo play accepts everything; in split-screen co-op player 1 gets WASD and player 2 the arrows, so nobody steals the other's keys. */
+const KEYS = {
+  solo: { up: ['w', 'arrowup'], down: ['s', 'arrowdown'], left: ['a', 'arrowleft'], right: ['d', 'arrowright'], boost: ['shift'], collect: ['e', 'enter'], scan: ['f'], fire: ['r'], camL: ['j'], camR: ['l'], rise: ['q'], dive: ['c', 'z'] },
+  p1: { up: ['w'], down: ['s'], left: ['a'], right: ['d'], boost: ['shift'], collect: ['e'], scan: ['f'], fire: ['r'], camL: ['j'], camR: ['l'], rise: ['q', ' '], dive: ['c', 'z'] },
+  p2: { up: ['arrowup'], down: ['arrowdown'], left: ['arrowleft'], right: ['arrowright'], boost: ['0'], collect: ['enter'], scan: ['.'], fire: ['/'], camL: [','], camR: ['-'], rise: [';', 'pageup'], dive: ["'", 'pagedown'] },
+};
+export type Player = 1 | 2;
+const has = (k: Set<string>, list: string[]) => list.some(x => k.has(x));
+
+/** Keyboard + gamepad + touch merged into one mutable object read every frame by the scene. `player` is set only in split-screen co-op. */
+export function useWorldInput(opts: { sub?: boolean; player?: Player } = {}) {
+  const sub = !!opts.sub, player = opts.player;
+  const map = KEYS[player === 1 ? 'p1' : player === 2 ? 'p2' : 'solo'];
   const inp = useRef<WorldInput>(blankInput());
   const keys = useRef(new Set<string>());
-  const prevPad = useRef({ a: false, x: false, b: false, lb: false, p2: false });
+  const prevPad = useRef({ a: false, x: false, b: false, lb: false });
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
-      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', '/', "'"].includes(k) && (!player || player === 2 || k === ' ')) e.preventDefault();
       if (!keys.current.has(k)) {
-        const co = getCoop();   // co-op: player 2 (gunner) owns Enter / 0 / / for firing
-        if (co && (k === 'enter' || k === '0' || k === '/')) inp.current.firePulse = true;
-        else if (k === 'e' || (!co && k === 'enter') || (!sub && k === ' ')) inp.current.collectPulse = true;
-        if (k === 'f') inp.current.scanPulse = true;
-        if (k === 'r' && !co) inp.current.firePulse = true;
-        if (k === 'escape') inp.current.exitPulse = true;
+        if (map.collect.includes(k) || (!sub && !player && k === ' ') || (!sub && player === 1 && k === ' ')) inp.current.collectPulse = true;
+        if (map.scan.includes(k)) inp.current.scanPulse = true;
+        if (map.fire.includes(k)) inp.current.firePulse = true;
+        if (k === 'escape' && player !== 2) inp.current.exitPulse = true;
       }
       keys.current.add(k);
     };
@@ -46,16 +53,14 @@ export function useWorldInput(opts: { sub?: boolean } = {}) {
   /** Call once per frame before using the input. */
   const poll = (dt: number) => {
     const i = inp.current, k = keys.current;
-    const co = getCoop();   // in co-op the arrows are free for player 2
-    let t = (k.has('w') || (!co && k.has('arrowup')) ? 1 : 0) - (k.has('s') || (!co && k.has('arrowdown')) ? 1 : 0);
-    let s = (k.has('d') || (!co && k.has('arrowright')) ? 1 : 0) - (k.has('a') || (!co && k.has('arrowleft')) ? 1 : 0);
-    let boost = k.has('shift');
-    let cy = (k.has('l') ? 1 : 0) - (k.has('j') ? 1 : 0);
-    let vert = sub ? (k.has(' ') || k.has('q') ? 1 : 0) - (k.has('c') || k.has('z') ? 1 : 0) : 0;
+    let t = (has(k, map.up) ? 1 : 0) - (has(k, map.down) ? 1 : 0);
+    let s = (has(k, map.right) ? 1 : 0) - (has(k, map.left) ? 1 : 0);
+    let boost = has(k, map.boost);
+    let cy = (has(k, map.camR) ? 1 : 0) - (has(k, map.camL) ? 1 : 0);
+    let vert = sub ? (has(k, map.rise) ? 1 : 0) - (has(k, map.dive) ? 1 : 0) : 0;
     let padHeld = false;
-    const pads = (navigator.getGamepads?.() ?? []).filter((p): p is Gamepad => !!p && p.connected), pad = pads[0];
-    if (co && pads[1] && ((pads[1].buttons[0]?.pressed || pads[1].buttons[7]?.pressed || pads[1].buttons[5]?.pressed) && !prevPad.current.p2)) { i.firePulse = true; prevPad.current = { ...prevPad.current, p2: true }; }
-    else if (co && pads[1] && !(pads[1].buttons[0]?.pressed || pads[1].buttons[7]?.pressed || pads[1].buttons[5]?.pressed)) prevPad.current = { ...prevPad.current, p2: false };
+    // each player gets their own controller: the 1st connected pad is player 1 (or solo), the 2nd is player 2
+    const pads = (navigator.getGamepads?.() ?? []).filter((p): p is Gamepad => !!p && p.connected), pad = player === 2 ? pads[1] : pads[0];
     if (pad) {
       const ax = (n: number) => dead(pad.axes[n] ?? 0), bt = (n: number) => !!pad.buttons[n]?.pressed;
       const lx = ax(0), ly = ax(1);
@@ -68,13 +73,13 @@ export function useWorldInput(opts: { sub?: boolean } = {}) {
       i.camPitch = Math.max(0.1, Math.min(1.1, i.camPitch + ax(3) * dt * 1.2));
       const a = bt(0), x = bt(2), b = bt(9), lb = bt(4);
       if (a && !prevPad.current.a) i.collectPulse = true;
-      if (lb && !prevPad.current.lb && !co) i.firePulse = true;
+      if (lb && !prevPad.current.lb) i.firePulse = true;
       padHeld = a;
       if (x && !prevPad.current.x) i.scanPulse = true;
-      if (b && !prevPad.current.b) i.exitPulse = true;
-      prevPad.current = { ...prevPad.current, a, x, b, lb };
+      if (b && !prevPad.current.b && player !== 2) i.exitPulse = true;
+      prevPad.current = { a, x, b, lb };
     }
-    i.interactHeld = k.has('e') || (!co && k.has('enter')) || (!sub && k.has(' ')) || padHeld || i.touchInteract;
+    i.interactHeld = has(k, map.collect) || (!sub && player !== 2 && k.has(' ')) || padHeld || i.touchInteract;
     if (sub) vert += (i.touchUp ? 1 : 0) - (i.touchDown ? 1 : 0);
     i.vert = Math.max(-1, Math.min(1, vert));
     t += -i.joyY; s += i.joyX; boost = boost || i.touchBoost;
