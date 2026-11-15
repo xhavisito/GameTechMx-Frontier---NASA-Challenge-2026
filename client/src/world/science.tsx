@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { BACKING_LABEL, GROUPS, SOURCES, type Group } from './sources';
 import { DISCOVERY, getProgress } from './progress';
+import { LEARN } from './learn';
 import './science.css';
 
 /** "Ciencia y fuentes": one card per resource with NASA link, fact, screen, simplification and game parameters. */
 export function Science({ es, onClose }: { es: boolean; onClose: () => void }) {
   const [group, setGroup] = useState<Group | 'all'>('all');
   const body = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState<string[]>([]), [shown2, setShown2] = useState<string[]>([]);
+  const flip = (list: string[], id: string) => (list.includes(id) ? list.filter(x => x !== id) : [...list, id]);
   const t = (l: { es: string; en: string }) => (es ? l.es : l.en);
   const found = getProgress().found, nFound = SOURCES.filter(s => found.includes(s.id)).length;
 
@@ -59,22 +62,33 @@ export function Science({ es, onClose }: { es: boolean; onClose: () => void }) {
         <div className="sci-body" ref={body} tabIndex={0}>
           {shown.map(s => (
             <article key={s.id} className={`sci-item b-${s.backing}`} data-testid={`src-${s.id}`}>
-              <h3>{found.includes(s.id) ? '📖 ' : '🔒 '}{t(s.name)} <span className="sci-badge">{t(BACKING_LABEL[s.backing])}</span></h3>
+              <h3><span className="sci-ico" aria-hidden="true">{LEARN[s.id]?.icon ?? '📘'}</span>{found.includes(s.id) ? '📖 ' : '🔒 '}{t(s.name)} <span className="sci-badge">{t(BACKING_LABEL[s.backing])}</span></h3>
               {!found.includes(s.id) && DISCOVERY[s.id] && <p className="sci-hint">{es ? 'Para descubrirla: ' : 'To discover it: '}{t(DISCOVERY[s.id]!)}</p>}
-              <dl>
-                <dt>{es ? 'Dato o concepto' : 'Fact or concept'}</dt><dd>{t(s.fact)}</dd>
-                <dt>{es ? 'Dónde influye' : 'Where it matters'}</dt><dd>{t(s.screen)}</dd>
-                <dt>{es ? 'Qué simplificamos' : 'What we simplified'}</dt><dd>{t(s.simplification)}</dd>
-              </dl>
-              {s.params.length > 0 && (
-                <div className="sci-params">
-                  <b>{es ? 'Parámetros de juego (sin respaldo NASA)' : 'Game parameters (no NASA backing)'}</b>
-                  <ul>{s.params.map((p, i) => <li key={i}>{t(p)}</li>)}</ul>
+              {LEARN[s.id] && <>
+                <p className="sci-gist">{t(LEARN[s.id]!.gist)}</p>
+                <p className="sci-remember">💡 {t(LEARN[s.id]!.remember)}</p>
+                <div className="sci-quiz">
+                  <button className="sci-btn2" aria-expanded={shown2.includes(s.id)} onClick={() => setShown2(l => flip(l, s.id))}>🧠 {t(LEARN[s.id]!.q)}</button>
+                  {shown2.includes(s.id) && <p className="sci-ans">✅ {t(LEARN[s.id]!.a)}</p>}
                 </div>
-              )}
-              {s.links.length > 0
-                ? <ul className="sci-links">{s.links.map(l => <li key={l.url}><a href={l.url} target="_blank" rel="noopener noreferrer">{l.title} ↗</a></li>)}</ul>
-                : <p className="sci-nolink">{es ? 'Sin enlace NASA: no hay fuente que lo respalde.' : 'No NASA link: no source backs this.'}</p>}
+              </>}
+              <button className="sci-more" aria-expanded={open.includes(s.id)} onClick={() => setOpen(l => flip(l, s.id))}>{open.includes(s.id) ? (es ? '▲ Ocultar detalles' : '▲ Hide details') : (es ? '▼ Ver detalles y fuentes' : '▼ Details and sources')}</button>
+              {open.includes(s.id) && <div className="sci-det">
+                <dl>
+                  <dt>{es ? 'Dato o concepto' : 'Fact or concept'}</dt><dd>{t(s.fact)}</dd>
+                  <dt>{es ? 'Dónde influye' : 'Where it matters'}</dt><dd>{t(s.screen)}</dd>
+                  <dt>{es ? 'Qué simplificamos' : 'What we simplified'}</dt><dd>{t(s.simplification)}</dd>
+                </dl>
+                {s.params.length > 0 && (
+                  <div className="sci-params">
+                    <b>{es ? 'Parámetros de juego (sin respaldo NASA)' : 'Game parameters (no NASA backing)'}</b>
+                    <ul>{s.params.map((p, i) => <li key={i}>{t(p)}</li>)}</ul>
+                  </div>
+                )}
+                {s.links.length > 0
+                  ? <ul className="sci-links">{s.links.map(l => <li key={l.url}><a href={l.url} target="_blank" rel="noopener noreferrer">{l.title} ↗</a></li>)}</ul>
+                  : <p className="sci-nolink">{es ? 'Sin enlace NASA: no hay fuente que lo respalde.' : 'No NASA link: no source backs this.'}</p>}
+              </div>}
             </article>
           ))}
         </div>

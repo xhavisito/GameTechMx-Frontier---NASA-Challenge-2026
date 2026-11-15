@@ -2,6 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { DEST, ROCKETS, TOOLS } from './design';
 import { GROUPS, SOURCES, isNasaUrl } from './sources';
 
+import { LEARN } from './learn';
+describe('lectura fácil', () => {
+  it('every card has a one-line gist, a memory hook and a self-check question in both languages', () => {
+    for (const s of SOURCES) {
+      const l = LEARN[s.id]; expect(l, s.id).toBeTruthy();
+      for (const x of [l!.gist, l!.remember, l!.q, l!.a]) { expect(x.es.length, s.id).toBeGreaterThan(5); expect(x.en.length, s.id).toBeGreaterThan(5); }
+      expect(l!.gist.es.length, s.id).toBeLessThanOrEqual(100); expect(l!.gist.en.length, s.id).toBeLessThanOrEqual(100);
+    }
+    for (const k of Object.keys(LEARN)) expect(SOURCES.some(s => s.id === k), k).toBe(true);
+  });
+});
 describe('Ciencia y fuentes', () => {
   it('ids are unique and every group is used', () => {
     expect(new Set(SOURCES.map(s => s.id)).size).toBe(SOURCES.length);
