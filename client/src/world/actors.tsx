@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { CombatSim, EnemyKind } from './combat';
+import { VARIANTS, type CombatSim, type EnemyKind, type VariantKind } from './combat';
 import type { PoiSim } from './pois';
 
 const M = ({ c, e = 0 }: { c: string; e?: number }) => <meshStandardMaterial color={c} flatShading emissive={e ? c : '#000'} emissiveIntensity={e} />;
@@ -47,7 +47,32 @@ function Thief() {
     <mesh position={[0, 0.9, -0.55]}><boxGeometry args={[0.7, 0.7, 0.4]} /><M c="#ffc857" /></mesh>
   </group>;
 }
-const KINDS: EnemyKind[] = ['crawler', 'drone', 'angler', 'thief'];
+/** Fast little spiky ball (comes in with stronger ships). */
+function Swarmer() {
+  return <group>
+    <mesh position={[0, 0.8, 0]}><icosahedronGeometry args={[0.7, 0]} /><M c="#ff7a59" /></mesh>
+    {[0, 1, 2, 3, 4, 5].map(i => <mesh key={i} position={[Math.cos(i * 1.05) * 0.8, 0.8 + Math.sin(i * 2.1) * 0.35, Math.sin(i * 1.05) * 0.8]} rotation={[i, i * 0.7, 0]}><coneGeometry args={[0.16, 0.5, 4]} /><M c="#ffd166" e={0.4} /></mesh>)}
+    <mesh position={[0, 0.9, 0.62]}><sphereGeometry args={[0.16, 5, 4]} /><M c="#fff" e={0.9} /></mesh>
+  </group>;
+}
+/** Lunging arrowhead: dashes at you every few seconds. */
+function Dasher() {
+  return <group>
+    <mesh position={[0, 0.9, 0]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[0.8, 2.2, 5]} /><M c="#2ec4b6" /></mesh>
+    <mesh position={[0, 0.9, -1]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.6, 0.1, 4, 8]} /><M c="#ffe66d" e={0.7} /></mesh>
+    {[-1, 1].map(s => <mesh key={s} position={[s * 0.8, 0.9, -0.5]} rotation={[0, 0, s * 0.9]}><boxGeometry args={[0.9, 0.1, 0.7]} /><M c="#1b7f77" /></mesh>)}
+    <mesh position={[0, 1.1, 0.6]}><sphereGeometry args={[0.17, 5, 4]} /><M c="#ff5d73" e={1} /></mesh>
+  </group>;
+}
+/** Big slow armoured chunk. */
+function Brute() {
+  return <group>
+    <mesh position={[0, 1, 0]} scale={[1.2, 0.9, 1.3]}><dodecahedronGeometry args={[1, 0]} /><M c="#6c4f9e" /></mesh>
+    {[-0.55, 0, 0.55].map(x => <mesh key={x} position={[x, 1.9, -0.1]} rotation={[0.2, 0, x]}><boxGeometry args={[0.4, 0.5, 1.4]} /><M c="#3d2c63" /></mesh>)}
+    {[-0.4, 0.4].map(x => <mesh key={x} position={[x, 1.1, 1.2]}><sphereGeometry args={[0.2, 5, 4]} /><M c="#ffc857" e={1} /></mesh>)}
+  </group>;
+}
+const KINDS: EnemyKind[] = ['crawler', 'drone', 'angler', 'thief', 'swarmer', 'dasher', 'brute'];
 const MAXE = 14, MAXB = 40;
 
 /** Draws every enemy, bullet and objective marker of a world from the shared sims. */
@@ -69,7 +94,7 @@ export function Actors({ sim, pois, bulletColor = '#ffc857', groundY, sphere = f
       else if (dx * dx + dz * dz > 1e-5) g.rotation.y = Math.atan2(dx, dz);
       last.current[i] = { x: e.x, z: e.z };
       g.children.forEach((c, k) => { if (k < KINDS.length) c.visible = KINDS[k] === e.kind; });
-      const s = (e.elite ? 1.5 : 1) * (e.alive ? 1 : Math.max(0, e.flash / 0.4)) * (1 + (e.flash > 0 && e.alive ? 0.2 : 0)) * (1 + e.wind * 0.5);   // it swells up right before biting
+      const s = (e.elite ? 1.5 : 1) * (e.kind in VARIANTS ? VARIANTS[e.kind as VariantKind].size : 1) * (e.alive ? 1 : Math.max(0, e.flash / 0.4)) * (1 + (e.flash > 0 && e.alive ? 0.2 : 0)) * (1 + e.wind * 0.5);   // it swells up right before biting
       g.scale.setScalar(s); if (e.wind > 0.05) g.position.y += e.wind * 0.8;
       const bar = g.children[KINDS.length] as THREE.Mesh; bar.visible = e.alive && e.hp < e.maxHp && e.kind !== 'thief'; bar.scale.x = Math.max(0.02, e.hp / e.maxHp);
       const flag = g.children[KINDS.length + 1] as THREE.Mesh; flag.visible = e.alive && e.kind === 'thief' && e.flee > 0;
@@ -86,7 +111,7 @@ export function Actors({ sim, pois, bulletColor = '#ffc857', groundY, sphere = f
   });
   return <>
     {Array.from({ length: MAXE }, (_, i) => <group key={i} ref={n => { eg.current[i] = n; }} visible={false}>
-      <group visible={false}><Crawler /></group><group visible={false}><Drone /></group><group visible={false}><Angler /></group><group visible={false}><Thief /></group>
+      <group visible={false}><Crawler /></group><group visible={false}><Drone /></group><group visible={false}><Angler /></group><group visible={false}><Thief /></group><group visible={false}><Swarmer /></group><group visible={false}><Dasher /></group><group visible={false}><Brute /></group>
       <mesh position={[0, 3, 0]} visible={false}><boxGeometry args={[1.6, 0.18, 0.18]} /><meshBasicMaterial color="#ff5d73" /></mesh>
       <mesh position={[0, 3.6, 0]} visible={false}><coneGeometry args={[0.3, 0.5, 4]} /><meshBasicMaterial color="#ffc857" /></mesh>
     </group>)}

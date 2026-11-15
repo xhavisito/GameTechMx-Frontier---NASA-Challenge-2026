@@ -81,13 +81,14 @@ function Slider({ label, unit, min, max, step = 1, value, onChange }: { label: s
   return <label className="slider"><span>{label}</span><input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} /><b>{value} {unit}</b></label>;
 }
 
-export function Hangar({ es, level, design, setDesign, onNext, bonus = NO_BONUS, contracts = [], contract = '', setContract, scrap = 0, onWorkshop }: Es & { level: Level; design: Design; setDesign: (d: Design) => void; onNext: () => void; bonus?: RocketBonus; contracts?: Contract[]; contract?: string; setContract?: (id: string) => void; scrap?: number; onWorkshop?: () => void }) {
+export function Hangar({ es, level, design, setDesign, onNext, bonus = NO_BONUS, contracts = [], contract = '', setContract, scrap = 0, onWorkshop, onClose, onLevel }: Es & { level: Level; design: Design; setDesign: (d: Design) => void; onNext: () => void; bonus?: RocketBonus; contracts?: Contract[]; contract?: string; setContract?: (id: string) => void; scrap?: number; onWorkshop?: () => void; onClose?: () => void; onLevel?: () => void }) {
+  useEffect(() => { if (!onClose) return; const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   const d = normalize(design, level), S = stats(d), pro = level === 'hard' || level === 'expert', set = (p: Partial<Design>) => setDesign({ ...design, ...p });
   const multi = pro, toggleTool = (k: Tool) => { const has = d.tools.includes(k); set({ tools: multi ? (has ? d.tools.filter(x => x !== k) : [...d.tools, k]) : [k] }); };
   const lvl = LEVEL_INFO[level], bill = supplyCost(d, level), needTool = contracts.find(c => c.id === contract)?.tool, missingTool = !!needTool && !d.tools.includes(needTool), broke = (bill.total > scrap && !!onWorkshop) || missingTool;
   const price = (n: number) => (n > 0 ? ` · 🪙${n}` : ` · ${t(es, 'gratis', 'free')}`);
   return <div className="adv-modal"><div className="adv-card wide">
-    <div className="hang-head"><h2>{t(es, 'Prepara tu nave', 'Build your ship')}</h2><span className="lvl-chip" style={{ background: lvl.color }}>{es ? lvl.es : lvl.en}</span>{onWorkshop && <button className="button button-secondary" onClick={onWorkshop}>🔧 {t(es, 'Taller', 'Workshop')} · {scrap}</button>}</div>
+    <div className="hang-head">{onClose && <button className="hang-x" onClick={onClose} aria-label={t(es, 'Salir del garage', 'Leave the garage')} title="Esc">✕ {t(es, 'Salir', 'Exit')}</button>}<h2>{t(es, 'Prepara tu nave', 'Build your ship')}</h2><span className="lvl-chip" style={{ background: lvl.color }}>{es ? lvl.es : lvl.en}</span>{onWorkshop && <button className="button button-secondary" onClick={onWorkshop}>🔧 {t(es, 'Taller', 'Workshop')} · {scrap}</button>}</div>
     <h3>{t(es, '¿A dónde vas?', 'Where to?')}</h3>
     <div className="adv-row">{(['mars', 'jupiter', 'miller'] as Dest[]).map(k => <Opt key={k} on={d.dest === k} onClick={() => set({ dest: k, shield: DEST[k].shield })} icon={destIcon(k)} title={DEST_NAME[k][es ? 0 : 1]}
       sub={k === 'mars' ? t(es, 'Explora y recolecta muestras', 'Explore and collect samples') : k === 'jupiter' ? t(es, 'Escanea su atmósfera desde órbita', 'Scan its atmosphere from orbit') : t(es, 'Busca vida bajo el océano', 'Look for life under the ocean')} />)}</div>
@@ -120,6 +121,7 @@ export function Hangar({ es, level, design, setDesign, onNext, bonus = NO_BONUS,
       <span>{t(es, 'Equipo de esta misión (se paga en cada misión)', 'This mission’s gear (paid every mission)')}: {bill.lines.filter(l => l.cost > 0).map(l => `${es ? l.es : l.en} 🪙${l.cost}`).join(' + ') || t(es, 'todo gratis', 'all free')}</span>
       <b>{t(es, 'Total', 'Total')} 🪙{bill.total} · {t(es, 'tienes', 'you have')} 🪙{scrap}</b>
       {missingTool ? <small>{t(es, `Esta misión necesita: ${TOOL_NAME[needTool!][0]}. Llévala para poder hacer las fotos.`, `This mission needs: ${TOOL_NAME[needTool!][1]}. Bring it to take the photos.`)}</small> : broke && <small>{t(es, 'No te alcanza: elige equipo más barato (la cámara es gratis).', 'Not enough: pick cheaper gear (the camera is free).')}</small>}</div>}
+    {broke && onLevel && <div className="diff-legend" role="note"><span>{t(es, '¿Ya no puedes iniciar una misión? Cambia la dificultad: en Fácil el equipo cuesta menos y siempre puedes volver a intentarlo.', 'Can’t start a mission any more? Switch the difficulty: on Easy the gear costs less and you can always try again.')}</span><button className="button button-secondary" onClick={onLevel}>{t(es, 'Cambiar dificultad', 'Switch difficulty')}</button></div>}
     <button className="button button-primary" autoFocus disabled={broke} onClick={onNext}><Rocket size={18} /> {level === 'easy' ? t(es, '¡Listo para despegar!', 'Ready to launch!') : t(es, 'Probar la nave', 'Test the ship')}</button>
   </div></div>;
 }

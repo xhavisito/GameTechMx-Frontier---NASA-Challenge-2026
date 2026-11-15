@@ -203,7 +203,7 @@ export default function JupiterOrbit({ tool, es, mods = modsFor('easy'), perks =
   const g = useRef<Game>({ lat: 0, lon: 0, heading: 0, scanned: new Set(), time: 0, msg: '', msgT: 0, ended: false, health: (mods.startHealth ?? 100) * (perks.health / 100), fuel: 100, fireCd: 0, lost: 0, exploded: false, stolen: null });
   const sim = useMemo(() => new CombatSim({
     kind: 'drone', max: mods.enemyMax, spawnEvery: mods.spawnEvery, waveEvery: mods.waveEvery, hp: mods.enemyHp, speed: mods.enemySpeed * 12, damage: mods.enemyDmg, aggro: 45,
-    thiefChance: mods.thiefChance, slow: perks.enemySlow, more: perks.enemyMore * contract.danger, seed: 31,
+    variants: mods.variants, thiefChance: mods.thiefChance, slow: perks.enemySlow, more: perks.enemyMore * contract.danger, seed: 31,
     place: (p, r1, r2) => { const rad = Math.hypot(p.x, p.y, p.z) || 1, lat = Math.asin(p.y / rad), lon = Math.atan2(p.x, p.z), a = r1 * 6.28, d = 0.5 + r2 * 0.4, la = Math.max(-1.3, Math.min(1.3, lat + Math.cos(a) * d)), lo = lon + (Math.sin(a) * d) / Math.max(0.4, Math.cos(la)), q = posAt(la, lo); return { x: q.x, y: q.y, z: q.z }; },
     constrain: e => { const l = Math.hypot(e.x, e.y, e.z) || 1, k = (R + ALT) / l; e.x *= k; e.y *= k; e.z *= k; },
   }), [mods, perks, contract]);

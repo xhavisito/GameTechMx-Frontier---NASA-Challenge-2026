@@ -5,6 +5,8 @@ import { X, Rocket, HelpCircle, Star } from 'lucide-react';
 import { heightAt, newRover, normalAt, stepRover, type MarsResult, type MarsWorldData, type RoverState, type WorldConfig } from './marsWorld';
 import { Terrain, Joystick, type Palette } from './MarsWorld';
 import { Rover, Shuttle } from './models';
+import { powerOf, scaleForPower } from './threat';
+import { PITCH, GOAL_HALF, BALL_R, REWARD, COIN_POS, inPitch, newBall, newCoins, stepBall, stepCoins, coinsLeft } from './earthgames';
 import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests, EventCard } from './ui';
 import { Workshop, Draft, Reward } from './workshop';
 import { Money, HurtFlash } from './hud';
@@ -56,7 +58,7 @@ function earthWorld(): MarsWorldData {
   const rand = rng(77), rocks: MarsWorldData['rocks'] = [];
   for (let i = 0; i < 90; i++) {
     const x = (rand() * 2 - 1) * 120, z = (rand() * 2 - 1) * 120;
-    if (Math.hypot(x, z) < 12 || Math.hypot(x - HANGAR.x, z - HANGAR.z) < 12 || Math.hypot(x - ROCKET.x, z - ROCKET.z) < 12) continue;
+    if (inPitch(x, z, 5) || COIN_POS.some(([cx, cz]) => Math.hypot(x - cx, z - cz) < 5) || Math.hypot(x, z) < 12 || Math.hypot(x - HANGAR.x, z - HANGAR.z) < 12 || Math.hypot(x - ROCKET.x, z - ROCKET.z) < 12) continue;
     rocks.push({ x, z, s: 1 + rand() * 1.6, r: rand() * 6, tint: rand() });
   }
   return { seed: 77, amp: 0.3, craters: [], rocks, samples: [] };
@@ -74,6 +76,18 @@ function Trees({ world }: { world: MarsWorldData }) {
   })}</>;
 }
 
+/** The little kick-about pitch: grass, white lines and a goal at the far end. */
+function Pitch() {
+  const { x, z, hw, hl, y } = PITCH, line = (w: number, d: number, px: number, pz: number, k: string) => <mesh key={k} position={[px, y + 0.03, pz]}><boxGeometry args={[w, 0.05, d]} /><meshBasicMaterial color="#ffffff" /></mesh>;
+  return <group>
+    <mesh position={[x, y, z]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[hw * 2, hl * 2]} /><meshStandardMaterial color="#58c26f" flatShading /></mesh>
+    {line(hw * 2, 0.3, x, z - hl, 'a')}{line(hw * 2, 0.3, x, z + hl, 'b')}{line(0.3, hl * 2, x - hw, z, 'c')}{line(0.3, hl * 2, x + hw, z, 'd')}{line(hw * 2, 0.25, x, z, 'e')}
+    <mesh position={[x, y + 0.04, z]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[3.2, 3.45, 24]} /><meshBasicMaterial color="#ffffff" /></mesh>
+    {[-1, 1].map(sd => <mesh key={sd} position={[x + sd * GOAL_HALF, y + 1.6, z - hl]}><boxGeometry args={[0.35, 3.2, 0.35]} /><meshStandardMaterial color="#fff4e6" flatShading /></mesh>)}
+    <mesh position={[x, y + 3.2, z - hl]}><boxGeometry args={[GOAL_HALF * 2 + 0.35, 0.35, 0.35]} /><meshStandardMaterial color="#fff4e6" flatShading /></mesh>
+    <mesh position={[x, y + 1.6, z - hl - 1.2]}><boxGeometry args={[GOAL_HALF * 2, 3.2, 0.1]} /><meshStandardMaterial color="#ffffff" transparent opacity={0.28} /></mesh>
+  </group>;
+}
 function Hangar() {
   return <group position={[HANGAR.x, 0, HANGAR.z]}>
     <mesh position={[0, 2.2, 0]}><boxGeometry args={[11, 4.4, 8]} /><meshStandardMaterial color="#fff4e6" flatShading /></mesh>
@@ -99,8 +113,8 @@ function RocketModel({ lift, flame, tier = 0 }: { lift: React.MutableRefObject<n
 
 interface Hud { near: 'hangar' | 'rocket' | null; dist: number; bearing: number; heading: number }
 
-function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverTier, rocketTier, laser }: {
-  roverTier: number; rocketTier: number; laser: boolean;
+function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverTier, rocketTier, laser, count, onEarn }: {
+  onEarn: (e: { gain: number; goals: number; coins: number; round: boolean; left: number }) => void; count: number; roverTier: number; rocketTier: number; laser: boolean;
   world: MarsWorldData; phase: Phase; quest: number; input: React.MutableRefObject<WorldInput>; poll: (dt: number) => void;
   hud: React.MutableRefObject<Hud>; lift: React.MutableRefObject<number>; onAct: (w: 'hangar' | 'rocket') => void;
 }) {
@@ -109,7 +123,8 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
   const rover = useRef<RoverState>({ ...newRover(CFG0), x: 0, z: 8, heading: -Math.PI / 4, energy: 1e9 });
   const cam = useRef(new THREE.Vector3(0, 8, -10)), tmp = useMemo(() => new THREE.Vector3(), []);
   const q = useMemo(() => ({ a: new THREE.Quaternion(), b: new THREE.Quaternion(), up: new THREE.Vector3(0, 1, 0), n: new THREE.Vector3() }), []);
-  const launchT = useRef(0);
+  const ball = useRef(newBall()), ballRef = useRef<THREE.Group>(null), field = useRef(newCoins()), coinRefs = useRef<(THREE.Group | null)[]>([]);
+  const launchT = useRef(0), launchStart = useRef<number | null>(null);   // wall-clock, so a slow or hidden tab cannot desync it from the countdown timers
   useEffect(() => { if (new URLSearchParams(location.search).has('debug')) (window as unknown as Record<string, unknown>).__adv = { rover, HANGAR, ROCKET }; }, []);
   useEffect(() => { scene.background = new THREE.Color('#8fd3ff'); scene.fog = new THREE.Fog('#bfe8ff', 80, 320); return () => { scene.fog = null; }; }, [scene]);
 
@@ -117,7 +132,8 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
     const dt = Math.min(rawDt, 0.05), i = input.current;
     poll(dt);
     const launching = phase === 'launch';
-    if (launching) { launchT.current += Math.min(rawDt, 0.25); const t = Math.max(0, launchT.current - 3); lift.current = t * t * 9; }
+    if (launching) { launchStart.current ??= performance.now(); launchT.current = (performance.now() - launchStart.current) / 1000; const t = Math.max(0, launchT.current - 3); lift.current = t * t * 9; }
+    else { launchStart.current = null; launchT.current = 0; if (phase === 'earth') lift.current = 0; i.collectPulse = phase === 'earth' ? i.collectPulse : false; }
     if (!launching && phase === 'earth') {
       const prev = rover.current;
       let r = stepRover(world, CFG0, prev, { throttle: i.throttle, steer: i.steer, boost: i.boost }, dt);
@@ -128,12 +144,18 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
       const nearH = Math.hypot(r.x - HANGAR.x, r.z - HANGAR.z) < NEAR + 2, nearR = quest >= 1 && Math.hypot(r.x - ROCKET.x, r.z - ROCKET.z) < NEAR + 2;
       hud.current = { near: nearH && quest === 0 ? 'hangar' : nearR ? 'rocket' : null, dist: d, bearing: Math.atan2(target.x - r.x, target.z - r.z), heading: r.heading };
       if (i.collectPulse) { i.collectPulse = false; if (hud.current.near) onAct(hud.current.near); }
+      // side games: kick-about pitch and coin hunt
+      const sb = stepBall(ball.current, { x: r.x, z: r.z, speed: r.speed, heading: r.heading }, dt); ball.current = sb.ball;
+      const sc = stepCoins(field.current, r, dt), goals = sb.goal ? 1 : 0, gain = goals * REWARD.goal + sc.got * REWARD.coin + (sc.round ? REWARD.round : 0);
+      if (gain > 0) onEarn({ gain, goals, coins: sc.got, round: sc.round, left: coinsLeft(field.current) });
     }
+    if (ballRef.current) { const bl = ball.current; ballRef.current.position.set(bl.x, PITCH.y + BALL_R, bl.z); ballRef.current.rotation.x += bl.vz * dt / BALL_R; ballRef.current.rotation.z -= bl.vx * dt / BALL_R; }
+    field.current.coins.forEach((c, k) => { const g = coinRefs.current[k]; if (g) { g.visible = !c.got; g.rotation.y += dt * 2.5; g.position.set(c.x, heightAt(world, c.x, c.z) + 1.5 + Math.sin(performance.now() / 350 + k) * 0.25, c.z); } });
     const r = rover.current;
     const rv = roverRef.current;
     if (rv) {
       rv.visible = !launching;
-      const y = heightAt(world, r.x, r.z), n = normalAt(world, r.x, r.z);
+      const y = inPitch(r.x, r.z) ? PITCH.y : heightAt(world, r.x, r.z), n = inPitch(r.x, r.z) ? [0, 1, 0] : normalAt(world, r.x, r.z);
       rv.position.set(r.x, y + 0.05, r.z); q.n.set(n[0], n[1], n[2]); q.a.setFromUnitVectors(q.up, q.n); q.b.setFromAxisAngle(q.up, r.heading);
       rv.quaternion.slerp(q.a.multiply(q.b), Math.min(1, dt * 8));
     }
@@ -154,7 +176,13 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
     <directionalLight position={[80, 120, 40]} intensity={1.8} color="#fff6dd" />
     <mesh position={[0, -1.6, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[1500, 1500]} /><meshStandardMaterial color="#3fa7e8" flatShading /></mesh>
     <Terrain world={world} palette={EARTH} /><Trees world={world} /><Hangar />
-    <RocketModel lift={lift} flame={phase === 'launch' && launchT.current > 3} tier={rocketTier} />
+    <RocketModel lift={lift} flame={phase === 'launch' && count >= 3} tier={rocketTier} />
+    <Pitch />
+    <group ref={ballRef}><mesh><icosahedronGeometry args={[BALL_R, 1]} /><meshStandardMaterial color="#ffffff" flatShading /></mesh><mesh scale={1.02}><dodecahedronGeometry args={[BALL_R * 0.98, 0]} /><meshStandardMaterial color="#2a1f3d" flatShading transparent opacity={0.55} /></mesh></group>
+    {COIN_POS.map(([x, z], k) => <group key={`${x},${z}`} ref={n => { coinRefs.current[k] = n; }} position={[x, 2, z]}>
+      <mesh><octahedronGeometry args={[0.9, 0]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.7} flatShading /></mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[1.25, 0.08, 4, 14]} /><meshBasicMaterial color="#fff4c2" /></mesh>
+    </group>)}
     <group ref={roverRef}><Rover tier={roverTier} laser={laser} /></group>
     {phase === 'earth' && <group ref={markers}>
       <mesh position={[0, 16, 0]} rotation={[Math.PI, 0, 0]}><coneGeometry args={[1.6, 3, 4]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.7} flatShading /></mesh>
@@ -176,7 +204,17 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const [evIdx, setEvIdx] = useState(0);
   const [picked, setPicked] = useState<EventOption[]>([]);
   const [meta, setMetaState] = useState<Meta>(loadMeta);
-  const setMeta = (m: Meta) => { setMetaState(m); saveMeta(m); };
+  const metaRef = useRef(meta); metaRef.current = meta;
+  const setMeta = (m: Meta) => { metaRef.current = m; setMetaState(m); saveMeta(m); };
+  const [play, setPlay] = useState({ goals: 0, coins: 0, left: COIN_POS.length, toast: '' });
+  const toastT = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const onEarn = (e: { gain: number; goals: number; coins: number; round: boolean; left: number }) => {
+    setMeta({ ...metaRef.current, scrap: metaRef.current.scrap + e.gain });
+    const msg = e.goals ? (es ? '⚽ ¡GOOOL! +' : '⚽ GOAL! +') + e.gain + ' 🪙' : e.round ? (es ? '⭐ ¡Todas las monedas! +' : '⭐ All the coins! +') + e.gain + ' 🪙' : '⭐ +' + e.gain + ' 🪙';
+    setPlay(p => ({ goals: p.goals + e.goals, coins: p.coins + e.coins, left: e.round ? COIN_POS.length : e.left, toast: msg }));
+    clearTimeout(toastT.current); toastT.current = setTimeout(() => setPlay(p => ({ ...p, toast: '' })), 1800);
+  };
+  useEffect(() => () => clearTimeout(toastT.current), []);
   const [card, setCard] = useState<RunCard | null>(null);
   const [contractId, setContractId] = useState('');
   const [reward, setReward] = useState(0);
@@ -209,7 +247,9 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   useEffect(() => { if (phase !== 'travel' || pending) return; const t = setTimeout(() => setPhase('draft'), 4500); return () => clearTimeout(t); }, [phase, pending]);
 
   const mission = useMemo(() => applyEffects(modsFor(level), picked.map(p => p.fx), rocketPerks.tripShield), [level, picked, rocketPerks]);
-  const mods = mission.mods;
+  const shipOf = d.dest === 'mars' ? 'rover' : d.dest === 'jupiter' ? 'orbiter' : 'sub';
+  const power = useMemo(() => powerOf(meta, shipOf), [meta, shipOf]);
+  const mods = useMemo(() => scaleForPower(mission.mods, power), [mission.mods, power]);   // stronger ship → tougher, more varied enemies (max 4)
   const cfg: WorldConfig = useMemo(() => ({
     seed: 1000 + run * 7, health: mission.health * (perks.health / 100),
     battery: ((d.batteryKWh * 100 + 20) * mission.energy * perks.energyMul) / mods.drainMul, solar: d.solarM2 * 45,
@@ -221,6 +261,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const bill = useMemo(() => supplyCost(design, level), [design, level]);
   // gear is bought again for every mission: it is paid when you press launch
   const onAct = (w: 'hangar' | 'rocket') => {
+    if (phase !== 'earth') return;   // no double launches, no stale presses from another screen
     if (w === 'hangar') { setPhase('hangar'); return; }
     if (bill.total > meta.scrap) { setPhase('hangar'); return; }
     setPaid(bill.total); if (bill.total > 0) setMeta({ ...meta, scrap: meta.scrap - bill.total });
@@ -250,7 +291,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     onPointerMove={e => { const el = e.currentTarget as HTMLElement, dr = el.dataset.drag; if (!dr) return; const [x, y] = dr.split(',').map(Number); inp.current.camYaw -= (e.clientX - x!) * 0.006; inp.current.camPitch = Math.max(0.1, Math.min(1.1, inp.current.camPitch + (e.clientY - y!) * 0.004)); el.dataset.drag = `${e.clientX},${e.clientY}`; }}
     onPointerUp={e => { delete (e.currentTarget as HTMLElement).dataset.drag; }}>
     <Canvas dpr={[1, 1.6]} camera={{ fov: 62, near: 0.1, far: 600, position: [0, 8, -10] }}>
-      <Suspense fallback={null}><EarthScene world={world} phase={phase} quest={quest} input={inp} poll={poll} hud={hud} lift={lift} onAct={onAct} roverTier={tierOf(meta, 'rover')} rocketTier={tierOf(meta, 'rocket')} laser={perksFor('rover', meta).weapon > 0} /></Suspense>
+      <Suspense fallback={null}><EarthScene world={world} phase={phase} quest={quest} input={inp} poll={poll} hud={hud} lift={lift} onAct={onAct} roverTier={tierOf(meta, 'rover')} rocketTier={tierOf(meta, 'rocket')} laser={perksFor('rover', meta).weapon > 0} count={count} onEarn={onEarn} /></Suspense>
     </Canvas>
     <button className="w-btn w-exit" onClick={onExit} aria-label={L.quit}><X size={20} /></button>
     <Money n={meta.scrap} es={es} />
@@ -261,13 +302,15 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
         <button className="lvl-btn help" onClick={() => setTut(true)} aria-label={es ? 'Ayuda' : 'Help'}><HelpCircle size={18} /></button></div>
       <div className="adv-arrow" aria-hidden="true"><i style={{ transform: `rotate(${snap.heading - snap.bearing + Math.PI}rad)` }} /><span>{Math.round(snap.dist)} m</span></div>
       {snap.near && <button className="adv-prompt" onClick={() => onAct(snap.near!)}><span className="w-key">E</span><span className="w-key pad">A</span>{snap.near === 'hangar' ? L.enterHangar : L.launchNow}</button>}
+      <div className="adv-play" aria-label={es ? 'Juegos de la Tierra' : 'Earth games'}><span>⚽ {es ? 'Canchita: empuja el balón a la portería' : 'Pitch: push the ball into the goal'}: {play.goals}</span><span>⭐ {es ? 'Monedas' : 'Coins'}: {play.left}/{COIN_POS.length}</span></div>
+      {play.toast && <div className="adv-toast" role="status">{play.toast}</div>}
       <div className="w-help adv-help"><span>{L.help}</span><span>{L.helpPad}</span><span>{L.helpTouch}</span></div>
       <div className="w-touch"><Joystick input={inp} /><div className="w-btns"><button className="w-btn big" onPointerDown={() => { inp.current.collectPulse = true; }}>E</button></div></div>
     </>}
 
     {phase === 'intro' && !tut && <LevelPicker es={es} level={level} onPick={pickLevel} onHelp={() => setTut(true)} />}
     {tut && <Tutorial es={es} onClose={() => { markTutorialDone(); setTut(false); }} />}
-    {phase === 'hangar' && <HangarPanel es={es} level={level} design={design} setDesign={setDesign} bonus={bonus} contracts={contracts} contract={activeContract.id} setContract={setContractId} scrap={meta.scrap} onWorkshop={() => openWorkshop('hangar')} onNext={() => { if (level === 'easy') { setQuest(1); setPhase('earth'); } else setPhase('tests'); }} />}
+    {phase === 'hangar' && <HangarPanel es={es} level={level} design={design} setDesign={setDesign} bonus={bonus} contracts={contracts} contract={activeContract.id} setContract={setContractId} scrap={meta.scrap} onWorkshop={() => openWorkshop('hangar')} onClose={() => setPhase('earth')} onLevel={() => setPhase('intro')} onNext={() => { if (level === 'easy') { setQuest(1); setPhase('earth'); } else setPhase('tests'); }} />}
     {phase === 'tests' && <Tests es={es} level={level} design={design} bonus={bonus} onBack={() => setPhase('hangar')} onGo={() => { setQuest(1); setPhase('earth'); }} />}
 
     {phase === 'workshop' && <Workshop es={es} meta={meta} setMeta={setMeta} initial={wsBack.current === 'hangar' ? ship : 'rover'} onClose={() => setPhase(wsBack.current)} />}

@@ -352,7 +352,7 @@ export default function MarsWorld({ cfg, es, mods = modsFor('easy'), perks = bas
   const need = Math.min(mods.required, cfg.radar ? 6 : 5);
   const sim = useMemo(() => new CombatSim({
     kind: 'crawler', max: mods.enemyMax, spawnEvery: mods.spawnEvery, waveEvery: mods.waveEvery, hp: mods.enemyHp, speed: mods.enemySpeed * 7, damage: mods.enemyDmg, aggro: 42,
-    thiefChance: mods.thiefChance, slow: perks.enemySlow, more: perks.enemyMore * contract.danger, seed: cfg.seed + 11,
+    variants: mods.variants, thiefChance: mods.thiefChance, slow: perks.enemySlow, more: perks.enemyMore * contract.danger, seed: cfg.seed + 11,
     place: (p, r1, r2) => { const a = r1 * Math.PI * 2, d = 36 + r2 * 24, x = Math.max(-HALF + 4, Math.min(HALF - 4, p.x + Math.cos(a) * d)), z = Math.max(-HALF + 4, Math.min(HALF - 4, p.z + Math.sin(a) * d)); return { x, y: heightAt(world, x, z), z }; },
     constrain: e => { e.x = Math.max(-HALF + 2, Math.min(HALF - 2, e.x)); e.z = Math.max(-HALF + 2, Math.min(HALF - 2, e.z)); e.y = heightAt(world, e.x, e.z); },
   }), [world, mods, perks, contract, cfg.seed]);
