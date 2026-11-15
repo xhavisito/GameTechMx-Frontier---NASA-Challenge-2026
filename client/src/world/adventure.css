@@ -149,3 +149,11 @@
 .board .adv-opt.job{color:#fff4e6;opacity:1}.board .adv-opt.job small{color:#eadff7;opacity:1;display:block;margin-top:.2rem}
 .board .adv-opt.job.on{background:#ffc857;color:#2a1f3d;border-color:#1b1230}.board .adv-opt.job.on small{color:#3a2d52}
 .board .adv-opt.job:disabled{opacity:.5}
+.quiz-card{font-size:1.1rem;margin:.1rem 0}.quiz-q{font-size:1.25rem;font-weight:900;margin:.3rem 0 .6rem}
+.quiz-opts{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}@media(max-width:560px){.quiz-opts{grid-template-columns:1fr}}
+.quiz-opt{text-align:left;color:#fff4e6}.quiz-opt.right{background:#5ee6a8;color:#2a1f3d;border-color:#1b1230}.quiz-opt.wrong{background:#ff5d73;color:#2a1f3d}.quiz-opt.dim{opacity:.5}
+.quiz-fb{margin-top:.5rem}.quiz-sum{list-style:none;padding:0;margin:.3rem 0 .6rem;text-align:left}.quiz-sum li{padding:.15rem 0}.quiz-sum li.ok{color:#5ee6a8}.quiz-sum li.no{color:#ff8fa0}
+.sci-gist{margin:.2rem 0 .4rem;font-size:1.12rem;font-weight:800;line-height:1.3}
+.sci-remember{display:inline-block;margin:.2rem 0;padding:.35rem .7rem;border-radius:12px;background:#3a2c52;border:2px solid #ffc857;font-size:.92rem;line-height:1.3}
+.logbook{margin:.6rem 0;text-align:left;background:#2a1f3d;border:3px solid #1b1230;border-radius:16px;padding:.5rem .9rem}
+.logbook h4{margin:.1rem 0 .3rem}.logbook p{margin:.35rem 0;font-size:.9rem;line-height:1.35}

@@ -8,12 +8,15 @@ import { Terrain, Joystick, type Palette } from './MarsWorld';
 import { Rover, Shuttle } from './models';
 import { HangarBuilding, HANGAR_POS, hangarBlocked, onApron, APRON_Y } from './hangar3d';
 import { sfx, setTheme } from './audio';
-import { track, subscribe, ACHIEVEMENTS, type Ev } from './progress';
+import { track, subscribe, getProgress, ACHIEVEMENTS, type Ev } from './progress';
 import { SOURCES } from './sources';
 import { ProgressPanel } from './progressui';
 import { setCombatListener, resetBossHud } from './combat';
 import { StoryBubble, DailyPanel } from './storyui';
-import { dayKey, destOfDay, seedOfDay, loadDaily, saveDaily, recordDaily, type DailyDest } from './daily';
+import { Quiz, SciDayPanel, type Answer } from './quizui';
+import { LogBook, worldCard } from './logbook';
+import { loadReview, saveReview, loadSciDay, saveSciDay, answer, dueIds, pickIds, cardOfDay, markSciDay, SCI_DAY_REWARD, SCI_QUIZ_REWARD } from './review';
+import { dayKey, dayNumber, yesterday, destOfDay, seedOfDay, loadDaily, saveDaily, recordDaily, type DailyDest } from './daily';
 import { powerOf, scaleForPower } from './threat';
 import { PITCH, GOAL_HALF, BALL_R, REWARD, COIN_POS, RACE, RAMP, inPitch, newBall, newCoins, newRace, newAir, stepBall, stepCoins, stepRace, stepAir, coinsLeft } from './earthgames';
 import { LobbyDeco } from './lobbydeco';
@@ -222,6 +225,24 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const [picked, setPicked] = useState<Out[]>([]), [events, setEvents] = useState<TEvent[]>([]), [tripNote, setTripNote] = useState('');
   const [runSt, setRunSt] = useState(loadRun), [accepted, setAccepted] = useState<Job[]>([]), [offers, setOffers] = useState<Job[]>([]), [jobRows, setJobRows] = useState<JobRow[]>([]);
   useEffect(() => { saveRun(runSt); }, [runSt]);
+  const [review, setReview] = useState(loadReview), [sciDay, setSciDay] = useState(loadSciDay), [showSci, setShowSci] = useState(false), [quizDone, setQuizDone] = useState(false);
+  const [quiz, setQuiz] = useState<{ ids: string[]; kind: 'mission' | 'day' | 'review'; title: string } | null>(null);
+  const today = dayNumber(dayKey()), dueN = dueIds(review, today).length;
+  const openQuiz = (kind: 'mission' | 'day' | 'review', prefer: string[] = []) => {
+    const ids = kind === 'day' ? [cardOfDay(dayKey())] : pickIds(review, today, getProgress().found, kind === 'mission' ? 2 : 4, prefer);
+    setShowSci(false); setQuiz({ ids, kind, title: kind === 'day' ? (es ? 'Pregunta del día' : 'Question of the day') : (es ? 'Repaso rápido' : 'Quick review') });
+  };
+  const finishQuiz = (res: Answer[]) => {
+    const k = quiz!.kind, right = res.filter(r => r.ok).length; let nr = review;
+    for (const r of res) nr = answer(nr, r.id, r.ok, today);
+    setReview(nr); saveReview(nr);
+    let gain = right * SCI_QUIZ_REWARD;
+    if (k === 'day') { const first = sciDay.last !== dayKey(); gain = first && right ? SCI_DAY_REWARD : 0; const ns = markSciDay(sciDay, dayKey(), yesterday(dayKey())); setSciDay(ns); saveSciDay(ns); }
+    if (gain > 0) setMeta({ ...meta, scrap: meta.scrap + gain });
+    if (right) track({ t: 'quiz', ok: right });
+    if (k === 'mission') setQuizDone(true);
+    setQuiz(null);
+  };
   const [meta, setMetaState] = useState<Meta>(loadMeta);
   const metaRef = useRef(meta); metaRef.current = meta;
   const setMeta = (m: Meta) => { metaRef.current = m; setMetaState(m); saveMeta(m); track({ t: 'wallet', scrap: m.scrap }); };
@@ -315,7 +336,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     setPaid(bill.total); if (bill.total > 0) setMeta({ ...meta, scrap: meta.scrap - bill.total });
     setPhase('launch');
   };
-  const reset = () => { setDaily(null); setPhase('earth'); setQuest(0); setResult(null); setRun(r => r + 1); setPicked([]); setCard(null); setAccepted([]); lift.current = 0; };
+  const reset = () => { setDaily(null); setPhase('earth'); setQuest(0); setResult(null); setRun(r => r + 1); setPicked([]); setCard(null); setAccepted([]); setQuizDone(false); lift.current = 0; };
   const openWorkshop = (back: Phase) => { wsBack.current = back; setPhase('workshop'); };
   const pickLevel = (l: Level) => { setLevel(l); saveLevel(l); setPhase('earth'); };
   useEffect(() => {
@@ -369,6 +390,8 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     <Money n={meta.scrap} es={es} />
     {unlock && <div className="adv-unlock" role="status">{unlock}</div>}
     {phase === 'earth' && !tut && <RunChips es={es} run={runSt} jobs={[]} />}
+    {showSci && <SciDayPanel es={es} sci={sciDay} review={review} due={dueN} onQuiz={() => openQuiz('day')} onReview={() => openQuiz('review')} onClose={() => setShowSci(false)} />}
+    {quiz && <Quiz es={es} ids={quiz.ids} reward={quiz.kind === 'day' ? SCI_DAY_REWARD : SCI_QUIZ_REWARD} title={quiz.title} onDone={finishQuiz} onClose={() => setQuiz(null)} />}
     {showDaily && <DailyPanel es={es} rec={dailyRec} onPlay={startDaily} onClose={() => setShowDaily(false)} />}
     {beats[0] && !tut && (phase === 'earth' || phase === 'end') && !showProg && !showDaily && <StoryBubble key={beats[0]} es={es} id={beats[0]} onClose={() => setBeats(b => b.slice(1))} onCard={() => { setBeats(b => b.slice(1)); window.dispatchEvent(new Event('frontier-open-science')); }} />}
     {showProg && <ProgressPanel es={es} runs={meta.runs} best={meta.best} scrap={meta.scrap} onClose={() => setShowProg(false)} />}
@@ -376,6 +399,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     {phase === 'earth' && !showProg && <>
       <div className="adv-quest"><span className="adv-step">{quest + 1}/2</span><b>{quest === 0 ? L.q0 : L.q1}</b>
         <button className="lvl-btn" style={{ background: lvl.color }} onClick={() => setPhase('intro')} title={es ? 'Cambiar dificultad' : 'Change difficulty'}><Star size={14} fill="currentColor" /> {es ? lvl.es : lvl.en}</button>
+        <button className="lvl-btn help" onClick={() => setShowSci(true)} aria-label={es ? 'Ciencia del día' : 'Science of the day'} title={es ? 'Ciencia del día' : 'Science of the day'}>💡{dueN > 0 ? <sup>{dueN}</sup> : null}</button>
         <button className="lvl-btn help" onClick={() => setShowDaily(true)} aria-label={es ? 'Reto del día' : 'Daily challenge'} title={es ? 'Reto del día' : 'Daily challenge'}>📅</button>
         <button className="lvl-btn help" onClick={() => setShowProg(true)} aria-label={es ? 'Mi progreso y logros' : 'My progress and achievements'} title={es ? 'Progreso y logros' : 'Progress and achievements'}>🏆</button>
         <button className="lvl-btn help" onClick={() => setTut(true)} aria-label={es ? 'Ayuda' : 'Help'}><HelpCircle size={18} /></button></div>
@@ -400,6 +424,9 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
       {!pending && <button className="button button-secondary" onClick={() => setPhase('draft')}>{L.skip}</button>}
       {tripNote && !pending && <div className="trip-note" role="status">{tripNote}</div>}
       {pending && <TripCard es={es} ev={events[evIdx]!} step={evIdx + 1} total={events.length} onPick={o => { const { out, won } = resolveOption(o); setPicked(p => [...p, out]); if (out.scrap) setMeta({ ...meta, scrap: Math.max(0, meta.scrap + out.scrap) }); if (out.mod) setRunSt(s => grant(s, out.mod!)); setTripNote(`${won === null ? '' : won ? (es ? '🎲 ¡Salió bien! ' : '🎲 It worked! ') : (es ? '🎲 Salió mal… ' : '🎲 It backfired… ')}${describeOut(out, es)}`); setEvIdx(i => i + 1); }} />}</div>}
-    {phase === 'end' && result && <Reward es={es} result={result} scrap={reward} spent={paid} total={meta.scrap} level={es ? lvl.es : lvl.en} onWorkshop={() => { reset(); openWorkshop('earth'); }} onAgain={reset} jobs={daily ? [] : jobRows} />}
+    {phase === 'end' && result && <Reward es={es} result={result} scrap={reward} spent={paid} total={meta.scrap} level={es ? lvl.es : lvl.en} onWorkshop={() => { reset(); openWorkshop('earth'); }} onAgain={reset} jobs={daily ? [] : jobRows} extra={<>
+      <LogBook es={es} result={result} dest={daily ? daily.dest : dest} run={runSt} learnId={worldCard(daily ? daily.dest : dest, meta.runs)} />
+      {!quizDone && <button className="button button-secondary" onClick={() => openQuiz('mission', [worldCard(daily ? daily.dest : dest, meta.runs)])}>🧠 {es ? `Repaso rápido: 2 preguntas (+${SCI_QUIZ_REWARD} 🪙 c/u)` : `Quick review: 2 questions (+${SCI_QUIZ_REWARD} 🪙 each)`}</button>}
+    </>} />}
   </div>;
 }

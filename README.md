@@ -79,6 +79,7 @@ Honesty rule: a figure counts as NASA-backed only if the linked NASA page states
 - **Eventos del viaje / Trip events**: banco de 28 eventos con 2–3 opciones (algunas con 🎲 y probabilidad visible), elegidos al azar según planeta y nivel, con opciones en orden aleatorio y sin repetir los vistos hace poco (1/1/2/3 preguntas por nivel).
 - **Tablero de misiones / Mission board** (📋, en la base de cada planeta, antes de salir): 4 trabajos al azar (hasta 2–3 a la vez). Cambian la misión de verdad (más peligros, más enemigos, más gasto de energía…); al cumplirlos pagan chatarra, suben tu reputación ⭐ (abre trabajos mejores) y dejan un bono; al fallar, una penalización.
 - **Efectos de la run / Run effects**: bonos y penalizaciones (💨 🔩 💸 🪫 …) que duran varias misiones y se ven en pantalla (`runstate.ts`, guardado en `frontier-run-v1`).
+- **Aprende y juega / Learn & play** (🧠): al terminar cada misión, bitácora (qué pasó, qué aprendiste, qué cambia) y un repaso de 2 preguntas de opción múltiple (+🪙 por acierto). Repaso espaciado (cajas de Leitner, `review.ts`): lo que fallas vuelve mañana, lo que aciertas cada vez más tarde. 💡 en la Tierra = ciencia del día (una tarjeta por día, racha) + repaso. Guardado solo en el dispositivo.
 - **Pulido / Polish**: estelas de balas, chispas de impacto, polvo del rover y textura granulada del terreno.
 
 ## Lobby más lleno y gráficos más pulidos / Fuller lobby and polished graphics

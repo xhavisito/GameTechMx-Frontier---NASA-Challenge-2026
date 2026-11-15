@@ -77,3 +77,30 @@ export const LEARN: Record<string, Learn> = {
     p('Gastar bien > gastar mucho.', 'Spending well > spending a lot.'),
     p('¿Estos precios son de NASA?', 'Are these prices from NASA?'), p('No, son diseño del juego.', 'No, they are game design.')),
 };
+
+/** Plausible wrong answers for the multiple-choice self-check (two per card; a third comes from another card). */
+const w = (a: [string, string], b: [string, string]): [L, L] => [p(a[0], a[1]), p(b[0], b[1])];
+export const WRONG: Record<string, [L, L]> = {
+  'rocket-equation': w(['El peso del cohete.', 'The rocket’s weight.'], ['La temperatura del motor.', 'The engine temperature.']),
+  'rocket-stages': w(['Para que se vea más bonito.', 'To make it look nicer.'], ['Para que haga menos ruido.', 'To make less noise.']),
+  'tool-radar': w(['Las nubes del cielo.', 'The clouds in the sky.'], ['Solo lo que está lejos en el horizonte.', 'Only what is far on the horizon.']),
+  'tool-spectrometer': w(['La edad del rover.', 'The rover’s age.'], ['La velocidad del viento.', 'The wind speed.']),
+  'tool-camera': w(['Para hacer más ruido.', 'To make more noise.'], ['Para cargar la batería.', 'To charge the battery.']),
+  'rover': w(['Solo dentro de las ruedas.', 'Only inside the wheels.'], ['En el cohete.', 'On the rocket.']),
+  'solar-power': w(['Allí hace mucho calor.', 'It is very hot there.'], ['Allí llega más luz que en la Tierra.', 'More light arrives there than on Earth.']),
+  'heat-shield': w(['Se congela por dentro.', 'It freezes inside.'], ['Se derrite junto con el escudo.', 'It melts along with the shield.']),
+  'mars-hematite': w(['Que Marte siempre fue seco.', 'That Mars was always dry.'], ['Que hay frutas en Marte.', 'That there is fruit on Mars.']),
+  'mars-igneous': w(['Por ríos de agua.', 'By rivers of water.'], ['Por la caída de meteoritos únicamente.', 'Only by falling meteorites.']),
+  'mars-ice': w(['El radar de un submarino.', 'A submarine’s radar.'], ['La cámara del rover.', 'The rover’s camera.']),
+  'mars-dust': w(['Se quedó sin combustible.', 'It ran out of fuel.'], ['Se perdió en un cráter.', 'It got lost in a crater.']),
+  'mars-meteors': w(['Porque el aire es muy denso.', 'Because the air is very dense.'], ['Porque Marte es muy grande.', 'Because Mars is very big.']),
+  'jup-grs': w(['Unas pocas semanas.', 'A few weeks.'], ['Unos 20 años.', 'About 20 years.']),
+  'jup-belts': w(['Oxígeno y nitrógeno.', 'Oxygen and nitrogen.'], ['Solo agua.', 'Only water.']),
+  'jup-aurora': w(['Cerca del ecuador.', 'Near the equator.'], ['Solo en el lado oscuro.', 'Only on the dark side.']),
+  'jup-radiation': w(['Con paraguas gigante.', 'With a giant umbrella.'], ['Volando por el ecuador.', 'By flying over the equator.']),
+  'miller': w(['Sí, NASA la descubrió.', 'Yes, NASA discovered it.'], ['Sí, está cerca de Marte.', 'Yes, it is near Mars.']),
+  'trip-solar-storm': w(['Subir la velocidad al máximo.', 'Go to full speed.'], ['Salir a caminar al exterior.', 'Go for a walk outside.']),
+  'trip-micrometeoroids': w(['Un paraguas.', 'An umbrella.'], ['Aire caliente.', 'Hot air.']),
+  'trip-course-correction': w(['Para ir más despacio siempre.', 'To always go slower.'], ['Para cambiar de planeta.', 'To change planets.']),
+  'game-economy': w(['Sí, NASA los publica.', 'Yes, NASA publishes them.'], ['Sí, son precios reales de cohetes.', 'Yes, they are real rocket prices.']),
+};
