@@ -1,3 +1,4 @@
+import { GameTechLogo } from './logos';
 import { useCoop, setCoop } from './coop';
 import { useEffect, useState } from 'react';
 import { A11Y_KEY, CAPTIONS, setA11y, useA11y, type A11y } from './a11y';
@@ -30,6 +31,7 @@ export function SettingsPanel({ es, onClose }: { es: boolean; onClose: () => voi
       <Toggle k="captions" es="Subtítulos de sonido" en="Sound captions" desc={t('Escribe en pantalla los sonidos importantes', 'Shows important sounds as text')} />
       <Toggle k="calm" es="Menos movimiento" en="Less motion" desc={t('Sin animaciones ni sacudidas de adorno', 'No decorative animations or shakes')} />
     </div>
+    <div className="logo-row made-by"><small>{t('Hecho por', 'Made by')}</small><GameTechLogo height={36} /></div>
     <h3>🎮 {t('Dos jugadores', 'Two players')}</h3>
     <div className="adv-row set-grid"><button className={`adv-opt set-opt ${coop ? 'on' : ''}`} aria-pressed={coop} onClick={() => setCoop(!coop)}><b>{coop ? '✔ ' : ''}{t('Cooperativo en pantalla dividida', 'Split-screen co-op')}</b><small>{t('Pantalla dividida: cada jugador maneja su propio vehículo (rover, nave o submarino) en el mismo mundo. J1: WASD, E, F, R, Shift. J2: flechas, Enter, . y /, 0 para turbo. Con dos controles, el 1.º es J1 y el 2.º es J2. El resultado es del equipo. No aplica al reto diario.', 'Split screen: each player drives their own vehicle (rover, ship or submarine) in the same world. P1: WASD, E, F, R, Shift. P2: arrows, Enter, . and /, 0 for boost. With two pads, the 1st is P1 and the 2nd is P2. The result is shared by the team. Not used in the daily challenge.')}</small></button></div>
     <h3>🎨 {t('Aspecto', 'Looks')}</h3>

@@ -27,6 +27,9 @@ import { SkyLife, RaceProps, RampProp } from './skylife';
 import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests } from './ui';
 import { Board, TripCard, RunChips } from './boardui';
 import { claim } from './explore';
+import { loadSalvage, saveSalvage, hasStakes, priceFor, afterLoss, afterPaying, levelsOwned, type Salvage } from './salvage';
+import { SalvageCard, LostCard } from './salvageui';
+import { emptyRun } from './runstate';
 import { useCoop } from './coop';
 import { CoopRun } from './coopui';
 import type { Player } from './worldInput';
@@ -254,6 +257,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   };
   const [meta, setMetaState] = useState<Meta>(loadMeta);
   const metaRef = useRef(meta); metaRef.current = meta;
+  const [salvage, setSalvage] = useState<Salvage | null>(loadSalvage), [lostNote, setLostNote] = useState(false);
   const setMeta = (m: Meta) => { metaRef.current = m; setMetaState(m); saveMeta(m); track({ t: 'wallet', scrap: m.scrap }); };
   const [showProg, setShowProg] = useState(false), [unlock, setUnlock] = useState(''), [beats, setBeats] = useState<string[]>([]);
   const [daily, setDaily] = useState<{ key: string; dest: DailyDest; seed: number } | null>(null), [dailyRec, setDailyRec] = useState(loadDaily), [showDaily, setShowDaily] = useState(false);
@@ -378,7 +382,13 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     const scrapWhy = [...sp.base, { es: 'Subtotal', en: 'Subtotal', pts: Math.round(sub * 10) / 10, max: -1 }, ...sp.mult.map(m => ({ es: m.es, en: m.en, pts: 0, k: Math.round(m.k * 100) / 100 }))];
     const sj = settle(runSt, d.dest, accepted, r, contractN(activeContract, mods.required)); setRunSt(sj.state); setJobRows(sj.rows); setAccepted([]); for (const row of sj.rows) { const c = row.ok ? chapterOf(row.job.id) : undefined; if (c) track({ t: 'chapter', n: c.n }); }
     const mp = claim(d.dest); if (mp.scrap) setTripNote(es ? `🗺️ ¡Mapa ${mp.got[mp.got.length - 1]} % explorado! +${mp.scrap} 🪙` : `🗺️ Map ${mp.got[mp.got.length - 1]}% explored! +${mp.scrap} 🪙`);
-    setReward(gain + sj.scrap + mp.scrap); setMeta({ ...meta, scrap: Math.max(EMERGENCY_FUND, meta.scrap + gain + sj.scrap + mp.scrap), runs: meta.runs + 1, best: Math.max(meta.best, r.score), kills: meta.kills + (r.kills ?? 0) });
+    setReward(gain + sj.scrap + mp.scrap);
+    const m1: Meta = { ...meta, scrap: Math.max(EMERGENCY_FUND, meta.scrap + gain + sj.scrap + mp.scrap), runs: meta.runs + 1, best: Math.max(meta.best, r.score), kills: meta.kills + (r.kills ?? 0) };
+    if (r.exploded && hasStakes(m1)) {   // dying loses everything; you may buy it back once, right now
+      const price = priceFor(m1, level);
+      if (price) { const sv: Salvage = { meta: m1, run: sj.state, price, scrap: m1.scrap, levels: levelsOwned(m1), at: Date.now() }; saveSalvage(sv); setSalvage(sv); } else setLostNote(true);
+      setMeta(afterLoss(m1)); setRunSt(emptyRun());
+    } else setMeta(m1);
     track({ t: 'mission', dest: d.dest, returned: r.returned, grade: r.grade, samples: r.samples, kills: r.kills ?? 0, scrap: gain } as Ev);
     setResult({ ...r, scrapWhy }); setPhase('end');
   };
@@ -390,6 +400,9 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
       ? <MillerOcean player={pl} tool={dailyRun?.tool ?? tool} es={es} mods={dailyRun?.mods ?? mods} perks={dailyRun?.perks ?? perks} contract={dailyRun?.contract ?? activeContract} tier={dailyRun ? 0 : tierOf(meta, 'sub')} onDone={od} onExit={onExit} />
       : <MarsWorld player={pl} cfg={dailyRun?.cfg ?? cfg} es={es} mods={dailyRun?.mods ?? mods} perks={dailyRun?.perks ?? perks} contract={dailyRun?.contract ?? activeContract} tier={dailyRun ? 0 : tierOf(meta, 'rover')} onDone={od} onExit={onExit} />}
   </>;
+  const payRescue = () => { if (!salvage) return; setMeta(afterPaying(salvage)); setRunSt(salvage.run); saveSalvage(null); setSalvage(null); sfx('unlock'); };
+  const letGo = () => { saveSalvage(null); setSalvage(null); sfx('fail'); };
+  const rescueUi = salvage ? <SalvageCard es={es} s={salvage} onPay={payRescue} onLetGo={letGo} /> : lostNote ? <LostCard es={es} onClose={() => setLostNote(false)} /> : null;
   if (phase === 'mars') return <><Suspense fallback={<div className="w-root adv-center">…</div>}>
     {coop && !dailyRun ? <CoopRun es={es} onDone={done} onExit={onExit} render={(pl, od) => worldEl(pl, od)} /> : worldEl(undefined, done)}
   </Suspense><BossBar es={es} />{!daily && <RunChips es={es} run={runSt} jobs={accepted} />}<Money n={meta.scrap} es={es} />{unlock && <div className="adv-unlock" role="status">{unlock}</div>}<HurtFlash /></>;
@@ -403,7 +416,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
       <Suspense fallback={null}><EarthScene world={world} phase={phase} quest={quest} input={inp} poll={poll} hud={hud} lift={lift} onAct={onAct} roverTier={tierOf(meta, 'rover')} rocketTier={tierOf(meta, 'rocket')} laser={perksFor('rover', meta).weapon > 0} count={count} onEarn={onEarn} onPlay={onPlay} raceHud={raceHud} /></Suspense>
     </Canvas>
     <button className="w-btn w-exit" onClick={onExit} aria-label={L.quit}><X size={20} /></button>
-    <Money n={meta.scrap} es={es} />
+    <Money n={meta.scrap} es={es} />{rescueUi}
     {unlock && <div className="adv-unlock" role="status">{unlock}</div>}
     {phase === 'earth' && !tut && <RunChips es={es} run={runSt} jobs={[]} />}
     {showSci && <SciDayPanel es={es} sci={sciDay} review={review} due={dueN} onQuiz={() => openQuiz('day')} onReview={() => openQuiz('review')} onClose={() => setShowSci(false)} />}

@@ -1,3 +1,4 @@
+import { FrontierLogo } from './world/logos';
 import { SettingsPanel, Captions } from './world/settingsui';
 import { apply, getA11y, useA11y } from './world/a11y';
 import { lazy, Suspense, useEffect, useState } from 'react';
@@ -31,7 +32,7 @@ export function App() {
   }, []);
   useEffect(() => { document.documentElement.lang = lang; try { localStorage.setItem('frontier-lang', lang); } catch { /* private mode */ } }, [lang]);
   return <>
-    <Suspense fallback={<div className="app-loading">{lang === 'es' ? 'Cargando…' : 'Loading…'}</div>}>
+    <Suspense fallback={<div className="app-loading"><FrontierLogo height={110} /><div>{lang === 'es' ? 'Cargando…' : 'Loading…'}</div></div>}>
       <Adventure key={run} es={lang === 'es'} onExit={() => setRun(r => r + 1)} />
     </Suspense>
     <button className="sci-btn" onClick={() => setSci(true)}>{lang === 'es' ? 'Ciencia y fuentes' : 'Science & sources'}</button>
