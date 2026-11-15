@@ -50,7 +50,7 @@ export function millerScore(tool: MillerTool, found: number, need: number, healt
     { es: `Rapidez (${Math.round(seconds)} s)`, en: `Speed (${Math.round(seconds)} s)`, pts: Math.max(0, 7 - seconds / 60), max: 7 },
     ...(tool === 'spectrometer' ? [{ es: 'Bono del analizador', en: 'Analyzer bonus', pts: 8, max: 8 }] : []),
   ], found >= need ? undefined : { k: 0.6, es: `Faltaron hallazgos (${found} de ${need}): puntos ×0.6`, en: `Missing finds (${found} of ${need}): points ×0.6` });
-  return { score: t.score, science: found * 10, returned: found >= need, grade: t.grade, samples: [], why: t.why };
+  return { score: t.score, science: found * 10, returned: found >= need, grade: t.grade, samples: [], why: t.why, hull: health, secs: seconds };
 }
 
 interface Wave { t: number; x: number; z: number; active: boolean; hit: boolean }

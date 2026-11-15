@@ -1,3 +1,5 @@
+import { JobResults } from './boardui';
+import type { JobRow } from './board';
 import { Suspense, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -77,7 +79,7 @@ export function ContractPicker({ es, list, value, onPick }: { es: boolean; list:
     <b>{es ? c.es : c.en}</b><small>{es ? c.descEs : c.descEn}</small><small>×{c.reward.toFixed(2)} {t(es, 'chatarra', 'scrap')} · {danger(c.danger)}</small></button>)}</div>;
 }
 
-export function Reward({ es, result, scrap, total, spent, level, onWorkshop, onAgain }: { es: boolean; result: MarsResult; scrap: number; total: number; spent: number; level: string; onWorkshop: () => void; onAgain: () => void }) {
+export function Reward({ es, result, scrap, total, spent, level, onWorkshop, onAgain, jobs = [] }: { jobs?: JobRow[]; es: boolean; result: MarsResult; scrap: number; total: number; spent: number; level: string; onWorkshop: () => void; onAgain: () => void }) {
   const [why, setWhy] = useState(false);
   const fmt = (n: number) => (n > 0 ? `+${n}` : `${n}`);
   const pts = result.why ?? [], sw = result.scrapWhy;
@@ -92,6 +94,7 @@ export function Reward({ es, result, scrap, total, spent, level, onWorkshop, onA
       <span><Check size={16} /> {result.pois ?? 0}<small>{t(es, 'objetivos', 'goals')}</small></span>
       {(result.lost ?? 0) > 0 && <span><XIcon size={16} /> {result.lost}<small>{t(es, 'robos', 'thefts')}</small></span>}
     </div>
+    <JobResults es={es} rows={jobs} />
     {result.exploded && <p className="rw-warn">{t(es, 'Al explotar, ganas la mitad de chatarra.', 'Exploding halves your scrap.')}</p>}
     <button className="button button-secondary" aria-expanded={why} onClick={() => setWhy(v => !v)}>{why ? t(es, 'Ocultar', 'Hide') : t(es, '¿Por qué esta calificación?', 'Why this grade?')}</button>
     {why && <div className="why" aria-label="why">
