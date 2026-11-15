@@ -1,3 +1,4 @@
+import { colorsOf, useChoice } from './cosmetics';
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -101,6 +102,7 @@ function Scene({ cfg, mods, need, perks, contract, sim, pois, tier, world, es, g
   cfg: WorldConfig; mods: Mods; need: number; perks: Perks; contract: Contract; sim: CombatSim; pois: PoiSim | null; tier: number; world: MarsWorldData; es: boolean; g: React.MutableRefObject<Game>; hud: React.MutableRefObject<Hud>;
   input: React.MutableRefObject<WorldInput>; poll: (dt: number) => void; onFinish: (r: MarsResult) => void;
 }) {
+  const look = colorsOf(useChoice());
   const { camera, scene } = useThree();
   const roverRef = useRef<THREE.Group>(null);
   const boom = useRef<BoomState>(null);
@@ -301,7 +303,7 @@ function Scene({ cfg, mods, need, perks, contract, sim, pois, tier, world, es, g
     <Terrain world={world} /><Rocks world={world} /><Lander />
     <mesh position={[-120, 70, -160]}><icosahedronGeometry args={[14, 1]} /><meshBasicMaterial color="#fff3c4" fog={false} /></mesh>
     <Boom boom={boom} />
-    <VehicleDust target={roverRef} />
+    <VehicleDust target={roverRef} color={look.trail} />
     <group ref={roverRef} position={[0, 0, LANDER_R + 3]}><Rover radar={cfg.radar} spectrometer={cfg.spectrometer} tier={tier} laser={perks.weapon > 0} /></group>
     <Actors sim={sim} pois={pois} bulletColor="#fff4b0" />
     {contract.kind === 'rescue' && <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[LANDER_R + 2, LANDER_R + 3, 24]} /><meshBasicMaterial color="#5ee6a8" transparent opacity={0.6} /></mesh>}

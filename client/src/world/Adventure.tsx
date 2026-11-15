@@ -13,6 +13,8 @@ import { SOURCES } from './sources';
 import { ProgressPanel } from './progressui';
 import { setCombatListener, resetBossHud } from './combat';
 import { StoryBubble, DailyPanel } from './storyui';
+import { colorsOf, useChoice } from './cosmetics';
+import { useA11y } from './a11y';
 import { Quiz, SciDayPanel, type Answer } from './quizui';
 import { LogBook, worldCard } from './logbook';
 import { loadReview, saveReview, loadSciDay, saveSciDay, answer, dueIds, pickIds, cardOfDay, markSciDay, SCI_DAY_REWARD, SCI_QUIZ_REWARD } from './review';
@@ -130,6 +132,7 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
   hud: React.MutableRefObject<Hud>; lift: React.MutableRefObject<number>; onAct: (w: 'hangar' | 'rocket') => void;
 }) {
   const { camera, scene } = useThree();
+  const choice = useChoice();
   const roverRef = useRef<THREE.Group>(null), markers = useRef<THREE.Group>(null);
   const rover = useRef<RoverState>({ ...newRover(CFG0), x: 0, z: 8, heading: -Math.PI / 4, energy: 1e9 });
   const cam = useRef(new THREE.Vector3(0, 8, -10)), tmp = useMemo(() => new THREE.Vector3(), []);
@@ -202,7 +205,7 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
       <mesh><octahedronGeometry args={[0.9, 0]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.7} flatShading /></mesh>
       <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[1.25, 0.08, 4, 14]} /><meshBasicMaterial color="#fff4c2" /></mesh>
     </group>)}
-    <VehicleDust target={roverRef} color="#cfc7a0" />
+    <VehicleDust target={roverRef} color={choice.trail === 'trail-dust' ? '#cfc7a0' : colorsOf(choice).trail} />
     <group ref={roverRef}><Rover tier={roverTier} laser={laser} /></group>
     {phase === 'earth' && <group ref={markers}>
       <mesh position={[0, 16, 0]} rotation={[Math.PI, 0, 0]}><coneGeometry args={[1.6, 3, 4]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.7} flatShading /></mesh>
@@ -316,7 +319,8 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const bossNext = (meta.runs + 1) % 4 === 0;   // every 4th mission has a boss
   const mods0 = useMemo(() => applyRunMods({ ...scaleForPower(mission.mods, power), boss: bossNext }, runSt), [mission.mods, power, bossNext, runSt]);   // stronger ship → tougher, more varied enemies (max 4); the run's effects stack on top
   const jobbed = useMemo(() => applyJobs(mods0, perks0, accepted), [mods0, perks0, accepted]);   // accepted board jobs change this mission for real
-  const mods = jobbed.mods, perks = jobbed.perks;
+  const a11y = useA11y();
+  const mods = useMemo(() => (a11y.noTimer ? { ...jobbed.mods, timeLimit: 0 } : jobbed.mods), [jobbed.mods, a11y.noTimer]), perks = jobbed.perks;
   const cfg: WorldConfig = useMemo(() => ({
     seed: 1000 + run * 7, health: mission.health * (perks.health / 100),
     battery: ((d.batteryKWh * 100 + 20) * mission.energy * perks.energyMul) / mods.drainMul, solar: d.solarM2 * 45,

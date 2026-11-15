@@ -1,3 +1,4 @@
+import { colorsOf, useChoice } from './cosmetics';
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
@@ -46,6 +47,7 @@ function Wheel({ x, z, reg }: { x: number; z: number; reg: (g: THREE.Group | nul
 
 /** Low-poly rover with a robotic arm. Origin at the wheels' base, forward = +z, ~2.2 m long. */
 export function Rover({ radar = false, spectrometer = false, tier = 0, laser = false }: { radar?: boolean; spectrometer?: boolean; tier?: number; laser?: boolean }) {
+  const look = colorsOf(useChoice());
   const muzzle = useRef<THREE.Mesh>(null), shotSeen = useRef(arm.shot), flash = useRef(0);
   const turret = useRef<THREE.Group>(null), sh = useRef<THREE.Group>(null), el = useRef<THREE.Group>(null), wr = useRef<THREE.Group>(null);
   const c1 = useRef<THREE.Mesh>(null), c2 = useRef<THREE.Mesh>(null);
@@ -79,8 +81,9 @@ export function Rover({ radar = false, spectrometer = false, tier = 0, laser = f
   });
   return <group ref={root}>
     {/* body: blue front half, orange back half, grey fan panel on the sides */}
-    <mesh position={[0, 1.3, 0.28]}><boxGeometry args={[1.2, 0.85, 0.6]} /><M c={BLUE} /></mesh>
-    <mesh position={[0, 1.3, -0.32]}><boxGeometry args={[1.2, 0.85, 0.6]} /><M c={ORANGE} /></mesh>
+    <mesh position={[0, 1.3, 0.28]}><boxGeometry args={[1.2, 0.85, 0.6]} /><M c={look.paint[0]} /></mesh>
+    <mesh position={[0, 1.3, -0.32]}><boxGeometry args={[1.2, 0.85, 0.6]} /><M c={look.paint[1]} /></mesh>
+    {look.flag && <group position={[0.5, 1.75, -0.5]}><mesh position={[0, 0.45, 0]}><cylinderGeometry args={[0.02, 0.02, 0.9, 6]} /><M c={GREY} /></mesh><mesh position={[0.17, 0.78, 0]}><boxGeometry args={[0.34, 0.2, 0.03]} /><M c={look.flag} /></mesh></group>}
     {[-1, 1].map(s => <group key={s} position={[s * 0.61, 1.3, 0.45]} rotation={[0, (s * Math.PI) / 2, 0]}>
       <mesh><boxGeometry args={[0.55, 0.55, 0.05]} /><M c={GREY} /></mesh>
       <mesh position={[0, 0, 0.03]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.18, 0.18, 0.04, 14]} /><M c={DARK} /></mesh>

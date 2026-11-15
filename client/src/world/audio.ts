@@ -41,7 +41,11 @@ function noise(dur: number, vol: number, hp = 400, delay = 0) {
   s.buffer = buf; f.type = 'highpass'; f.frequency.value = hp; g.gain.value = vol; s.connect(f); f.connect(g); g.connect(master); s.start(t);
 }
 
+let capL: ((n: Sfx) => void) | null = null;
+/** Captions hear every sound, even when the game is muted. */
+export const setCaptionListener = (f: ((n: Sfx) => void) | null) => { capL = f; };
 export function sfx(name: Sfx) {
+  capL?.(name);
   if (muted || !ensure()) return;
   const now = performance.now(); if (now - (last[name] ?? -1e9) < (name === 'shoot' ? 70 : 40)) return; last[name] = now;
   switch (name) {
