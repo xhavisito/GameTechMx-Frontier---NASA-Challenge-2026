@@ -7,13 +7,14 @@ import { jupiterGeometry, SPOT } from '../three/lowpoly';
 import { rng } from '../three/noise';
 import { useWorldInput, type WorldInput } from './worldInput';
 import { Joystick } from './MarsWorld';
-import type { MarsResult } from './marsWorld';
+import { tally, type MarsResult } from './marsWorld';
 import { modsFor, type Mods } from './levels';
 import { Boom, type BoomState } from './fx';
 import { Orbiter } from './models';
 import { CombatSim, type V3 } from './combat';
 import { PoiSim, makePois } from './pois';
 import { Actors } from './actors';
+import { hurt } from './hud';
 import { type Contract, defaultContract, contractN } from './contracts';
 import { basePerks, type Perks } from './meta';
 import { contractResult, weaponCd, weaponDmg } from './runkit';
@@ -38,9 +39,14 @@ export function angDist(a: { lat: number; lon: number }, b: { lat: number; lon: 
 }
 export const scanRange = (tool: JupiterTool) => (tool === 'camera' ? 0.42 : 0.3);
 export function jupiterScore(tool: JupiterTool, scanned: number, need: number, health: number, seconds: number): MarsResult {
-  const base = (scanned / need) * 80 + (scanned >= need ? 8 : 0) + health * 0.06 + Math.max(0, 10 - seconds / 20) + (tool === 'spectrometer' ? 6 : 0);
-  const score = Math.max(0, Math.min(100, Math.round(base)));
-  return { score, science: scanned * 10, returned: scanned >= need, grade: score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 50 ? 'B' : score >= 30 ? 'C' : 'D', samples: [] };
+  const t = tally([
+    { es: `Zonas escaneadas: ${scanned} de ${need}`, en: `Zones scanned: ${scanned} of ${need}`, pts: Math.min(1, scanned / need) * 80, max: 80 },
+    { es: scanned >= need ? 'Mapa completo' : 'Mapa incompleto', en: scanned >= need ? 'Map complete' : 'Map incomplete', pts: scanned >= need ? 8 : 0, max: 8 },
+    { es: `Casco al final: ${Math.round(health)} %`, en: `Hull at the end: ${Math.round(health)}%`, pts: health * 0.06, max: 6 },
+    { es: `Rapidez (${Math.round(seconds)} s)`, en: `Speed (${Math.round(seconds)} s)`, pts: Math.max(0, 10 - seconds / 20), max: 10 },
+    ...(tool === 'spectrometer' ? [{ es: 'Bono del analizador', en: 'Analyzer bonus', pts: 6, max: 6 }] : []),
+  ]);
+  return { score: t.score, science: scanned * 10, returned: scanned >= need, grade: t.grade, samples: [], why: t.why };
 }
 
 interface Game { lat: number; lon: number; heading: number; scanned: Set<string>; time: number; msg: string; msgT: number; ended: boolean; health: number; fuel: number; dying?: number; fireCd: number; lost: number; exploded: boolean; stolen: string | null }
@@ -109,7 +115,7 @@ function Scene({ tool, mods, perks, contract, sim, pois, tier, es, g, hud, input
       else if (s.fireCd <= 0) { const aim = sim.aim(me, null, 60); sim.shoot({ x: p.x + fwdV.x * 1.5, y: p.y + fwdV.y * 1.5, z: p.z + fwdV.z * 1.5 }, aim ?? { x: fwdV.x, y: fwdV.y, z: fwdV.z }, weaponDmg(perks.weapon), 36, 1.6); s.fireCd = weaponCd(perks); }
     }
     for (const e of sim.update(dt, me, 0)) {
-      if (e.type === 'hit') { const dmg = Math.round(e.dmg); s.health = Math.max(0, s.health - dmg); say(es ? `¡Un dron te golpeó! −${dmg}` : `A drone hit you! −${dmg}`); }
+      if (e.type === 'hit') { hurt(); const dmg = Math.round(e.dmg * (1 - Math.min(0.6, perks.armor))); s.health = Math.max(0, s.health - dmg); say(es ? `¡Un dron te golpeó! −${dmg}` : `A drone hit you! −${dmg}`); }
       else if (e.type === 'wave') say(es ? '¡Oleada de drones!' : 'Drone wave incoming!');
       else if (e.type === 'thief') say(es ? '¿Qué fue eso…? Un mapache espacial flota por aquí' : 'What was that…? A space raccoon is floating around');
       else if (e.type === 'kill' && e.enemy.kind === 'thief') loot(e.enemy);

@@ -7,10 +7,11 @@ import { Terrain, Joystick, type Palette } from './MarsWorld';
 import { Rover, Shuttle } from './models';
 import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests, EventCard } from './ui';
 import { Workshop, Draft, Reward } from './workshop';
+import { Money, HurtFlash } from './hud';
 import { loadMeta, saveMeta, perksFor, tierOf, withCard, draw, type Meta, type RunCard, type Ship } from './meta';
 import { contractsFor, contractById, defaultContract } from './contracts';
-import { scrapReward } from './runkit';
-import { defaultDesign, normalize, eventsFor, applyEffects, type Design, type EventOption, type Dest } from './design';
+import { scrapParts, scrapReward } from './runkit';
+import { defaultDesign, supplyCost, EMERGENCY_FUND, normalize, eventsFor, applyEffects, type Design, type EventOption, type Dest } from './design';
 import { LEVEL_INFO, modsFor, readLevel, saveLevel, tutorialDone, markTutorialDone, type Level } from './levels';
 import { useWorldInput, type WorldInput } from './worldInput';
 import { rng } from '../three/noise';
@@ -179,6 +180,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const [card, setCard] = useState<RunCard | null>(null);
   const [contractId, setContractId] = useState('');
   const [reward, setReward] = useState(0);
+  const [paid, setPaid] = useState(0);
   const wsBack = useRef<Phase>('hangar');
   const [snap, setSnap] = useState<Hud>({ near: null, dist: 0, bearing: 0, heading: 0 });
   const world = useMemo(earthWorld, []);
@@ -216,23 +218,31 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   // Jupiter and Miller take one main tool: the one that sees farthest
   const tool = d.tools.includes('radar') ? 'radar' : d.tools.includes('camera') ? 'camera' : 'spectrometer';
 
-  const onAct = (w: 'hangar' | 'rocket') => { if (w === 'hangar') setPhase('hangar'); else setPhase('launch'); };
+  const bill = useMemo(() => supplyCost(design, level), [design, level]);
+  // gear is bought again for every mission: it is paid when you press launch
+  const onAct = (w: 'hangar' | 'rocket') => {
+    if (w === 'hangar') { setPhase('hangar'); return; }
+    if (bill.total > meta.scrap) { setPhase('hangar'); return; }
+    setPaid(bill.total); if (bill.total > 0) setMeta({ ...meta, scrap: meta.scrap - bill.total });
+    setPhase('launch');
+  };
   const reset = () => { setPhase('earth'); setQuest(0); setResult(null); setRun(r => r + 1); setPicked([]); setCard(null); lift.current = 0; };
   const openWorkshop = (back: Phase) => { wsBack.current = back; setPhase('workshop'); };
   const pickLevel = (l: Level) => { setLevel(l); saveLevel(l); setPhase('earth'); };
   const done = (r: MarsResult) => {
-    const gain = scrapReward(r, mods, perks, activeContract);
-    setReward(gain); setMeta({ ...meta, scrap: meta.scrap + gain, runs: meta.runs + 1, best: Math.max(meta.best, r.score), kills: meta.kills + (r.kills ?? 0) });
-    setResult(r); setPhase('end');
+    const gain = scrapReward(r, mods, perks, activeContract), sp = scrapParts(r, mods, perks, activeContract), sub = sp.base.reduce((a, p) => a + p.pts, 0);
+    const scrapWhy = [...sp.base, { es: 'Subtotal', en: 'Subtotal', pts: Math.round(sub * 10) / 10, max: -1 }, ...sp.mult.map(m => ({ es: m.es, en: m.en, pts: 0, k: Math.round(m.k * 100) / 100 }))];
+    setReward(gain); setMeta({ ...meta, scrap: Math.max(EMERGENCY_FUND, meta.scrap + gain), runs: meta.runs + 1, best: Math.max(meta.best, r.score), kills: meta.kills + (r.kills ?? 0) });
+    setResult({ ...r, scrapWhy }); setPhase('end');
   };
 
-  if (phase === 'mars') return <Suspense fallback={<div className="w-root adv-center">…</div>}>
+  if (phase === 'mars') return <><Suspense fallback={<div className="w-root adv-center">…</div>}>
     {dest === 'jupiter'
       ? <JupiterOrbit tool={tool} es={es} mods={mods} perks={perks} contract={activeContract} tier={tierOf(meta, 'orbiter')} onDone={done} onExit={onExit} />
       : dest === 'miller'
       ? <MillerOcean tool={tool} es={es} mods={mods} perks={perks} contract={activeContract} tier={tierOf(meta, 'sub')} onDone={done} onExit={onExit} />
       : <MarsWorld cfg={cfg} es={es} mods={mods} perks={perks} contract={activeContract} tier={tierOf(meta, 'rover')} onDone={done} onExit={onExit} />}
-  </Suspense>;
+  </Suspense><Money n={meta.scrap} es={es} /><HurtFlash /></>;
 
   const lvl = LEVEL_INFO[level];
   return <div className="w-root adv-root"
@@ -243,6 +253,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
       <Suspense fallback={null}><EarthScene world={world} phase={phase} quest={quest} input={inp} poll={poll} hud={hud} lift={lift} onAct={onAct} roverTier={tierOf(meta, 'rover')} rocketTier={tierOf(meta, 'rocket')} laser={perksFor('rover', meta).weapon > 0} /></Suspense>
     </Canvas>
     <button className="w-btn w-exit" onClick={onExit} aria-label={L.quit}><X size={20} /></button>
+    <Money n={meta.scrap} es={es} />
 
     {phase === 'earth' && <>
       <div className="adv-quest"><span className="adv-step">{quest + 1}/2</span><b>{quest === 0 ? L.q0 : L.q1}</b>
@@ -265,6 +276,6 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     {phase === 'travel' && <div className="adv-travel"><div className="adv-stars" /><div className={`adv-dest ${dest}`} aria-hidden="true" /><Rocket className="adv-ship" size={64} aria-hidden="true" /><h2>{L.travel}: {L[dest]}</h2><p>{L.travelD}</p><div className="adv-progress"><span /></div>
       {!pending && <button className="button button-secondary" onClick={() => setPhase('draft')}>{L.skip}</button>}
       {pending && <EventCard es={es} ev={events[evIdx]!} onPick={o => { setPicked(p => [...p, o]); setEvIdx(i => i + 1); }} />}</div>}
-    {phase === 'end' && result && <Reward es={es} result={result} scrap={reward} total={meta.scrap} level={es ? lvl.es : lvl.en} onWorkshop={() => { reset(); openWorkshop('earth'); }} onAgain={reset} />}
+    {phase === 'end' && result && <Reward es={es} result={result} scrap={reward} spent={paid} total={meta.scrap} level={es ? lvl.es : lvl.en} onWorkshop={() => { reset(); openWorkshop('earth'); }} onAgain={reset} />}
   </div>;
 }

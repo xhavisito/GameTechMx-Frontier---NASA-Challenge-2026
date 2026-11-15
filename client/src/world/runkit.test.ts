@@ -18,3 +18,12 @@ describe('run rewards', () => {
     expect(contractResult(3, 3, 100, 60, 0, false, 0).returned).toBe(true);
   });
 });
+
+describe('"why this grade" breakdown', () => {
+  it('the listed points add up to the final score (rounding aside)', () => {
+    const r = contractResult(2, 3, 80, 200, 4, false, 1);
+    const sum = r.why!.reduce((a, p) => a + p.pts, 0);
+    expect(Math.abs(sum - r.score)).toBeLessThanOrEqual(1);
+    expect(r.why!.some(p => p.pts < 0)).toBe(true); // the unrecovered theft is listed as a penalty
+  });
+});

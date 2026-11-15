@@ -12,6 +12,7 @@ import { Rover, arm } from './models';
 import { CombatSim, type V3 } from './combat';
 import { PoiSim, makePois } from './pois';
 import { Actors } from './actors';
+import { hurt, Viewfinder } from './hud';
 import { type Contract, defaultContract, contractN } from './contracts';
 import { basePerks, type Perks } from './meta';
 import { contractResult, weaponCd, weaponDmg } from './runkit';
@@ -28,7 +29,7 @@ interface Game {
   rover: RoverState; taken: Set<number>; kinds: SampleKind[]; time: number; scanT: number; dust: number;
   meteors: Meteor[]; nextMeteor: number; msg: string; msgT: number; ended: boolean; stuck: number; result: MarsResult | null; shake: number; dying?: number; fireCd: number; lost: number; stolen: { id: number; kind: SampleKind } | { energy: number } | null; exploded: boolean;
 }
-interface Hud { energy: number; health: number; boost: number; taken: SampleKind[]; reach: SampleKind | null; atLander: boolean; heading: number; x: number; z: number; dist: number; bearing: number; msg: string; scan: number; visible: { x: number; z: number; kind: SampleKind }[]; dust: number; speed: number; left: number; poiDone: number; poiTotal: number; hold: number; carrying: boolean; kills: number; target: { x: number; z: number } | null; near: string | null }
+interface Hud { energy: number; health: number; boost: number; taken: SampleKind[]; reach: SampleKind | null; atLander: boolean; heading: number; x: number; z: number; dist: number; bearing: number; msg: string; scan: number; visible: { x: number; z: number; kind: SampleKind }[]; dust: number; speed: number; left: number; poiDone: number; poiTotal: number; hold: number; carrying: boolean; kills: number; target: { x: number; z: number } | null; near: string | null; photo: 'ready' | 'far' | 'off' | 'none' }
 
 // ── Terrain ────────────────────────────────────────────────────────────────
 export interface Palette { low: string; mid: string; high: string; pale: string; pad: string }
@@ -195,7 +196,7 @@ function Scene({ cfg, mods, need, perks, contract, sim, pois, tier, world, es, g
       }
     }
     for (const e of sim.update(dt, me, r.speed)) {
-      if (e.type === 'hit') { const dmg = Math.round(e.dmg * (1 - Math.min(0.6, perks.armor))); r = { ...r, health: Math.max(0, r.health - dmg), speed: r.speed * 0.5 }; s.shake = 0.5; say(es ? `¡Un bicho te mordió! −${dmg}` : `A bug bit you! −${dmg}`); }
+      if (e.type === 'hit') { hurt(); const dmg = Math.round(e.dmg * (1 - Math.min(0.6, perks.armor))); r = { ...r, health: Math.max(0, r.health - dmg), speed: r.speed * 0.5 }; s.shake = 0.5; say(es ? `¡Un bicho te mordió! −${dmg}` : `A bug bit you! −${dmg}`); }
       else if (e.type === 'wave') say(es ? '¡Oleada de bichos!' : 'Bug wave incoming!');
       else if (e.type === 'thief') say(es ? '¿Qué fue eso…? Un mapache espacial anda por aquí' : 'What was that…? A space raccoon is around');
       else if (e.type === 'kill' && e.enemy.kind !== 'thief') say(es ? 'Bicho derrotado' : 'Bug defeated');
@@ -222,10 +223,12 @@ function Scene({ cfg, mods, need, perks, contract, sim, pois, tier, world, es, g
       if (th) { th.flash = 0.4; restoreLoot(th); pulse = false; }
     }
     if (pois) {
-      for (const e of pois.update(dt, me, held && !pulse, pulse)) {
+      for (const e of pois.update(dt, me, held && !pulse, pulse, { x: Math.sin(r.heading), y: 0, z: Math.cos(r.heading) })) {
         if (e.type === 'done' && e.poi.kind === 'beacon') say(es ? '¡Antena reparada!' : 'Antenna repaired!');
         else if (e.type === 'done' && e.poi.kind === 'photo') { say(es ? '¡Foto tomada!' : 'Photo taken!'); }
         else if (e.type === 'pickup') say(es ? 'Sonda a bordo. Llévala al módulo (E allá)' : 'Probe on board. Take it to the lander (E there)');
+        else if (e.type === 'far') say(es ? 'Muy lejos para la foto: acércate a la formación' : 'Too far for a photo: get closer to the formation');
+        else if (e.type === 'aim') say(es ? 'La formación no está en el visor: gira el rover para centrarla' : 'The formation is not in the viewfinder: turn the rover to center it');
         else if (e.type === 'nophoto') say(es ? 'Necesitas una cámara para fotografiar' : 'You need a camera to take photos');
       }
       if (pois.complete) { finish(true); return; }
@@ -268,7 +271,8 @@ function Scene({ cfg, mods, need, perks, contract, sim, pois, tier, world, es, g
     const tgt = !pois ? null : pois.carrying ? { x: 0, z: 0 } : pois.nearest(me);
     h.target = tgt ? { x: tgt.x, z: tgt.z } : null; h.poiDone = pois?.doneCount ?? 0; h.poiTotal = pois?.pois.length ?? 0; h.carrying = !!pois?.carrying; h.kills = sim.kills;
     h.hold = pois ? Math.max(0, ...pois.pois.map(q => (q.hold > 0 && !q.done ? q.hold / pois.o.holdTime : 0))) : 0;
-    h.near = pois ? (pois.carrying ? (dl < LANDER_R + 4 ? 'deliver' : null) : (pois.nearest(me) && Math.hypot(pois.nearest(me)!.x - r.x, pois.nearest(me)!.z - r.z) < (pois.nearest(me)!.kind === 'photo' ? pois.o.range * 2.4 : pois.o.range) ? pois.nearest(me)!.kind : null)) : null;
+    const pt = pois ? pois.photoTarget(me, { x: Math.sin(r.heading), y: 0, z: Math.cos(r.heading) }) : null; h.photo = pt ? pt.state : 'none';
+    h.near = pois ? (pois.carrying ? (dl < LANDER_R + 4 ? 'deliver' : null) : pt ? (pt.state === 'ready' ? 'photo' : null) : (pois.nearest(me) && Math.hypot(pois.nearest(me)!.x - r.x, pois.nearest(me)!.z - r.z) < pois.o.range ? pois.nearest(me)!.kind : null)) : null;
     h.heading = r.heading; h.x = r.x; h.z = r.z; h.dist = tgt ? Math.hypot(tgt.x - r.x, tgt.z - r.z) : dl; h.bearing = tgt ? Math.atan2(tgt.x - r.x, tgt.z - r.z) : Math.atan2(-r.x, -r.z); h.msg = s.msgT > 0 ? s.msg : ''; h.scan = s.scanT; h.dust = s.dust; h.speed = Math.abs(r.speed); h.left = mods.timeLimit ? Math.max(0, mods.timeLimit - s.time) : 0;
     h.visible = vis.map(v => ({ x: v.x, z: v.z, kind: v.kind }));
   });
@@ -360,7 +364,7 @@ export default function MarsWorld({ cfg, es, mods = modsFor('easy'), perks = bas
   }, [contract, cfg.seed, cfg.camera, mods, world]);
   const { inp, poll } = useWorldInput();
   const g = useRef<Game>({ rover: newRover(cfg), taken: new Set(), kinds: [], time: 0, scanT: 0, dust: 0, meteors: Array.from({ length: 3 }, () => ({ t: 0, x: 0, z: 0, active: false, hit: false })), nextMeteor: 7, msg: '', msgT: 0, ended: false, stuck: 0, result: null, shake: 0, fireCd: 0, lost: 0, stolen: null, exploded: false });
-  const hud = useRef<Hud>({ energy: 1, health: 1, boost: 1, taken: [], reach: null, atLander: false, heading: 0, x: 0, z: 0, dist: 0, bearing: 0, msg: '', scan: 0, visible: [], dust: 0, speed: 0, left: 0, poiDone: 0, poiTotal: 0, hold: 0, carrying: false, kills: 0, target: null, near: null });
+  const hud = useRef<Hud>({ energy: 1, health: 1, boost: 1, taken: [], reach: null, atLander: false, heading: 0, x: 0, z: 0, dist: 0, bearing: 0, msg: '', scan: 0, visible: [], dust: 0, speed: 0, left: 0, poiDone: 0, poiTotal: 0, hold: 0, carrying: false, kills: 0, target: null, near: null, photo: 'none' });
   const [snap, setSnap] = useState<Hud>(hud.current);
   useEffect(() => { if (new URLSearchParams(location.search).has('debug')) (window as unknown as Record<string, unknown>).__frontierMars = { g: g.current, world, sim, pois }; }, [world, sim, pois]);
   const [result, setResult] = useState<MarsResult | null>(null);
@@ -371,7 +375,7 @@ export default function MarsWorld({ cfg, es, mods = modsFor('easy'), perks = bas
 
   const drag = useRef<{ x: number; y: number } | null>(null);
   const nP = pois?.pois.length ?? 0;
-  const goalText = (es: boolean) => contract.kind === 'beacons' ? (es ? `Repara ${nP} antenas (mantén E)` : `Repair ${nP} antennas (hold E)`) : contract.kind === 'rescue' ? (snap.carrying ? (es ? 'Lleva la sonda al módulo y pulsa E' : 'Bring the probe to the lander, press E') : (es ? 'Recoge la sonda varada (E)' : 'Pick up the stranded probe (E)')) : contract.kind === 'photo' ? (es ? `Fotografía ${nP} formaciones (E)` : `Photograph ${nP} formations (E)`) : null;
+  const goalText = (es: boolean) => contract.kind === 'beacons' ? (es ? `Repara ${nP} antenas (mantén E)` : `Repair ${nP} antennas (hold E)`) : contract.kind === 'rescue' ? (snap.carrying ? (es ? 'Lleva la sonda al módulo y pulsa E' : 'Bring the probe to the lander, press E') : (es ? 'Recoge la sonda varada (E)' : 'Pick up the stranded probe (E)')) : contract.kind === 'photo' ? (es ? `Fotografía ${nP} formaciones: apunta, encuadra y pulsa E` : `Photograph ${nP} formations: aim, frame and press E`) : null;
   const L = es
     ? { energy: 'Energía', health: 'Casco', boost: 'Turbo', samples: 'Muestras', goal: `Recolecta ${need} y regresa al módulo`, collect: 'Recolectar', deposit: 'Entregar muestras y terminar', scan: 'Escanear', quit: 'Salir', done: 'Misión terminada', dust: 'Tormenta de polvo', home: 'Módulo', radarNo: 'Sin radar: el hielo enterrado no se detecta', again: 'Cerrar' }
     : { energy: 'Power', health: 'Hull', boost: 'Boost', samples: 'Samples', goal: `Collect ${need} and return to the lander`, collect: 'Collect', deposit: 'Deliver samples and finish', scan: 'Scan', quit: 'Exit', done: 'Mission complete', dust: 'Dust storm', home: 'Lander', radarNo: 'No radar: buried ice cannot be detected', again: 'Close' };
@@ -406,6 +410,7 @@ export default function MarsWorld({ cfg, es, mods = modsFor('easy'), perks = bas
     <div className="w-home">{L.home}: {Math.round(snap.dist)} m</div>
     <Minimap hud={hud} world={world} cfg={cfg} />
 
+    {contract.kind === 'photo' && cfg.camera && <Viewfinder state={snap.photo} es={es} shots={snap.poiDone} />}
     {snap.msg && <div className="w-toast" role="status">{snap.msg}</div>}
     {(snap.reach || (contract.kind === 'collect' && snap.atLander && snap.taken.length > 0) || snap.near) && <div className="w-prompt">
       <span className="w-key">E</span><span className="w-key pad">A</span>{snap.reach ? `${L.collect}: ${KIND_NAME[es ? 'es' : 'en'][snap.reach]}` : snap.near === 'beacon' ? (es ? 'Mantén para reparar' : 'Hold to repair') : snap.near === 'crate' ? (es ? 'Recoger la sonda' : 'Pick up the probe') : snap.near === 'photo' ? (es ? 'Tomar foto' : 'Take photo') : snap.near === 'deliver' ? (es ? 'Entregar la sonda' : 'Deliver the probe') : L.deposit}

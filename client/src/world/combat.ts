@@ -1,7 +1,7 @@
 /** Enemies, bullets and the "thief" easter egg, shared by the three worlds. Pure state + plain math so it is easy to test. */
 export type EnemyKind = 'crawler' | 'drone' | 'angler' | 'thief';
 export interface V3 { x: number; y: number; z: number }
-export interface Enemy extends V3 { id: number; kind: EnemyKind; hp: number; maxHp: number; speed: number; cd: number; flee: number; alive: boolean; seed: number; elite: boolean; flash: number; carry: string | null; age: number }
+export interface Enemy extends V3 { id: number; kind: EnemyKind; hp: number; maxHp: number; speed: number; cd: number; flee: number; alive: boolean; seed: number; elite: boolean; flash: number; carry: string | null; age: number; wind: number; recoil: number }
 export interface Bullet extends V3 { dx: number; dy: number; dz: number; life: number; dmg: number; alive: boolean }
 
 export interface CombatCfg {
@@ -26,7 +26,7 @@ const mulberry = (a: number) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t 
 export const dist3 = (a: V3, b: V3) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 
 export class CombatSim {
-  enemies: Enemy[] = []; bullets: Bullet[] = []; time = 0; kills = 0; nextId = 1; stolen = 0;
+  enemies: Enemy[] = []; bullets: Bullet[] = []; time = 0; kills = 0; invuln = 0; nextId = 1; stolen = 0;
   private next: number; private nextWave: number; private rnd: () => number; private thiefAt: number; private thiefDone = false; private spawned = 0;
   constructor(public cfg: CombatCfg) {
     this.rnd = mulberry(cfg.seed); this.next = Math.max(4, cfg.spawnEvery * 0.4);
@@ -39,12 +39,12 @@ export class CombatSim {
     const pos = this.cfg.place(p, this.rnd(), this.rnd());
     const grow = 1 + this.time / 240; // enemies get tougher as the run goes on
     const hp = kind === 'thief' ? 3 : this.cfg.hp * grow * (elite ? 2.5 : 1);
-    const e: Enemy = { id: this.nextId++, kind, x: pos.x, y: pos.y, z: pos.z, hp, maxHp: hp, speed: this.cfg.speed * this.cfg.slow * (elite ? 1.1 : 1) * (kind === 'thief' ? 1.25 : 1), cd: 0, flee: 0, alive: true, seed: this.rnd() * 100, elite, flash: 0, carry: null, age: 0 };
+    const e: Enemy = { id: this.nextId++, kind, x: pos.x, y: pos.y, z: pos.z, hp, maxHp: hp, speed: this.cfg.speed * this.cfg.slow * (elite ? 1.1 : 1) * (kind === 'thief' ? 1.25 : 1), cd: 0, flee: 0, alive: true, seed: this.rnd() * 100, elite, flash: 0, carry: null, age: 0, wind: 0, recoil: 0 };
     this.enemies.push(e); this.spawned++; return e;
   }
   /** Advance everything. `p` is the player (speed in m/s). Returns what happened so the world can react. */
   update(dt: number, p: V3, speedNow: number): CombatEvent[] {
-    const ev: CombatEvent[] = [], c = this.cfg; this.time += dt;
+    const ev: CombatEvent[] = [], c = this.cfg; this.time += dt; this.invuln = Math.max(0, this.invuln - dt);
     this.enemies = this.enemies.filter(e => e.alive || e.flash > 0);
     const alive = this.alive.filter(e => e.kind !== 'thief').length;
     this.next -= dt;
@@ -66,9 +66,16 @@ export class CombatSim {
         if (d > 160) e.alive = false;
       } else {
         const chase = d < c.aggro;
-        if (chase && d > 1.7) { const k = (e.speed * dt) / Math.max(0.001, d); e.x += (p.x - e.x) * k; e.y += (p.y - e.y) * k; e.z += (p.z - e.z) * k; }
+        e.recoil = Math.max(0, e.recoil - dt);
+        if (e.recoil > 0) { const k = (e.speed * 1.4 * dt) / Math.max(0.001, d); e.x -= (p.x - e.x) * k; e.y -= (p.y - e.y) * k; e.z -= (p.z - e.z) * k; e.wind = 0; }   // bounce back after an attack
+        else if (chase && d > 1.7) { const k = (e.speed * dt) / Math.max(0.001, d); e.x += (p.x - e.x) * k; e.y += (p.y - e.y) * k; e.z += (p.z - e.z) * k; }
         else { const a = e.seed + this.time * 0.25; e.x += Math.cos(a) * e.speed * 0.3 * dt; e.z += Math.sin(a * 1.3) * e.speed * 0.3 * dt; e.y += Math.sin(a * 0.7) * e.speed * 0.1 * dt; }
-        if (d < 2.6 && e.cd <= 0) { e.cd = 1.1; ev.push({ type: 'hit', enemy: e, dmg: c.damage * (e.elite ? 1.5 : 1) }); }
+        // contact: it rears up for a moment (so you can dodge), then bites once and backs off. You get a short grace period after a bite.
+        if (e.recoil <= 0 && d < 2.6) {
+          e.wind += dt;
+          if (e.wind >= 0.5 && e.cd <= 0 && this.invuln <= 0) { e.cd = 1.8; e.wind = 0; e.recoil = 1; this.invuln = 0.9; ev.push({ type: 'hit', enemy: e, dmg: c.damage * (e.elite ? 1.5 : 1) }); }
+          else if (e.wind >= 0.5) e.wind = 0.4;
+        } else if (e.recoil <= 0) e.wind = Math.max(0, e.wind - dt * 2);
         if (d > 170) e.alive = false;  // lost track: despawn far-away enemies
       }
       c.constrain(e);

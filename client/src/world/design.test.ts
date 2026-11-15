@@ -51,3 +51,21 @@ describe('rocket workshop bonus', () => {
     expect(b.health).toBeGreaterThan(a.health);
   });
 });
+
+import { supplyCost, EMERGENCY_FUND } from './design';
+describe('mission supplies', () => {
+  it('a valid ship is always affordable with the emergency fund', () => {
+    for (const l of LEVELS) for (const dest of DESTS) {
+      let best = Infinity;
+      for (const rocket of ['light', 'standard', 'heavy'] as const) for (const tool of ['camera', 'spectrometer', 'radar'] as const) for (const solarM2 of [1, 2, 3, 4]) for (const batteryKWh of [1, 2, 3, 4]) for (const shield of [1, 2, 3]) {
+        const d = { dest, rocket, tools: [tool], solarM2, batteryKWh, shield };
+        if (passed(runTests(d, l))) best = Math.min(best, supplyCost(d, l).total);
+      }
+      expect(best, `${l}/${dest}`).toBeLessThanOrEqual(EMERGENCY_FUND);
+    }
+  });
+  it('better gear costs more', () => {
+    const a = supplyCost(defaultDesign('mars'), 'hard').total, b = supplyCost({ ...defaultDesign('mars'), rocket: 'heavy', tools: ['camera', 'radar', 'spectrometer'] }, 'hard').total;
+    expect(b).toBeGreaterThan(a);
+  });
+});

@@ -65,4 +65,19 @@ describe('pois and contracts', () => {
     expect(contractsFor('mars', 'easy')[0]).toBe(defaultContract('mars'));
     expect(contractsFor('mars', 'expert').length).toBeGreaterThan(contractsFor('mars', 'easy').length);
   });
+  it('contact is fair: a wind-up before the bite, then it backs off and the player gets a grace period', () => {
+    const s = new CombatSim(cfg({ max: 3, spawnEvery: 0.5, place: p => ({ x: p.x + 1.8, y: 0, z: p.z }) }));
+    const times: number[] = []; let t = 0, firstHitAfter = -1;
+    for (let i = 0; i < 1200; i++) { t += 0.05; for (const e of s.update(0.05, P, 0)) if (e.type === 'hit') { if (firstHitAfter < 0) firstHitAfter = t; times.push(t); } }
+    expect(times.length).toBeGreaterThan(2);
+    for (let i = 1; i < times.length; i++) expect(times[i]! - times[i - 1]!).toBeGreaterThanOrEqual(0.85); // never two bites back to back
+  });
+  it('an enemy retreats right after biting', () => {
+    const s = new CombatSim(cfg({ spawnEvery: 1e6, max: 1 }));
+    const e = (s as unknown as { spawn: (p: typeof P) => { x: number; z: number; recoil: number } }).spawn(P); e.x = 1.8; e.z = 0;
+    let bit = false, d0 = 0;
+    for (let i = 0; i < 100 && !bit; i++) for (const ev of s.update(0.05, P, 0)) if (ev.type === 'hit') { bit = true; d0 = Math.hypot(e.x, e.z); }
+    expect(bit).toBe(true); for (let i = 0; i < 10; i++) s.update(0.05, P, 0);
+    expect(Math.hypot(e.x, e.z)).toBeGreaterThan(d0);
+  });
 });

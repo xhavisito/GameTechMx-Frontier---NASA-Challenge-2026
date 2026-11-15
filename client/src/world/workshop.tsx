@@ -77,18 +77,32 @@ export function ContractPicker({ es, list, value, onPick }: { es: boolean; list:
     <b>{es ? c.es : c.en}</b><small>{es ? c.descEs : c.descEn}</small><small>×{c.reward.toFixed(2)} {t(es, 'chatarra', 'scrap')} · {danger(c.danger)}</small></button>)}</div>;
 }
 
-export function Reward({ es, result, scrap, total, level, onWorkshop, onAgain }: { es: boolean; result: MarsResult; scrap: number; total: number; level: string; onWorkshop: () => void; onAgain: () => void }) {
+export function Reward({ es, result, scrap, total, spent, level, onWorkshop, onAgain }: { es: boolean; result: MarsResult; scrap: number; total: number; spent: number; level: string; onWorkshop: () => void; onAgain: () => void }) {
+  const [why, setWhy] = useState(false);
+  const fmt = (n: number) => (n > 0 ? `+${n}` : `${n}`);
+  const pts = result.why ?? [], sw = result.scrapWhy;
   return <div className="adv-modal"><div className="adv-card center">
     <h2>{result.exploded ? t(es, '¡La nave explotó!', 'The ship exploded!') : result.returned ? t(es, '¡Misión cumplida!', 'Mission complete!') : t(es, 'Misión terminada', 'Mission over')}</h2>
     <div className="w-grade">{result.grade}</div>
     <p><b>{result.score}</b>/100 · {level}</p>
     <div className="rw-grid">
-      <span><Coins size={16} /> +{scrap}<small>{t(es, 'chatarra', 'scrap')}</small></span>
+      <span><Coins size={16} /> +{scrap}<small>{t(es, 'ganado', 'earned')}</small></span>
+      {spent > 0 && <span><Coins size={16} /> −{spent}<small>{t(es, 'equipo', 'gear')}</small></span>}
       <span><Skull size={16} /> {result.kills ?? 0}<small>{t(es, 'derrotados', 'defeated')}</small></span>
       <span><Check size={16} /> {result.pois ?? 0}<small>{t(es, 'objetivos', 'goals')}</small></span>
       {(result.lost ?? 0) > 0 && <span><XIcon size={16} /> {result.lost}<small>{t(es, 'robos', 'thefts')}</small></span>}
     </div>
     {result.exploded && <p className="rw-warn">{t(es, 'Al explotar, ganas la mitad de chatarra.', 'Exploding halves your scrap.')}</p>}
+    <button className="button button-secondary" aria-expanded={why} onClick={() => setWhy(v => !v)}>{why ? t(es, 'Ocultar', 'Hide') : t(es, '¿Por qué esta calificación?', 'Why this grade?')}</button>
+    {why && <div className="why" aria-label="why">
+      <h4>{t(es, `Calificación: ${result.score}/100 → ${result.grade}`, `Grade: ${result.score}/100 → ${result.grade}`)}</h4>
+      <ul>{pts.map((p, i) => <li key={i}><span>{es ? p.es : p.en}</span><b className={p.pts < 0 ? 'neg' : 'pos'}>{fmt(Math.round(p.pts * 10) / 10)}{p.max ? <small> / {p.max}</small> : null}</b></li>)}
+        <li className="tot"><span>{t(es, 'Total (redondeado)', 'Total (rounded)')}</span><b>{result.score}</b></li></ul>
+      <small>{t(es, 'S desde 85 · A desde 70 · B desde 50 · C desde 30 · D menos de 30.', 'S from 85 · A from 70 · B from 50 · C from 30 · D below 30.')}</small>
+      {sw && <><h4>{t(es, `Chatarra ganada: ${scrap}`, `Scrap earned: ${scrap}`)}</h4>
+        <ul>{sw.map((p, i) => <li key={i} className={p.k === undefined && p.max === -1 ? 'tot' : ''}><span>{es ? p.es : p.en}</span>{p.k !== undefined ? <b>×{p.k}</b> : <b className={p.pts < 0 ? 'neg' : 'pos'}>{fmt(Math.round(p.pts * 10) / 10)}</b>}</li>)}</ul>
+        <small>{t(es, 'Los multiplicadores se aplican al total de arriba; el mínimo por misión es 5.', 'Multipliers apply to the subtotal above; the minimum per mission is 5.')}</small></>}
+    </div>}
     <p className="adv-next">{t(es, `Tienes ${total} de chatarra. ¿Mejoras tu nave?`, `You have ${total} scrap. Upgrade your ship?`)}</p>
     <div className="adv-row"><button className="button button-primary" autoFocus onClick={onWorkshop}>{t(es, 'Ir al taller', 'Go to workshop')}</button><button className="button button-secondary" onClick={onAgain}>{t(es, 'Otra misión', 'Another mission')}</button></div>
   </div></div>;

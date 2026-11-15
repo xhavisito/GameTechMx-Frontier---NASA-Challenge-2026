@@ -45,3 +45,22 @@
 .w-kills{position:absolute;left:14px;bottom:150px;background:#2a1f3dcc;color:#fff4e6;border:3px solid #1b1230;border-radius:12px;padding:.2rem .6rem;font-weight:800;z-index:4}
 .w-btn.fire{background:#ff5d73;color:#fff}
 @media (max-width:640px){.w-kills{bottom:auto;top:76px;left:12px}}
+
+/* ── money, hurt flash, viewfinder ── */
+.w-exit{left:auto;right:68px}
+.w-top{left:110px}
+.w-money{position:fixed;top:12px;left:12px;z-index:6;display:flex;align-items:center;gap:.35rem;height:46px;padding:0 .8rem;background:#ffc857;color:#2a1f3d;border:3px solid #1b1230;border-radius:999px;box-shadow:0 4px 0 #1b1230;font-weight:900;font-size:1.05rem;pointer-events:none}
+.w-hurt{position:fixed;inset:0;z-index:7;pointer-events:none;box-shadow:inset 0 0 90px 30px #ff2d4acc;animation:hurt .5s ease-out forwards}
+@keyframes hurt{from{opacity:1}to{opacity:0}}
+.w-flash{position:absolute;inset:0;z-index:8;pointer-events:none;background:#fff;animation:flash .45s ease-out forwards}
+@keyframes flash{0%{opacity:.95}100%{opacity:0}}
+.w-vf{position:absolute;left:50%;top:46%;width:min(52vw,430px);aspect-ratio:4/3;transform:translate(-50%,-50%);z-index:3;pointer-events:none;transition:filter .2s}
+.w-vf i{position:absolute;width:34px;height:34px;border:5px solid #fff4e6;filter:drop-shadow(0 0 3px #1b1230)}
+.w-vf i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0}.w-vf i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0}
+.w-vf i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0}.w-vf i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0}
+.w-vf span{position:absolute;left:50%;top:50%;width:26px;height:26px;transform:translate(-50%,-50%);border:3px solid #fff4e6;border-radius:50%}
+.w-vf.ready i,.w-vf.ready span{border-color:#5ee6a8}.w-vf.ready{animation:vfpulse .8s infinite alternate}
+@keyframes vfpulse{to{transform:translate(-50%,-50%) scale(1.04)}}
+.w-vf-tip{position:absolute;left:50%;top:calc(46% + min(20vw,165px));transform:translateX(-50%);z-index:3;background:#2a1f3dd9;color:#fff4e6;border:3px solid #1b1230;border-radius:12px;padding:.25rem .8rem;font-weight:800;text-align:center;pointer-events:none;max-width:90vw}
+.w-vf-tip.ready{background:#2f8f64}
+@media (max-width:640px){.w-money{top:8px;left:8px;height:40px}.w-exit{right:62px}.w-top{left:100px}}
