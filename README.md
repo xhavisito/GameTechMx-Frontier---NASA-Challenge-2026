@@ -58,3 +58,10 @@ Miller es un océano: el submarino (modelo CAD `sub`) sube y baja (Espacio/Q y C
 The **Ciencia y fuentes** button (top right, next to the language button) opens a bilingual screen with one card per game resource: NASA link, the fact or concept used, the screen where it matters, and what was simplified. Data lives in `client/src/world/sources.ts`.
 
 Honesty rule: a figure counts as NASA-backed only if the linked NASA page states it. Everything else is shown as a **game parameter** (instrument mass/cost/power, rocket masses and costs, per-destination Δv, sunlight except Jupiter's ~1/25, event costs, budget). Miller's planet is fiction from the film *Interstellar* and has no NASA link. The parameter lines are built from `design.ts` constants and checked by `sources.test.ts`, so they cannot drift. GameTechMx Frontier is independent and not endorsed by NASA.
+
+## Enemigos que escalan, juegos en la Tierra / Scaling enemies and Earth side games
+
+- **Enemigos por poder / Power-scaled enemies** (`client/src/world/threat.ts`): la fuerza de tu nave (mejoras compradas + arma) sube vida, velocidad y daño de los enemigos y desbloquea variantes: *swarmer* (rápido), *dasher* (embiste) y *brute* (tanque). Nunca hay más de 4 a la vez. / Your ship's power raises enemy HP, speed and damage and unlocks variants; never more than 4 at once.
+- **Canchita y monedas / Pitch and coins** (`earthgames.ts`): en la Tierra empuja el balón a la portería (+2 🪙) o recoge las 10 monedas (+1 c/u, +3 por ronda completa). / On Earth, push the ball into the goal or collect the 10 coins.
+- **Garage**: botón «Salir» (o Esc) y, si no alcanza para ninguna misión, leyenda para cambiar de dificultad. / Exit button (or Esc) and a switch-difficulty legend when no mission is affordable.
+- **Lanzamiento**: el contador y la elevación usan reloj real (ya no se desfasan en pestañas lentas), la llama sigue la cuenta regresiva y no se puede lanzar dos veces. / Launch uses wall-clock time, flame follows the countdown, no double launches.

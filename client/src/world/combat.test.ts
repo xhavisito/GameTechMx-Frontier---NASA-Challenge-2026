@@ -12,7 +12,7 @@ describe('combat sim', () => {
   it('never exceeds capacity and honours the "more enemies" multiplier', () => {
     const a = new CombatSim(cfg({ max: 3 })), b = new CombatSim(cfg({ max: 3, more: 2 }));
     for (let i = 0; i < 6000; i++) { a.update(0.05, { x: 500, y: 0, z: 500 }, 0); b.update(0.05, { x: 500, y: 0, z: 500 }, 0); }
-    expect(a.alive.length).toBeLessThanOrEqual(3); expect(b.capacity).toBe(6);
+    expect(a.alive.length).toBeLessThanOrEqual(3); expect(b.capacity).toBe(4);   // never more than 4 at once, whatever the multiplier
   });
   it('bullets kill enemies and count kills', () => {
     const s = new CombatSim(cfg({ hp: 2, spawnEvery: 1 })); for (let i = 0; i < 400; i++) s.update(0.05, P, 0);
@@ -23,7 +23,7 @@ describe('combat sim', () => {
   it('waves add enemies at the configured time', () => {
     const s = new CombatSim(cfg({ waveEvery: 20, spawnEvery: 1e6, max: 6 })); let waves = 0;
     for (let i = 0; i < 20 * 21; i++) for (const e of s.update(0.05, { x: 300, y: 0, z: 0 }, 0)) if (e.type === 'wave') waves++;
-    expect(waves).toBe(1); expect(s.alive.length).toBeGreaterThan(2);
+    expect(waves).toBe(1); expect(s.alive.length).toBeGreaterThan(1); expect(s.alive.length).toBeLessThanOrEqual(4);
   });
   it('a thief steals once, runs, and can be caught by hand', () => {
     const s = new CombatSim(cfg({ thiefChance: 1, spawnEvery: 1e6, place: p => ({ x: p.x + 8, y: 0, z: p.z }) }));
@@ -79,5 +79,25 @@ describe('pois and contracts', () => {
     for (let i = 0; i < 100 && !bit; i++) for (const ev of s.update(0.05, P, 0)) if (ev.type === 'hit') { bit = true; d0 = Math.hypot(e.x, e.z); }
     expect(bit).toBe(true); for (let i = 0; i < 10; i++) s.update(0.05, P, 0);
     expect(Math.hypot(e.x, e.z)).toBeGreaterThan(d0);
+  });
+  it('variants only appear when unlocked, and each has its own stats', () => {
+    const none = new CombatSim(cfg({ spawnEvery: 1, max: 4 })); for (let i = 0; i < 4000; i++) none.update(0.05, { x: 500, y: 0, z: 500 }, 0);
+    expect(new Set(none.enemies.map(e => e.kind))).toEqual(new Set(['crawler']));
+    const some = new CombatSim(cfg({ spawnEvery: 1, max: 4, variants: ['swarmer', 'dasher', 'brute'], hp: 10 })); const seen = new Set<string>();
+    for (let i = 0; i < 20000; i++) { some.update(0.05, { x: 500, y: 0, z: 500 }, 0); some.enemies.forEach(e => seen.add(e.kind)); some.enemies.forEach(e => { e.alive = false; e.flash = 0; }); }
+    expect(seen.has('crawler') && seen.has('swarmer') && seen.has('dasher') && seen.has('brute')).toBe(true);
+  });
+  it('a brute is tougher and slower than a swarmer', () => {
+    const s = new CombatSim(cfg({ spawnEvery: 1, max: 4, variants: ['swarmer', 'brute'], hp: 10 })); const kinds: Record<string, { hp: number; sp: number }> = {};
+    for (let i = 0; i < 20000 && Object.keys(kinds).length < 2; i++) { s.update(0.05, { x: 500, y: 0, z: 500 }, 0); for (const e of s.enemies) if (e.kind !== 'crawler' && e.age < 0.2) kinds[e.kind] = { hp: e.maxHp, sp: e.speed }; s.enemies.forEach(e => { e.alive = false; e.flash = 0; }); }
+    expect(kinds.brute!.hp).toBeGreaterThan(kinds.swarmer!.hp * 3); expect(kinds.swarmer!.sp).toBeGreaterThan(kinds.brute!.sp * 1.8);
+  });
+  it('a dasher lunges: it covers more ground in a burst than a steady walker', () => {
+    const mk = (kind: 'dasher' | 'crawler') => { const s = new CombatSim(cfg({ spawnEvery: 1e6, max: 4, speed: 3, aggro: 200, kind, place: p => ({ x: p.x + 60, y: 0, z: p.z }) })); s.update(0.05, { x: 0, y: 0, z: 0 }, 0); return s; };
+    const d = mk('dasher'); (d as unknown as { spawn: (p: unknown, k: string) => void }).spawn({ x: 0, y: 0, z: 0 }, 'dasher');
+    const e = d.enemies.find(x => x.kind === 'dasher')!; e.dashIn = 0; let best = 0, px = e.x;
+    for (let i = 0; i < 80; i++) { d.update(0.05, { x: 0, y: 0, z: 0 }, 0); best = Math.max(best, px - e.x); px = e.x; }
+    expect(best / 0.05).toBeGreaterThan(3 * 2);
+    void mk;
   });
 });

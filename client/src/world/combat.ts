@@ -1,12 +1,23 @@
 /** Enemies, bullets and the "thief" easter egg, shared by the three worlds. Pure state + plain math so it is easy to test. */
-export type EnemyKind = 'crawler' | 'drone' | 'angler' | 'thief';
+export type EnemyKind = 'crawler' | 'drone' | 'angler' | 'thief' | 'swarmer' | 'dasher' | 'brute';
+/** Variants that join the world's own creature as the player gets stronger (see threat.ts). Multipliers on the base stats. */
+export const VARIANTS = {
+  swarmer: { hp: 0.5, speed: 1.45, dmg: 0.7, size: 0.65, hit: 1.4 },
+  dasher: { hp: 0.8, speed: 1, dmg: 1, size: 0.9, hit: 1.7 },
+  brute: { hp: 2.4, speed: 0.7, dmg: 1.5, size: 1.45, hit: 2.4 },
+} as const;
+export type VariantKind = keyof typeof VARIANTS;
+/** Never more than this many hostile creatures at once, however strong the player is. */
+export const MAX_ENEMIES = 4;
 export interface V3 { x: number; y: number; z: number }
-export interface Enemy extends V3 { id: number; kind: EnemyKind; hp: number; maxHp: number; speed: number; cd: number; flee: number; alive: boolean; seed: number; elite: boolean; flash: number; carry: string | null; age: number; wind: number; recoil: number }
+export interface Enemy extends V3 { id: number; kind: EnemyKind; hp: number; maxHp: number; speed: number; cd: number; flee: number; alive: boolean; seed: number; elite: boolean; flash: number; carry: string | null; age: number; wind: number; recoil: number; dash: number; dashIn: number }
 export interface Bullet extends V3 { dx: number; dy: number; dz: number; life: number; dmg: number; alive: boolean }
 
 export interface CombatCfg {
   kind: EnemyKind;
   max: number; spawnEvery: number; waveEvery: number; hp: number; speed: number; damage: number; aggro: number;
+  /** extra creature types unlocked by the player's power (empty = just the world's own) */
+  variants?: VariantKind[];
   thiefChance: number; /** chance that a thief shows up in a run */
   /** where new enemies appear, given the player and two random numbers */
   place: (p: V3, r1: number, r2: number) => V3;
@@ -34,12 +45,20 @@ export class CombatSim {
     this.thiefAt = this.rnd() < cfg.thiefChance ? 45 + this.rnd() * 90 : Infinity;
   }
   get alive() { return this.enemies.filter(e => e.alive); }
-  get capacity() { return Math.round(this.cfg.max * this.cfg.more); }
-  private spawn(p: V3, kind: EnemyKind = this.cfg.kind, elite = false) {
+  get capacity() { return Math.min(MAX_ENEMIES, Math.max(1, Math.round(this.cfg.max * this.cfg.more))); }
+  /** Which creature comes next: the world's own, or (once unlocked) one of the variants. Elites are always the world's own. */
+  private pick(elite: boolean): EnemyKind {
+    const v = this.cfg.variants;
+    if (!v || v.length === 0 || elite || this.rnd() < 0.45) return this.cfg.kind;
+    return v[Math.floor(this.rnd() * v.length) % v.length]!;
+  }
+  private spawn(p: V3, kind?: EnemyKind, elite = false) {
+    kind ??= this.pick(elite);
+    const vs = kind in VARIANTS ? VARIANTS[kind as VariantKind] : null;
     const pos = this.cfg.place(p, this.rnd(), this.rnd());
     const grow = 1 + this.time / 240; // enemies get tougher as the run goes on
-    const hp = kind === 'thief' ? 3 : this.cfg.hp * grow * (elite ? 2.5 : 1);
-    const e: Enemy = { id: this.nextId++, kind, x: pos.x, y: pos.y, z: pos.z, hp, maxHp: hp, speed: this.cfg.speed * this.cfg.slow * (elite ? 1.1 : 1) * (kind === 'thief' ? 1.25 : 1), cd: 0, flee: 0, alive: true, seed: this.rnd() * 100, elite, flash: 0, carry: null, age: 0, wind: 0, recoil: 0 };
+    const hp = kind === 'thief' ? 3 : this.cfg.hp * grow * (elite ? 2.5 : 1) * (vs?.hp ?? 1);
+    const e: Enemy = { id: this.nextId++, kind, x: pos.x, y: pos.y, z: pos.z, hp, maxHp: hp, speed: this.cfg.speed * this.cfg.slow * (elite ? 1.1 : 1) * (kind === 'thief' ? 1.25 : 1) * (vs?.speed ?? 1), cd: 0, flee: 0, alive: true, seed: this.rnd() * 100, elite, flash: 0, carry: null, age: 0, wind: 0, recoil: 0, dash: 0, dashIn: 2 + this.rnd() * 2 };
     this.enemies.push(e); this.spawned++; return e;
   }
   /** Advance everything. `p` is the player (speed in m/s). Returns what happened so the world can react. */
@@ -49,8 +68,8 @@ export class CombatSim {
     const alive = this.alive.filter(e => e.kind !== 'thief').length;
     this.next -= dt;
     const gap = Math.max(c.spawnEvery * 0.35, c.spawnEvery * (1 - this.time / 700));
-    if (this.next <= 0) { this.next = gap * (0.8 + this.rnd() * 0.4); if (alive < this.capacity) this.spawn(p, c.kind, c.hp > 0 && this.spawned > 0 && this.spawned % 5 === 4 && c.waveEvery > 0); }
-    if (this.time >= this.nextWave) { this.nextWave += c.waveEvery; ev.push({ type: 'wave' }); const n = Math.min(Math.max(2, Math.round(this.capacity * 0.6)), Math.max(0, this.capacity + 2 - alive)); for (let i = 0; i < n; i++) this.spawn(p); }
+    if (this.next <= 0) { this.next = gap * (0.8 + this.rnd() * 0.4); if (alive < this.capacity) this.spawn(p, undefined, c.hp > 0 && this.spawned > 0 && this.spawned % 5 === 4 && c.waveEvery > 0); }
+    if (this.time >= this.nextWave) { this.nextWave += c.waveEvery; ev.push({ type: 'wave' }); const n = Math.min(Math.max(2, Math.round(this.capacity * 0.6)), Math.max(0, this.capacity - alive)); for (let i = 0; i < n; i++) this.spawn(p); }
     if (!this.thiefDone && this.time >= this.thiefAt) { this.thiefDone = true; this.spawn(p, 'thief'); ev.push({ type: 'thief' }); }
     for (const e of this.enemies) {
       e.age += dt; e.flash = Math.max(0, e.flash - dt);
@@ -68,12 +87,14 @@ export class CombatSim {
         const chase = d < c.aggro;
         e.recoil = Math.max(0, e.recoil - dt);
         if (e.recoil > 0) { const k = (e.speed * 1.4 * dt) / Math.max(0.001, d); e.x -= (p.x - e.x) * k; e.y -= (p.y - e.y) * k; e.z -= (p.z - e.z) * k; e.wind = 0; }   // bounce back after an attack
-        else if (chase && d > 1.7) { const k = (e.speed * dt) / Math.max(0.001, d); e.x += (p.x - e.x) * k; e.y += (p.y - e.y) * k; e.z += (p.z - e.z) * k; }
+        else if (chase && d > 1.7) {
+          if (e.kind === 'dasher') { e.dashIn -= dt; if (e.dash > 0) e.dash -= dt; else if (e.dashIn <= 0 && d > 5) { e.dash = 0.6; e.dashIn = 3.5 + this.rnd() * 1.5; } }   // lunges in a short burst every few seconds
+          const k = (e.speed * (e.dash > 0 ? 2.8 : 1) * dt) / Math.max(0.001, d); e.x += (p.x - e.x) * k; e.y += (p.y - e.y) * k; e.z += (p.z - e.z) * k; }
         else { const a = e.seed + this.time * 0.25; e.x += Math.cos(a) * e.speed * 0.3 * dt; e.z += Math.sin(a * 1.3) * e.speed * 0.3 * dt; e.y += Math.sin(a * 0.7) * e.speed * 0.1 * dt; }
         // contact: it rears up for a moment (so you can dodge), then bites once and backs off. You get a short grace period after a bite.
         if (e.recoil <= 0 && d < 2.6) {
           e.wind += dt;
-          if (e.wind >= 0.5 && e.cd <= 0 && this.invuln <= 0) { e.cd = 1.8; e.wind = 0; e.recoil = 1; this.invuln = 0.9; ev.push({ type: 'hit', enemy: e, dmg: c.damage * (e.elite ? 1.5 : 1) }); }
+          if (e.wind >= 0.5 && e.cd <= 0 && this.invuln <= 0) { e.cd = 1.8; e.wind = 0; e.recoil = 1; this.invuln = 0.9; ev.push({ type: 'hit', enemy: e, dmg: c.damage * (e.elite ? 1.5 : 1) * (e.kind in VARIANTS ? VARIANTS[e.kind as VariantKind].dmg : 1) }); }
           else if (e.wind >= 0.5) e.wind = 0.4;
         } else if (e.recoil <= 0) e.wind = Math.max(0, e.wind - dt * 2);
         if (d > 170) e.alive = false;  // lost track: despawn far-away enemies
@@ -106,7 +127,7 @@ export class CombatSim {
       b.x += b.dx * dt; b.y += b.dy * dt; b.z += b.dz * dt; b.life -= dt; if (b.life <= 0) b.alive = false;
       for (const e of this.enemies) {
         if (!e.alive || !b.alive) continue;
-        if (dist3(b, e) < (e.elite ? 2.4 : 1.8)) {
+        if (dist3(b, e) < (e.elite ? 2.4 : e.kind in VARIANTS ? VARIANTS[e.kind as VariantKind].hit : 1.8)) {
           b.alive = false; e.hp -= b.dmg; e.flash = 0.25;
           if (e.hp <= 0) { e.alive = false; this.kills++; ev.push({ type: 'kill', enemy: e }); }
         }

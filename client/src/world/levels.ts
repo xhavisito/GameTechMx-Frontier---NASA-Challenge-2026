@@ -23,15 +23,17 @@ export interface Mods {
   enemyMax: number; spawnEvery: number; waveEvery: number; enemyHp: number; enemySpeed: number; enemyDmg: number;
   thiefChance: number; scrapMul: number;
   /** set by the trip: hull % and energy fraction the mission starts with */
+  /** extra creature types unlocked by the player's power (set by threat.ts) */
+  variants?: import('./combat').VariantKind[];
   startHealth?: number;
   startEnergy?: number;
 }
 
 const TABLE: Record<Level, Omit<Mods, 'level'>> = {
   easy: { required: 3, hazardGap: [10, 18], hazardDmg: 14, drainMul: 0.5, timeLimit: 0, hullDepth: 150, radiation: 0, fuel: false, enemyMax: 2, spawnEvery: 40, waveEvery: 0, enemyHp: 3, enemySpeed: 0.5, enemyDmg: 8, thiefChance: 0.2, scrapMul: 0.8 },
-  medium: { required: 4, hazardGap: [7, 13], hazardDmg: 18, drainMul: 1, timeLimit: 0, hullDepth: 110, radiation: 0.4, fuel: false, enemyMax: 4, spawnEvery: 26, waveEvery: 0, enemyHp: 4, enemySpeed: 0.68, enemyDmg: 12, thiefChance: 0.3, scrapMul: 1 },
-  hard: { required: 5, hazardGap: [5, 9], hazardDmg: 22, drainMul: 1.4, timeLimit: 420, hullDepth: 90, radiation: 0.8, fuel: true, enemyMax: 6, spawnEvery: 18, waveEvery: 100, enemyHp: 6, enemySpeed: 0.82, enemyDmg: 16, thiefChance: 0.4, scrapMul: 1.3 },
-  expert: { required: 6, hazardGap: [4, 7], hazardDmg: 28, drainMul: 1.8, timeLimit: 300, hullDepth: 70, radiation: 1.2, fuel: true, enemyMax: 8, spawnEvery: 12, waveEvery: 70, enemyHp: 9, enemySpeed: 0.95, enemyDmg: 22, thiefChance: 0.5, scrapMul: 1.7 },
+  medium: { required: 4, hazardGap: [7, 13], hazardDmg: 18, drainMul: 1, timeLimit: 0, hullDepth: 110, radiation: 0.4, fuel: false, enemyMax: 2, spawnEvery: 26, waveEvery: 0, enemyHp: 4, enemySpeed: 0.68, enemyDmg: 12, thiefChance: 0.3, scrapMul: 1 },
+  hard: { required: 5, hazardGap: [5, 9], hazardDmg: 22, drainMul: 1.4, timeLimit: 420, hullDepth: 90, radiation: 0.8, fuel: true, enemyMax: 3, spawnEvery: 18, waveEvery: 100, enemyHp: 6, enemySpeed: 0.82, enemyDmg: 16, thiefChance: 0.4, scrapMul: 1.3 },
+  expert: { required: 6, hazardGap: [4, 7], hazardDmg: 28, drainMul: 1.8, timeLimit: 300, hullDepth: 70, radiation: 1.2, fuel: true, enemyMax: 3, spawnEvery: 12, waveEvery: 70, enemyHp: 9, enemySpeed: 0.95, enemyDmg: 22, thiefChance: 0.5, scrapMul: 1.7 },
 };
 export const modsFor = (level: Level): Mods => ({ level, ...TABLE[level] });
 
