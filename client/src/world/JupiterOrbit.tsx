@@ -47,7 +47,7 @@ export function jupiterScore(tool: JupiterTool, scanned: number, need: number, h
     { es: `Rapidez (${Math.round(seconds)} s)`, en: `Speed (${Math.round(seconds)} s)`, pts: Math.max(0, 10 - seconds / 20), max: 10 },
     ...(tool === 'spectrometer' ? [{ es: 'Bono del analizador', en: 'Analyzer bonus', pts: 6, max: 6 }] : []),
   ]);
-  return { score: t.score, science: scanned * 10, returned: scanned >= need, grade: t.grade, samples: [], why: t.why };
+  return { score: t.score, science: scanned * 10, returned: scanned >= need, grade: t.grade, samples: [], why: t.why, hull: health, secs: seconds };
 }
 
 interface Game { lat: number; lon: number; heading: number; scanned: Set<string>; time: number; msg: string; msgT: number; ended: boolean; health: number; fuel: number; dying?: number; fireCd: number; lost: number; exploded: boolean; stolen: string | null }

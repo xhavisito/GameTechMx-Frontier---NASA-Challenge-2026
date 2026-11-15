@@ -76,6 +76,9 @@ Honesty rule: a figure counts as NASA-backed only if the linked NASA page states
 - **Ataques de jefe / Boss attacks**: Marte = temblor (anillo en el suelo), Júpiter = tormenta, Miller = ola. Se avisa ~1.2 s antes y solo daña dentro del anillo; barra de vida arriba.
 - **Historia / Story**: Ada y Tuerca, la tripulación de la base, cuentan una historia corta por eventos (primera visita, lanzamientos, jefes…) y enlazan a la tarjeta de ciencia relacionada.
 - **Reto diario / Daily challenge** (📅): mismo mundo, semilla y equipo para todos cada día (sin mejoras), racha y mejores puntajes **solo locales** (`frontier-daily-v1`), +10 🪙 la primera vez al día.
+- **Eventos del viaje / Trip events**: banco de 28 eventos con 2–3 opciones (algunas con 🎲 y probabilidad visible), elegidos al azar según planeta y nivel, con opciones en orden aleatorio y sin repetir los vistos hace poco (1/1/2/3 preguntas por nivel).
+- **Tablero de misiones / Mission board** (📋, en la base de cada planeta, antes de salir): 4 trabajos al azar (hasta 2–3 a la vez). Cambian la misión de verdad (más peligros, más enemigos, más gasto de energía…); al cumplirlos pagan chatarra, suben tu reputación ⭐ (abre trabajos mejores) y dejan un bono; al fallar, una penalización.
+- **Efectos de la run / Run effects**: bonos y penalizaciones (💨 🔩 💸 🪫 …) que duran varias misiones y se ven en pantalla (`runstate.ts`, guardado en `frontier-run-v1`).
 - **Pulido / Polish**: estelas de balas, chispas de impacto, polvo del rover y textura granulada del terreno.
 
 ## Lobby más lleno y gráficos más pulidos / Fuller lobby and polished graphics

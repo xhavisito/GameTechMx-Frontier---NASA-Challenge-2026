@@ -19,13 +19,17 @@ import { PITCH, GOAL_HALF, BALL_R, REWARD, COIN_POS, RACE, RAMP, inPitch, newBal
 import { LobbyDeco } from './lobbydeco';
 import { solidAt, keepClear, ROCKET_POS } from './lobby';
 import { SkyLife, RaceProps, RampProp } from './skylife';
-import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests, EventCard } from './ui';
+import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests } from './ui';
+import { Board, TripCard, RunChips } from './boardui';
+import { offersFor, applyJobs, settle, jobById, slotsFor, type Job, type JobRow } from './board';
+import { loadRun, saveRun, grant, remember, applyRunPerks, applyRunMods } from './runstate';
+import { pickTrip, resolveOption, describeOut, type TEvent, type Out } from './tripevents';
 import { Workshop, Draft, Reward } from './workshop';
 import { Money, HurtFlash, BossBar } from './hud';
 import { loadMeta, saveMeta, perksFor, tierOf, withCard, draw, basePerks, type Meta, type RunCard, type Ship } from './meta';
-import { contractsFor, contractById, defaultContract } from './contracts';
+import { contractsFor, contractById, defaultContract, contractN } from './contracts';
 import { scrapParts, scrapReward } from './runkit';
-import { defaultDesign, supplyCost, EMERGENCY_FUND, normalize, eventsFor, applyEffects, type Design, type EventOption, type Dest } from './design';
+import { defaultDesign, supplyCost, EMERGENCY_FUND, normalize, applyEffects, type Design, type EventOption, type Dest } from './design';
 import { LEVEL_INFO, modsFor, readLevel, saveLevel, tutorialDone, markTutorialDone, type Level } from './levels';
 import { useWorldInput, type WorldInput } from './worldInput';
 import { rng } from '../three/noise';
@@ -39,7 +43,7 @@ const MillerOcean = lazy(() => import('./MillerOcean'));
 const EARTH: Palette = { low: '#4fae5d', mid: '#6cc56a', high: '#9bdc7a', pale: '#d8f0a8', pad: '#cfd3dc' };
 const HANGAR = new THREE.Vector3(HANGAR_POS.x, 0, HANGAR_POS.z), ROCKET = new THREE.Vector3(ROCKET_POS.x, 0, ROCKET_POS.z), NEAR = 7;
 
-type Phase = 'intro' | 'earth' | 'hangar' | 'workshop' | 'tests' | 'launch' | 'travel' | 'draft' | 'mars' | 'end';
+type Phase = 'intro' | 'earth' | 'hangar' | 'workshop' | 'tests' | 'launch' | 'travel' | 'draft' | 'board' | 'mars' | 'end';
 
 const T = {
   es: {
@@ -215,7 +219,9 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const [result, setResult] = useState<MarsResult | null>(null);
   const [run, setRun] = useState(0);
   const [evIdx, setEvIdx] = useState(0);
-  const [picked, setPicked] = useState<EventOption[]>([]);
+  const [picked, setPicked] = useState<Out[]>([]), [events, setEvents] = useState<TEvent[]>([]), [tripNote, setTripNote] = useState('');
+  const [runSt, setRunSt] = useState(loadRun), [accepted, setAccepted] = useState<Job[]>([]), [offers, setOffers] = useState<Job[]>([]), [jobRows, setJobRows] = useState<JobRow[]>([]);
+  useEffect(() => { saveRun(runSt); }, [runSt]);
   const [meta, setMetaState] = useState<Meta>(loadMeta);
   const metaRef = useRef(meta); metaRef.current = meta;
   const setMeta = (m: Meta) => { metaRef.current = m; setMetaState(m); saveMeta(m); track({ t: 'wallet', scrap: m.scrap }); };
@@ -265,30 +271,31 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   useEffect(() => { const t = setInterval(() => setSnap({ ...hud.current }), 100); return () => clearInterval(t); }, []);
   const d = useMemo(() => normalize(design, level), [design, level]);
   const dest: Dest = d.dest;
-  const events = useMemo(() => eventsFor(level, run + 1), [level, run]);
   const ship: Ship = dest === 'jupiter' ? 'orbiter' : dest === 'miller' ? 'sub' : 'rover';
   const rocketPerks = useMemo(() => perksFor('rocket', meta), [meta]);
   const bonus = useMemo(() => ({ dv: rocketPerks.dv, payload: rocketPerks.payload, budget: rocketPerks.budget }), [rocketPerks]);
   const contracts = useMemo(() => contractsFor(dest, level), [dest, level]);
   const contract = contracts.find(c => c.id === contractId) ?? contractById(contractId) ?? defaultContract(dest);
   const activeContract = contract.world === dest ? contract : defaultContract(dest);
-  const perks = useMemo(() => withCard(perksFor(ship, meta), card), [ship, meta, card]);
+  const perks0 = useMemo(() => applyRunPerks(withCard(perksFor(ship, meta), card), runSt), [ship, meta, card, runSt]);
   const cards = useMemo(() => draw(run * 7919 + 13 + level.length, 3), [run, level]);
 
   useEffect(() => {
     if (phase !== 'launch') return;
     lift.current = 0; setCount(0);
-    const ts = [setTimeout(() => { setCount(1); sfx('beep'); }, 1000), setTimeout(() => { setCount(2); sfx('beep'); }, 2000), setTimeout(() => { setCount(3); sfx('launch'); }, 3000), setTimeout(() => setCount(4), 4600), setTimeout(() => { setEvIdx(0); setPicked([]); setPhase('travel'); }, 8200)];
+    const ts = [setTimeout(() => { setCount(1); sfx('beep'); }, 1000), setTimeout(() => { setCount(2); sfx('beep'); }, 2000), setTimeout(() => { setCount(3); sfx('launch'); }, 3000), setTimeout(() => setCount(4), 4600), setTimeout(() => { setEvIdx(0); setPicked([]); setTripNote(''); setPhase('travel'); }, 8200)];
     return () => ts.forEach(clearTimeout);
   }, [phase]);
   const pending = phase === 'travel' && evIdx < events.length;
   useEffect(() => { if (phase !== 'travel' || pending) return; const t = setTimeout(() => { track({ t: 'trip', ids: events.map(x => x.id) }); setPhase('draft'); }, 4500); return () => clearTimeout(t); }, [phase, pending]);
 
-  const mission = useMemo(() => applyEffects(modsFor(level), picked.map(p => p.fx), rocketPerks.tripShield), [level, picked, rocketPerks]);
+  const mission = useMemo(() => applyEffects(modsFor(level), picked.map(p => p.fx ?? {}), rocketPerks.tripShield), [level, picked, rocketPerks]);
   const shipOf = d.dest === 'mars' ? 'rover' : d.dest === 'jupiter' ? 'orbiter' : 'sub';
   const power = useMemo(() => powerOf(meta, shipOf), [meta, shipOf]);
   const bossNext = (meta.runs + 1) % 4 === 0;   // every 4th mission has a boss
-  const mods = useMemo(() => ({ ...scaleForPower(mission.mods, power), boss: bossNext }), [mission.mods, power, bossNext]);   // stronger ship → tougher, more varied enemies (max 4)
+  const mods0 = useMemo(() => applyRunMods({ ...scaleForPower(mission.mods, power), boss: bossNext }, runSt), [mission.mods, power, bossNext, runSt]);   // stronger ship → tougher, more varied enemies (max 4); the run's effects stack on top
+  const jobbed = useMemo(() => applyJobs(mods0, perks0, accepted), [mods0, perks0, accepted]);   // accepted board jobs change this mission for real
+  const mods = jobbed.mods, perks = jobbed.perks;
   const cfg: WorldConfig = useMemo(() => ({
     seed: 1000 + run * 7, health: mission.health * (perks.health / 100),
     battery: ((d.batteryKWh * 100 + 20) * mission.energy * perks.energyMul) / mods.drainMul, solar: d.solarM2 * 45,
@@ -304,10 +311,11 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     if (w === 'hangar') { setPhase('hangar'); return; }
     if (bill.total > meta.scrap) { setPhase('hangar'); return; }
     track({ t: 'launch', dest: d.dest, tools: d.tools, shield: d.shield });
+    const trip = pickTrip(level, d.dest, Math.random, runSt.seen); setEvents(trip); setRunSt(s => remember(s, trip.map(e => e.id))); setAccepted([]); setJobRows([]);
     setPaid(bill.total); if (bill.total > 0) setMeta({ ...meta, scrap: meta.scrap - bill.total });
     setPhase('launch');
   };
-  const reset = () => { setDaily(null); setPhase('earth'); setQuest(0); setResult(null); setRun(r => r + 1); setPicked([]); setCard(null); lift.current = 0; };
+  const reset = () => { setDaily(null); setPhase('earth'); setQuest(0); setResult(null); setRun(r => r + 1); setPicked([]); setCard(null); setAccepted([]); lift.current = 0; };
   const openWorkshop = (back: Phase) => { wsBack.current = back; setPhase('workshop'); };
   const pickLevel = (l: Level) => { setLevel(l); saveLevel(l); setPhase('earth'); };
   useEffect(() => {
@@ -335,7 +343,8 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     sfx(r.returned ? 'win' : 'fail');
     const gain = scrapReward(r, mods, perks, activeContract), sp = scrapParts(r, mods, perks, activeContract), sub = sp.base.reduce((a, p) => a + p.pts, 0);
     const scrapWhy = [...sp.base, { es: 'Subtotal', en: 'Subtotal', pts: Math.round(sub * 10) / 10, max: -1 }, ...sp.mult.map(m => ({ es: m.es, en: m.en, pts: 0, k: Math.round(m.k * 100) / 100 }))];
-    setReward(gain); setMeta({ ...meta, scrap: Math.max(EMERGENCY_FUND, meta.scrap + gain), runs: meta.runs + 1, best: Math.max(meta.best, r.score), kills: meta.kills + (r.kills ?? 0) });
+    const sj = settle(runSt, d.dest, accepted, r, contractN(activeContract, mods.required)); setRunSt(sj.state); setJobRows(sj.rows); setAccepted([]);
+    setReward(gain + sj.scrap); setMeta({ ...meta, scrap: Math.max(EMERGENCY_FUND, meta.scrap + gain + sj.scrap), runs: meta.runs + 1, best: Math.max(meta.best, r.score), kills: meta.kills + (r.kills ?? 0) });
     track({ t: 'mission', dest: d.dest, returned: r.returned, grade: r.grade, samples: r.samples, kills: r.kills ?? 0, scrap: gain } as Ev);
     setResult({ ...r, scrapWhy }); setPhase('end');
   };
@@ -346,7 +355,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
       : (dailyRun?.dest ?? dest) === 'miller'
       ? <MillerOcean tool={dailyRun?.tool ?? tool} es={es} mods={dailyRun?.mods ?? mods} perks={dailyRun?.perks ?? perks} contract={dailyRun?.contract ?? activeContract} tier={dailyRun ? 0 : tierOf(meta, 'sub')} onDone={done} onExit={onExit} />
       : <MarsWorld cfg={dailyRun?.cfg ?? cfg} es={es} mods={dailyRun?.mods ?? mods} perks={dailyRun?.perks ?? perks} contract={dailyRun?.contract ?? activeContract} tier={dailyRun ? 0 : tierOf(meta, 'rover')} onDone={done} onExit={onExit} />}
-  </Suspense><BossBar es={es} /><Money n={meta.scrap} es={es} />{unlock && <div className="adv-unlock" role="status">{unlock}</div>}<HurtFlash /></>;
+  </Suspense><BossBar es={es} />{!daily && <RunChips es={es} run={runSt} jobs={accepted} />}<Money n={meta.scrap} es={es} />{unlock && <div className="adv-unlock" role="status">{unlock}</div>}<HurtFlash /></>;
 
   const lvl = LEVEL_INFO[level];
   return <div className="w-root adv-root"
@@ -359,6 +368,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     <button className="w-btn w-exit" onClick={onExit} aria-label={L.quit}><X size={20} /></button>
     <Money n={meta.scrap} es={es} />
     {unlock && <div className="adv-unlock" role="status">{unlock}</div>}
+    {phase === 'earth' && !tut && <RunChips es={es} run={runSt} jobs={[]} />}
     {showDaily && <DailyPanel es={es} rec={dailyRec} onPlay={startDaily} onClose={() => setShowDaily(false)} />}
     {beats[0] && !tut && (phase === 'earth' || phase === 'end') && !showProg && !showDaily && <StoryBubble key={beats[0]} es={es} id={beats[0]} onClose={() => setBeats(b => b.slice(1))} onCard={() => { setBeats(b => b.slice(1)); window.dispatchEvent(new Event('frontier-open-science')); }} />}
     {showProg && <ProgressPanel es={es} runs={meta.runs} best={meta.best} scrap={meta.scrap} onClose={() => setShowProg(false)} />}
@@ -383,11 +393,13 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     {phase === 'tests' && <Tests es={es} level={level} design={design} bonus={bonus} onBack={() => setPhase('hangar')} onGo={() => { setQuest(1); setPhase('earth'); }} />}
 
     {phase === 'workshop' && <Workshop es={es} meta={meta} setMeta={setMeta} initial={wsBack.current === 'hangar' ? ship : 'rover'} onClose={() => setPhase(wsBack.current)} />}
-    {phase === 'draft' && <Draft es={es} cards={cards} onPick={c => { setCard(c); setPhase('mars'); }} />}
+    {phase === 'draft' && <Draft es={es} cards={cards} onPick={c => { setCard(c); setOffers(offersFor(dest, runSt.rep[dest])); setAccepted([]); setPhase('board'); }} />}
+    {phase === 'board' && <Board es={es} dest={dest} offers={offers} rep={runSt.rep[dest]} accepted={accepted.map(j => j.id)} onToggle={id => setAccepted(a => a.some(j => j.id === id) ? a.filter(j => j.id !== id) : a.length < slotsFor(runSt.rep[dest]) ? [...a, jobById(id)!] : a)} onGo={() => setPhase('mars')} />}
     {phase === 'launch' && count < 4 && <div className="adv-count" aria-live="assertive">{L.count[count]}</div>}
     {phase === 'travel' && <div className="adv-travel"><div className="adv-stars" /><div className={`adv-dest ${dest}`} aria-hidden="true" /><Rocket className="adv-ship" size={64} aria-hidden="true" /><h2>{L.travel}: {L[dest]}</h2><p>{L.travelD}</p><div className="adv-progress"><span /></div>
       {!pending && <button className="button button-secondary" onClick={() => setPhase('draft')}>{L.skip}</button>}
-      {pending && <EventCard es={es} ev={events[evIdx]!} onPick={o => { setPicked(p => [...p, o]); setEvIdx(i => i + 1); }} />}</div>}
-    {phase === 'end' && result && <Reward es={es} result={result} scrap={reward} spent={paid} total={meta.scrap} level={es ? lvl.es : lvl.en} onWorkshop={() => { reset(); openWorkshop('earth'); }} onAgain={reset} />}
+      {tripNote && !pending && <div className="trip-note" role="status">{tripNote}</div>}
+      {pending && <TripCard es={es} ev={events[evIdx]!} step={evIdx + 1} total={events.length} onPick={o => { const { out, won } = resolveOption(o); setPicked(p => [...p, out]); if (out.scrap) setMeta({ ...meta, scrap: Math.max(0, meta.scrap + out.scrap) }); if (out.mod) setRunSt(s => grant(s, out.mod!)); setTripNote(`${won === null ? '' : won ? (es ? '🎲 ¡Salió bien! ' : '🎲 It worked! ') : (es ? '🎲 Salió mal… ' : '🎲 It backfired… ')}${describeOut(out, es)}`); setEvIdx(i => i + 1); }} />}</div>}
+    {phase === 'end' && result && <Reward es={es} result={result} scrap={reward} spent={paid} total={meta.scrap} level={es ? lvl.es : lvl.en} onWorkshop={() => { reset(); openWorkshop('earth'); }} onAgain={reset} jobs={daily ? [] : jobRows} />}
   </div>;
 }

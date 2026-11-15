@@ -134,3 +134,18 @@
 .story-btns{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.5rem}
 .link{background:none;border:0;color:#7fdcff;text-decoration:underline;font-weight:700;cursor:pointer;padding:0}
 .daily-top{text-align:left;margin:.2rem auto;max-width:320px}
+
+.trip-step{font-size:.7em;opacity:.7;margin-left:.4rem}
+.adv-opt.risk{border-color:#ff9a5c}
+.board .rep{margin:.2rem 0 .5rem;font-weight:800}.board .rep small{font-weight:600;opacity:.8}
+.board .adv-opt.job{text-align:left}.board .adv-opt.job:disabled{opacity:.45}.board .tier{font-size:.6em;color:#ffc857;letter-spacing:1px}
+.job-chips{position:fixed;left:12px;top:64px;z-index:380;display:flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:min(300px,60vw)}
+.job-chips .chip{font:800 .72rem/1 inherit;padding:.28rem .5rem;border-radius:999px;background:#2a1f3de6;color:#fff4e6;border:2px solid #1b1230;box-shadow:0 2px 0 #1b1230;text-align:left}
+.job-chips .chip.job{background:#ffc857;color:#2a1f3d}.job-chips .chip.bad{background:#ff5d73;color:#2a1f3d}.job-chips .chip.good{background:#5ee6a8;color:#2a1f3d}
+.job-chips button.chip{cursor:pointer;pointer-events:auto;font-family:inherit}
+.job-res{margin:.6rem 0;text-align:left}.job-res ul{list-style:none;padding:0;margin:.2rem 0}.job-res li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.2rem .6rem;padding:.25rem 0;border-bottom:2px dashed #ffffff22}
+.job-res li small{flex-basis:100%;opacity:.85}.job-res li.ok b{color:#5ee6a8}.job-res li.no b{color:#ff8fa0}
+.trip-note{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:380;max-width:min(560px,90vw);text-align:center;padding:.6rem 1rem;border-radius:16px;background:#ffc857;color:#2a1f3d;border:3px solid #1b1230;box-shadow:0 4px 0 #1b1230;font-weight:900}
+.board .adv-opt.job{color:#fff4e6;opacity:1}.board .adv-opt.job small{color:#eadff7;opacity:1;display:block;margin-top:.2rem}
+.board .adv-opt.job.on{background:#ffc857;color:#2a1f3d;border-color:#1b1230}.board .adv-opt.job.on small{color:#3a2d52}
+.board .adv-opt.job:disabled{opacity:.5}

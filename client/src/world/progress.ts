@@ -109,7 +109,7 @@ export function track(e: Ev) {
 }
 export function resetAll() {
   cur = emptyProgress();
-  for (const k of ['frontier-progress-v1', 'frontier-meta-v1', 'frontier-level', 'frontier-tutorial-done', 'frontier-daily-v1']) { try { localStorage.removeItem(k); } catch { /* private mode */ } }
+  for (const k of ['frontier-progress-v1', 'frontier-meta-v1', 'frontier-level', 'frontier-tutorial-done', 'frontier-daily-v1', 'frontier-run-v1']) { try { localStorage.removeItem(k); } catch { /* private mode */ } }
   subs.forEach(f => f(cur!, { found: [], ach: [], beats: [] }));
 }
 export function subscribe(f: (p: Progress, n: { found: string[]; ach: string[]; beats: string[] }) => void) { subs.add(f); return () => { subs.delete(f); }; }

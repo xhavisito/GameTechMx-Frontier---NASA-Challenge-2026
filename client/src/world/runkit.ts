@@ -17,7 +17,7 @@ export function contractResult(done: number, need: number, health: number, secon
     { es: `Enemigos derrotados: ${kills}`, en: `Enemies defeated: ${kills}`, pts: Math.min(10, kills * 2), max: 10 },
     ...(lost > 0 ? [{ es: `Robos que no recuperaste: ${lost} (−4 c/u)`, en: `Thefts you did not undo: ${lost} (−4 each)`, pts: -lost * 4 }] : []),
   ]);
-  return { score: t.score, science: done * 10, returned: complete, grade: t.grade, samples: [], kills, pois: done, exploded, lost, why: t.why };
+  return { score: t.score, science: done * 10, returned: complete, grade: t.grade, samples: [], kills, pois: done, exploded, lost, why: t.why, hull: health, secs: seconds };
 }
 /** Scrap earned by a run, line by line. Exploding costs half; harder levels and riskier contracts pay more. */
 export function scrapParts(r: Pick<MarsResult, 'score' | 'kills' | 'pois' | 'exploded' | 'returned'>, mods: Mods, perks: Perks, c: Contract): { base: Part[]; mult: { es: string; en: string; k: number }[] } {
