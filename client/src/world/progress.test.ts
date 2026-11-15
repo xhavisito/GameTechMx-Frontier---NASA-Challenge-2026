@@ -3,6 +3,12 @@ import { ACHIEVEMENTS, DISCOVERY, apply, discoveries, emptyProgress, type Ev } f
 import { SOURCES } from './sources';
 
 const run = (evs: Ev[]) => evs.reduce((p, e) => apply(p, e).p, emptyProgress());
+describe('quiz progress', () => {
+  it('right answers add up to the Scholar achievement', () => {
+    let r = apply(emptyProgress(), { t: 'quiz', ok: 6 }); expect(r.newAch).not.toContain('scholar');
+    r = apply(r.p, { t: 'quiz', ok: 5 }); expect(r.newAch).toContain('scholar');
+  });
+});
 describe('story', () => {
   it('the crew greets you on the first visit and each beat is told only once, pointing at real cards', async () => {
     const { BEATS } = await import('./story');

@@ -7,7 +7,7 @@ export const emptyDaily = (): DailyRec => ({ best: {}, scores: [], streak: 0, la
 
 const pad = (n: number) => String(n).padStart(2, '0');
 export const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const dayNumber = (key: string) => { const [y, m, d] = key.split('-').map(Number) as [number, number, number]; return Math.floor(Date.UTC(y, m - 1, d) / 86400000); };
+export const dayNumber = (key: string) => { const [y, m, d] = key.split('-').map(Number) as [number, number, number]; return Math.floor(Date.UTC(y, m - 1, d) / 86400000); };
 export const yesterday = (key: string) => { const n = dayNumber(key) - 1, d = new Date(n * 86400000); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`; };
 export const destOfDay = (key: string): DailyDest => DESTS[((dayNumber(key) % 3) + 3) % 3]!;
 /** A positive integer that is the same for everyone on the same day. */
