@@ -11,8 +11,10 @@ export function SkyLife() {
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
     planes.current.forEach((g, i) => {
-      if (!g) return; const a = t * (0.09 + i * 0.03) * (i % 2 ? -1 : 1) + i * 2.4, r = 150 + i * 30;
-      g.position.set(Math.cos(a) * r, 46 + i * 14, Math.sin(a) * r); g.rotation.y = -a + (i % 2 ? -Math.PI / 2 : Math.PI / 2) + Math.PI; g.rotation.z = (i % 2 ? 1 : -1) * 0.25;
+      if (!g) return; const dir = i % 2 ? -1 : 1, a = t * (0.09 + i * 0.03) * dir + i * 2.4, r = 150 + i * 30;
+      g.position.set(Math.cos(a) * r, 46 + i * 14, Math.sin(a) * r);
+      g.rotation.y = dir > 0 ? -a : Math.PI - a;   // the nose (+z) points along the direction of travel on the circle
+      g.rotation.z = dir * 0.25;                   // bank into the turn
     });
     clouds.current.forEach((g, i) => { if (!g) return; g.position.x = ((i * 97 + t * (2 + (i % 3))) % 560) - 280; });
   });
