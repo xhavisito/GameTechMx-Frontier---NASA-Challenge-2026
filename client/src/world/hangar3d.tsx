@@ -45,12 +45,12 @@ function Sign() {
   return <mesh position={[0, R + 0.9, LEN / 2 + 0.2]}><boxGeometry args={[5.6, 1.4, 0.25]} /><meshStandardMaterial map={tex} /></mesh>;
 }
 
-function Plane() {
+export function PlaneBody({ wheels = true }: { wheels?: boolean }) {
   const prop = useRef<THREE.Mesh>(null);
   useFrame((_, dt) => { if (prop.current) prop.current.rotation.z += dt * 14; });
-  return <group position={[PLANE.x, 0, PLANE.z]} rotation={[0, -0.5, 0]}>
+  return <group>
     {/* wheels and legs */}
-    {[[-1.1, 0.3], [1.1, 0.3], [0, -1.6]].map(([x, z], i) => <group key={i} position={[x!, 0, z!]}><mesh position={[0, 0.45, 0]}><cylinderGeometry args={[0.06, 0.06, 0.9, 4]} /><M c="#4a4a5a" /></mesh><mesh position={[0, 0.3, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.3, 0.3, 0.2, 8]} /><M c="#1b1230" /></mesh></group>)}
+    {wheels && [[-1.1, 0.3], [1.1, 0.3], [0, -1.6]].map(([x, z], i) => <group key={i} position={[x!, 0, z!]}><mesh position={[0, 0.45, 0]}><cylinderGeometry args={[0.06, 0.06, 0.9, 4]} /><M c="#4a4a5a" /></mesh><mesh position={[0, 0.3, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[0.3, 0.3, 0.2, 8]} /><M c="#1b1230" /></mesh></group>)}
     <mesh position={[0, 1.55, 0]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.75, 0.55, 4.6, 8]} /><M c="#fff4e6" /></mesh>
     <mesh position={[0, 1.55, 2.75]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[0.75, 1.1, 8]} /><M c="#ff7a59" /></mesh>
     <mesh position={[0, 1.95, 0.7]}><sphereGeometry args={[0.62, 7, 5]} /><M c="#7fdcff" o={0.85} /></mesh>
@@ -62,6 +62,8 @@ function Plane() {
     <mesh position={[0, 1.55, 3.3]}><sphereGeometry args={[0.2, 6, 5]} /><M c="#ffc857" /></mesh>
   </group>;
 }
+
+function Plane() { return <group position={[PLANE.x, 0, PLANE.z]} rotation={[0, -0.5, 0]}><PlaneBody /></group>; }
 
 export function HangarBuilding() {
   const ribs = [-LEN / 2 + 0.1, -LEN / 4, 0, LEN / 4, LEN / 2 - 0.1];

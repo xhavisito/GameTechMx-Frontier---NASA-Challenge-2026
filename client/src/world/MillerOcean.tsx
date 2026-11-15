@@ -163,6 +163,7 @@ function Scene({ tool, mods, perks, contract, sim, pois, tier, es, sites, g, hud
     for (const e of sim.update(dt, me, 0)) {
       if (e.type === 'hit') { hurt(); const dmg = Math.round(e.dmg * (1 - Math.min(0.6, perks.armor))); s.health = Math.max(0, s.health - dmg); s.shake = 0.5; s.speed *= 0.5; say(es ? `¡Un pez abisal te mordió! −${dmg}` : `An anglerfish bit you! −${dmg}`); }
       else if (e.type === 'wave') say(es ? '¡Banco de peces abisales!' : 'Anglerfish school incoming!');
+      else if (e.type === 'boss') say(es ? '👑 ¡Llegó el rey del abismo!' : '👑 The king of the deep is here!');
       else if (e.type === 'thief') say(es ? '¿Qué fue eso…? Un pulpo ladrón nada por aquí' : 'What was that…? A thieving octopus swims nearby');
       else if (e.type === 'kill' && e.enemy.kind === 'thief') loot(e.enemy);
       else if (e.type === 'kill') say(es ? 'Pez abisal derrotado' : 'Anglerfish defeated');
@@ -265,7 +266,7 @@ export default function MillerOcean({ tool, es, mods = modsFor('easy'), perks = 
   const g = useRef<Game>({ x: 0, y: -6, z: 0, heading: 0, speed: 0, vy: 0, found: new Set(), kinds: [], time: 0, waves: Array.from({ length: 3 }, () => ({ t: 0, x: 0, z: 0, active: false, hit: false })), nextWave: 8, msg: '', msgT: 0, ended: false, health: (mods.startHealth ?? 100) * (perks.health / 100), battery: Math.min(100, 100 * (mods.startEnergy ?? 1)), shake: 0, fireCd: 0, lost: 0, exploded: false, stolen: null });
   const sim = useMemo(() => new CombatSim({
     kind: 'angler', max: mods.enemyMax, spawnEvery: mods.spawnEvery, waveEvery: mods.waveEvery, hp: mods.enemyHp, speed: mods.enemySpeed * 4.2, damage: mods.enemyDmg, aggro: 30,
-    variants: mods.variants, thiefChance: mods.thiefChance, slow: perks.enemySlow, more: perks.enemyMore * contract.danger, seed: 57,
+    variants: mods.variants, boss: mods.boss, thiefChance: mods.thiefChance, slow: perks.enemySlow, more: perks.enemyMore * contract.danger, seed: 57,
     place: (p, r1, r2) => { const a = r1 * 6.28, d = 24 + r2 * 12, x = Math.max(-HALF, Math.min(HALF, p.x + Math.cos(a) * d)), z = Math.max(-HALF, Math.min(HALF, p.z + Math.sin(a) * d)); return { x, y: Math.max(floorAt(x, z) + 3, Math.min(-4, p.y + (r2 - 0.5) * 14)), z }; },
     constrain: e => { e.x = Math.max(-HALF, Math.min(HALF, e.x)); e.z = Math.max(-HALF, Math.min(HALF, e.z)); e.y = Math.max(floorAt(e.x, e.z) + 2, Math.min(-2, e.y)); },
   }), [mods, perks, contract]);

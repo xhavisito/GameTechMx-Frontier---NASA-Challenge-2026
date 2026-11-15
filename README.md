@@ -65,3 +65,11 @@ Honesty rule: a figure counts as NASA-backed only if the linked NASA page states
 - **Canchita y monedas / Pitch and coins** (`earthgames.ts`): en la Tierra empuja el balón a la portería (+2 🪙) o recoge las 10 monedas (+1 c/u, +3 por ronda completa). / On Earth, push the ball into the goal or collect the 10 coins.
 - **Garage**: botón «Salir» (o Esc) y, si no alcanza para ninguna misión, leyenda para cambiar de dificultad. / Exit button (or Esc) and a switch-difficulty legend when no mission is affordable.
 - **Lanzamiento**: el contador y la elevación usan reloj real (ya no se desfasan en pestañas lentas), la llama sigue la cuenta regresiva y no se puede lanzar dos veces. / Launch uses wall-clock time, flame follows the countdown, no double launches.
+
+## Sonido, progreso, logros y jefes / Sound, progress, achievements and bosses
+
+- **Sonido** (`audio.ts`): efectos y música generativa con WebAudio (sin archivos); botón 🔊/🔇 arriba a la derecha, se recuerda la preferencia. / Synth sound effects and a soft generative loop per world; mute button, remembered.
+- **Tierra con vida / Living Earth** (`skylife.tsx`, `earthgames.ts`): avionetas y nubes en el cielo, carrera de conos (meta → 5 conos en orden → meta; +3/+6/+10 🪙 según el tiempo) y rampa de acrobacias (+1 🪙 por salto).
+- **Progreso y logros / Progress** (`progress.ts`, `progressui.tsx`): botón 🏆 en la Tierra con estadísticas, 13 logros y «Reiniciar partida» (con confirmación).
+- **Tarjetas de ciencia descubribles / Discoverable science cards**: jugar desbloquea tarjetas de «Ciencia y fuentes» (📖); las no descubiertas siguen legibles (🔒) y dicen cómo conseguirlas. Una prueba verifica que cada tarjeta tiene forma de descubrirse.
+- **Jefes / Bosses**: cada 4.ª misión trae un jefe por mundo (vida ×9, lento, embiste, cuenta como 5 bajas). El garage avisa antes de despegar. Sigue habiendo máximo 4 enemigos a la vez.

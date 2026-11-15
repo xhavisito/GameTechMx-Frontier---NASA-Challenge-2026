@@ -6,8 +6,14 @@ import { heightAt, newRover, normalAt, stepRover, type MarsResult, type MarsWorl
 import { Terrain, Joystick, type Palette } from './MarsWorld';
 import { Rover, Shuttle } from './models';
 import { HangarBuilding, HANGAR_POS, hangarBlocked, onApron, APRON_Y } from './hangar3d';
+import { sfx, setTheme } from './audio';
+import { track, subscribe, ACHIEVEMENTS, type Ev } from './progress';
+import { SOURCES } from './sources';
+import { ProgressPanel } from './progressui';
+import { setCombatListener } from './combat';
 import { powerOf, scaleForPower } from './threat';
-import { PITCH, GOAL_HALF, BALL_R, REWARD, COIN_POS, inPitch, newBall, newCoins, stepBall, stepCoins, coinsLeft } from './earthgames';
+import { PITCH, GOAL_HALF, BALL_R, REWARD, COIN_POS, RACE, RAMP, inPitch, newBall, newCoins, newRace, newAir, stepBall, stepCoins, stepRace, stepAir, coinsLeft } from './earthgames';
+import { SkyLife, RaceProps, RampProp } from './skylife';
 import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests, EventCard } from './ui';
 import { Workshop, Draft, Reward } from './workshop';
 import { Money, HurtFlash } from './hud';
@@ -59,7 +65,7 @@ function earthWorld(): MarsWorldData {
   const rand = rng(77), rocks: MarsWorldData['rocks'] = [];
   for (let i = 0; i < 90; i++) {
     const x = (rand() * 2 - 1) * 120, z = (rand() * 2 - 1) * 120;
-    if (inPitch(x, z, 5) || COIN_POS.some(([cx, cz]) => Math.hypot(x - cx, z - cz) < 5) || Math.hypot(x, z) < 12 || Math.hypot(x - HANGAR.x, z - HANGAR.z) < 20 || Math.hypot(x - ROCKET.x, z - ROCKET.z) < 12) continue;
+    if (inPitch(x, z, 5) || [RACE.start, ...RACE.cones, RAMP].some(q => Math.hypot(x - q.x, z - q.z) < 6) || COIN_POS.some(([cx, cz]) => Math.hypot(x - cx, z - cz) < 5) || Math.hypot(x, z) < 12 || Math.hypot(x - HANGAR.x, z - HANGAR.z) < 20 || Math.hypot(x - ROCKET.x, z - ROCKET.z) < 12) continue;
     rocks.push({ x, z, s: 1 + rand() * 1.6, r: rand() * 6, tint: rand() });
   }
   return { seed: 77, amp: 0.3, craters: [], rocks, samples: [] };
@@ -105,7 +111,8 @@ function RocketModel({ lift, flame, tier = 0 }: { lift: React.MutableRefObject<n
 
 interface Hud { near: 'hangar' | 'rocket' | null; dist: number; bearing: number; heading: number }
 
-function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverTier, rocketTier, laser, count, onEarn }: {
+function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverTier, rocketTier, laser, count, onEarn, onPlay, raceHud }: {
+  onPlay: (e: { kind: 'start' | 'cone' | 'finish' | 'timeout' | 'jump'; gain: number; secs?: number; n?: number }) => void; raceHud: React.MutableRefObject<{ run: boolean; t: number; next: number }>;
   onEarn: (e: { gain: number; goals: number; coins: number; round: boolean; left: number }) => void; count: number; roverTier: number; rocketTier: number; laser: boolean;
   world: MarsWorldData; phase: Phase; quest: number; input: React.MutableRefObject<WorldInput>; poll: (dt: number) => void;
   hud: React.MutableRefObject<Hud>; lift: React.MutableRefObject<number>; onAct: (w: 'hangar' | 'rocket') => void;
@@ -116,6 +123,7 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
   const cam = useRef(new THREE.Vector3(0, 8, -10)), tmp = useMemo(() => new THREE.Vector3(), []);
   const q = useMemo(() => ({ a: new THREE.Quaternion(), b: new THREE.Quaternion(), up: new THREE.Vector3(0, 1, 0), n: new THREE.Vector3() }), []);
   const ball = useRef(newBall()), ballRef = useRef<THREE.Group>(null), field = useRef(newCoins()), coinRefs = useRef<(THREE.Group | null)[]>([]);
+  const race = useRef(newRace()), air = useRef(newAir()), airLift = useRef(0), [raceState, setRaceState] = useState({ next: 0, running: false });
   const launchT = useRef(0), launchStart = useRef<number | null>(null);   // wall-clock, so a slow or hidden tab cannot desync it from the countdown timers
   useEffect(() => { if (new URLSearchParams(location.search).has('debug')) (window as unknown as Record<string, unknown>).__adv = { rover, HANGAR, ROCKET }; }, []);
   useEffect(() => { scene.background = new THREE.Color('#8fd3ff'); scene.fog = new THREE.Fog('#bfe8ff', 80, 320); return () => { scene.fog = null; }; }, [scene]);
@@ -140,6 +148,13 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
       const sb = stepBall(ball.current, { x: r.x, z: r.z, speed: r.speed, heading: r.heading }, dt); ball.current = sb.ball;
       const sc = stepCoins(field.current, r, dt), goals = sb.goal ? 1 : 0, gain = goals * REWARD.goal + sc.got * REWARD.coin + (sc.round ? REWARD.round : 0);
       if (gain > 0) onEarn({ gain, goals, coins: sc.got, round: sc.round, left: coinsLeft(field.current) });
+      const re = stepRace(race.current, r, dt);
+      if (re) {
+        onPlay(re.type === 'finish' ? { kind: 'finish', gain: re.reward, secs: re.secs } : re.type === 'cone' ? { kind: 'cone', gain: 0, n: re.n } : { kind: re.type, gain: 0 });
+        setRaceState({ next: race.current.next, running: race.current.run });
+      }
+      raceHud.current = { run: race.current.run, t: race.current.t, next: race.current.next };
+      const ar = stepAir(air.current, r, dt); airLift.current = ar.lift; if (ar.jumped) onPlay({ kind: 'jump', gain: 1 });
     }
     if (ballRef.current) { const bl = ball.current; ballRef.current.position.set(bl.x, PITCH.y + BALL_R, bl.z); ballRef.current.rotation.x += bl.vz * dt / BALL_R; ballRef.current.rotation.z -= bl.vx * dt / BALL_R; }
     field.current.coins.forEach((c, k) => { const g = coinRefs.current[k]; if (g) { g.visible = !c.got; g.rotation.y += dt * 2.5; g.position.set(c.x, heightAt(world, c.x, c.z) + 1.5 + Math.sin(performance.now() / 350 + k) * 0.25, c.z); } });
@@ -148,7 +163,7 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
     if (rv) {
       rv.visible = !launching;
       const flat = inPitch(r.x, r.z) || onApron(r.x, r.z), y = inPitch(r.x, r.z) ? PITCH.y : onApron(r.x, r.z) ? APRON_Y : heightAt(world, r.x, r.z), n = flat ? [0, 1, 0] : normalAt(world, r.x, r.z);
-      rv.position.set(r.x, y + 0.05, r.z); q.n.set(n[0], n[1], n[2]); q.a.setFromUnitVectors(q.up, q.n); q.b.setFromAxisAngle(q.up, r.heading);
+      rv.position.set(r.x, y + 0.05 + airLift.current, r.z); q.n.set(n[0], n[1], n[2]); q.a.setFromUnitVectors(q.up, q.n); q.b.setFromAxisAngle(q.up, r.heading);
       rv.quaternion.slerp(q.a.multiply(q.b), Math.min(1, dt * 8));
     }
     if (markers.current) { const t = quest === 0 ? HANGAR : ROCKET; markers.current.position.set(t.x, 0, t.z); markers.current.rotation.y += dt; markers.current.children[0]!.position.y = 16 + Math.sin(performance.now() / 300) * 0.8; }
@@ -169,7 +184,7 @@ function EarthScene({ world, phase, quest, input, poll, hud, lift, onAct, roverT
     <mesh position={[0, -1.6, 0]} rotation={[-Math.PI / 2, 0, 0]}><planeGeometry args={[1500, 1500]} /><meshStandardMaterial color="#3fa7e8" flatShading /></mesh>
     <Terrain world={world} palette={EARTH} /><Trees world={world} /><HangarBuilding />
     <RocketModel lift={lift} flame={phase === 'launch' && count >= 3} tier={rocketTier} />
-    <Pitch />
+    <Pitch /><SkyLife /><RaceProps world={world} next={raceState.next} running={raceState.running} /><RampProp world={world} />
     <group ref={ballRef}><mesh><icosahedronGeometry args={[BALL_R, 1]} /><meshStandardMaterial color="#ffffff" flatShading /></mesh><mesh scale={1.02}><dodecahedronGeometry args={[BALL_R * 0.98, 0]} /><meshStandardMaterial color="#2a1f3d" flatShading transparent opacity={0.55} /></mesh></group>
     {COIN_POS.map(([x, z], k) => <group key={`${x},${z}`} ref={n => { coinRefs.current[k] = n; }} position={[x, 2, z]}>
       <mesh><octahedronGeometry args={[0.9, 0]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.7} flatShading /></mesh>
@@ -197,15 +212,38 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const [picked, setPicked] = useState<EventOption[]>([]);
   const [meta, setMetaState] = useState<Meta>(loadMeta);
   const metaRef = useRef(meta); metaRef.current = meta;
-  const setMeta = (m: Meta) => { metaRef.current = m; setMetaState(m); saveMeta(m); };
+  const setMeta = (m: Meta) => { metaRef.current = m; setMetaState(m); saveMeta(m); track({ t: 'wallet', scrap: m.scrap }); };
+  const [showProg, setShowProg] = useState(false), [unlock, setUnlock] = useState('');
+  useEffect(() => {   // celebrate new achievements and science cards, one after another
+    let q: string[] = [], busy = false, timer: ReturnType<typeof setTimeout> | undefined;
+    const next = () => { const m = q.shift(); if (!m) { busy = false; setUnlock(''); return; } busy = true; setUnlock(m); sfx('unlock'); timer = setTimeout(next, 2600); };
+    const off = subscribe((_p, n) => {
+      for (const id of n.ach) { const a = ACHIEVEMENTS.find(x => x.id === id); if (a) q.push(`🏆 ${es ? 'Logro' : 'Achievement'}: ${a.icon} ${es ? a.es : a.en}`); }
+      for (const id of n.found) { const s = SOURCES.find(x => x.id === id); if (s) q.push(`📖 ${es ? 'Nueva tarjeta de ciencia' : 'New science card'}: ${es ? s.name.es : s.name.en}`); }
+      if (!busy) next();
+    });
+    setCombatListener(e => { if (e.type === 'kill') track({ t: 'kill', kind: e.enemy.kind }); });
+    return () => { off(); setCombatListener(null); clearTimeout(timer); };
+  }, [es]);
   const [play, setPlay] = useState({ goals: 0, coins: 0, left: COIN_POS.length, toast: '' });
   const toastT = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const onEarn = (e: { gain: number; goals: number; coins: number; round: boolean; left: number }) => {
-    setMeta({ ...metaRef.current, scrap: metaRef.current.scrap + e.gain });
+    setMeta({ ...metaRef.current, scrap: metaRef.current.scrap + e.gain }); sfx(e.goals ? 'goal' : 'coin');
+    if (e.goals) track({ t: 'goal' }); for (let i = 0; i < e.coins; i++) track({ t: 'coin' }); if (e.round) track({ t: 'round' });
     const msg = e.goals ? (es ? '⚽ ¡GOOOL! +' : '⚽ GOAL! +') + e.gain + ' 🪙' : e.round ? (es ? '⭐ ¡Todas las monedas! +' : '⭐ All the coins! +') + e.gain + ' 🪙' : '⭐ +' + e.gain + ' 🪙';
     setPlay(p => ({ goals: p.goals + e.goals, coins: p.coins + e.coins, left: e.round ? COIN_POS.length : e.left, toast: msg }));
     clearTimeout(toastT.current); toastT.current = setTimeout(() => setPlay(p => ({ ...p, toast: '' })), 1800);
   };
+  const raceHud = useRef({ run: false, t: 0, next: 0 }), [raceSnap, setRaceSnap] = useState({ run: false, t: 0, next: 0 });
+  const onPlay = (e: { kind: 'start' | 'cone' | 'finish' | 'timeout' | 'jump'; gain: number; secs?: number; n?: number }) => {
+    if (e.gain > 0) setMeta({ ...metaRef.current, scrap: metaRef.current.scrap + e.gain });
+    const msg = e.kind === 'start' ? (es ? '🏁 ¡Ya! Toca los 5 conos en orden y vuelve a la meta' : '🏁 Go! Touch the 5 cones in order and return to the gate')
+      : e.kind === 'cone' ? `🔶 ${e.n}/${RACE.cones.length}` : e.kind === 'finish' ? `🏁 ${e.secs}s · +${e.gain} 🪙` : e.kind === 'timeout' ? (es ? '⏱️ Se acabó el tiempo' : '⏱️ Time is up') : (es ? '🛹 ¡Salto! +1 🪙' : '🛹 Jump! +1 🪙');
+    sfx(e.kind === 'jump' ? 'ramp' : e.kind === 'finish' ? 'goal' : e.kind === 'timeout' ? 'fail' : e.kind === 'start' ? 'go' : 'coin');
+    if (e.kind === 'jump') track({ t: 'jump' }); if (e.kind === 'finish') track({ t: 'cones', secs: e.secs! });
+    setPlay(p => ({ ...p, toast: msg })); clearTimeout(toastT.current); toastT.current = setTimeout(() => setPlay(p => ({ ...p, toast: '' })), 2200);
+  };
+  useEffect(() => { const t = setInterval(() => setRaceSnap({ ...raceHud.current }), 150); return () => clearInterval(t); }, []);
   useEffect(() => () => clearTimeout(toastT.current), []);
   const [card, setCard] = useState<RunCard | null>(null);
   const [contractId, setContractId] = useState('');
@@ -232,16 +270,17 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   useEffect(() => {
     if (phase !== 'launch') return;
     lift.current = 0; setCount(0);
-    const ts = [setTimeout(() => setCount(1), 1000), setTimeout(() => setCount(2), 2000), setTimeout(() => setCount(3), 3000), setTimeout(() => setCount(4), 4600), setTimeout(() => { setEvIdx(0); setPicked([]); setPhase('travel'); }, 8200)];
+    const ts = [setTimeout(() => { setCount(1); sfx('beep'); }, 1000), setTimeout(() => { setCount(2); sfx('beep'); }, 2000), setTimeout(() => { setCount(3); sfx('launch'); }, 3000), setTimeout(() => setCount(4), 4600), setTimeout(() => { setEvIdx(0); setPicked([]); setPhase('travel'); }, 8200)];
     return () => ts.forEach(clearTimeout);
   }, [phase]);
   const pending = phase === 'travel' && evIdx < events.length;
-  useEffect(() => { if (phase !== 'travel' || pending) return; const t = setTimeout(() => setPhase('draft'), 4500); return () => clearTimeout(t); }, [phase, pending]);
+  useEffect(() => { if (phase !== 'travel' || pending) return; const t = setTimeout(() => { track({ t: 'trip', ids: events.map(x => x.id) }); setPhase('draft'); }, 4500); return () => clearTimeout(t); }, [phase, pending]);
 
   const mission = useMemo(() => applyEffects(modsFor(level), picked.map(p => p.fx), rocketPerks.tripShield), [level, picked, rocketPerks]);
   const shipOf = d.dest === 'mars' ? 'rover' : d.dest === 'jupiter' ? 'orbiter' : 'sub';
   const power = useMemo(() => powerOf(meta, shipOf), [meta, shipOf]);
-  const mods = useMemo(() => scaleForPower(mission.mods, power), [mission.mods, power]);   // stronger ship → tougher, more varied enemies (max 4)
+  const bossNext = (meta.runs + 1) % 4 === 0;   // every 4th mission has a boss
+  const mods = useMemo(() => ({ ...scaleForPower(mission.mods, power), boss: bossNext }), [mission.mods, power, bossNext]);   // stronger ship → tougher, more varied enemies (max 4)
   const cfg: WorldConfig = useMemo(() => ({
     seed: 1000 + run * 7, health: mission.health * (perks.health / 100),
     battery: ((d.batteryKWh * 100 + 20) * mission.energy * perks.energyMul) / mods.drainMul, solar: d.solarM2 * 45,
@@ -256,16 +295,23 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     if (phase !== 'earth') return;   // no double launches, no stale presses from another screen
     if (w === 'hangar') { setPhase('hangar'); return; }
     if (bill.total > meta.scrap) { setPhase('hangar'); return; }
+    track({ t: 'launch', dest: d.dest, tools: d.tools, shield: d.shield });
     setPaid(bill.total); if (bill.total > 0) setMeta({ ...meta, scrap: meta.scrap - bill.total });
     setPhase('launch');
   };
   const reset = () => { setPhase('earth'); setQuest(0); setResult(null); setRun(r => r + 1); setPicked([]); setCard(null); lift.current = 0; };
   const openWorkshop = (back: Phase) => { wsBack.current = back; setPhase('workshop'); };
   const pickLevel = (l: Level) => { setLevel(l); saveLevel(l); setPhase('earth'); };
+  useEffect(() => {
+    setTheme(phase === 'mars' ? (d.dest as 'mars' | 'jupiter' | 'miller') : phase === 'earth' || phase === 'hangar' || phase === 'workshop' || phase === 'tests' ? 'earth' : phase === 'intro' ? null : 'calm');
+  }, [phase, d.dest]);
+  useEffect(() => () => setTheme(null), []);
   const done = (r: MarsResult) => {
+    sfx(r.returned ? 'win' : 'fail');
     const gain = scrapReward(r, mods, perks, activeContract), sp = scrapParts(r, mods, perks, activeContract), sub = sp.base.reduce((a, p) => a + p.pts, 0);
     const scrapWhy = [...sp.base, { es: 'Subtotal', en: 'Subtotal', pts: Math.round(sub * 10) / 10, max: -1 }, ...sp.mult.map(m => ({ es: m.es, en: m.en, pts: 0, k: Math.round(m.k * 100) / 100 }))];
     setReward(gain); setMeta({ ...meta, scrap: Math.max(EMERGENCY_FUND, meta.scrap + gain), runs: meta.runs + 1, best: Math.max(meta.best, r.score), kills: meta.kills + (r.kills ?? 0) });
+    track({ t: 'mission', dest: d.dest, returned: r.returned, grade: r.grade, samples: r.samples, kills: r.kills ?? 0, scrap: gain } as Ev);
     setResult({ ...r, scrapWhy }); setPhase('end');
   };
 
@@ -275,7 +321,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
       : dest === 'miller'
       ? <MillerOcean tool={tool} es={es} mods={mods} perks={perks} contract={activeContract} tier={tierOf(meta, 'sub')} onDone={done} onExit={onExit} />
       : <MarsWorld cfg={cfg} es={es} mods={mods} perks={perks} contract={activeContract} tier={tierOf(meta, 'rover')} onDone={done} onExit={onExit} />}
-  </Suspense><Money n={meta.scrap} es={es} /><HurtFlash /></>;
+  </Suspense><Money n={meta.scrap} es={es} />{unlock && <div className="adv-unlock" role="status">{unlock}</div>}<HurtFlash /></>;
 
   const lvl = LEVEL_INFO[level];
   return <div className="w-root adv-root"
@@ -283,18 +329,21 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     onPointerMove={e => { const el = e.currentTarget as HTMLElement, dr = el.dataset.drag; if (!dr) return; const [x, y] = dr.split(',').map(Number); inp.current.camYaw -= (e.clientX - x!) * 0.006; inp.current.camPitch = Math.max(0.1, Math.min(1.1, inp.current.camPitch + (e.clientY - y!) * 0.004)); el.dataset.drag = `${e.clientX},${e.clientY}`; }}
     onPointerUp={e => { delete (e.currentTarget as HTMLElement).dataset.drag; }}>
     <Canvas dpr={[1, 1.6]} camera={{ fov: 62, near: 0.1, far: 600, position: [0, 8, -10] }}>
-      <Suspense fallback={null}><EarthScene world={world} phase={phase} quest={quest} input={inp} poll={poll} hud={hud} lift={lift} onAct={onAct} roverTier={tierOf(meta, 'rover')} rocketTier={tierOf(meta, 'rocket')} laser={perksFor('rover', meta).weapon > 0} count={count} onEarn={onEarn} /></Suspense>
+      <Suspense fallback={null}><EarthScene world={world} phase={phase} quest={quest} input={inp} poll={poll} hud={hud} lift={lift} onAct={onAct} roverTier={tierOf(meta, 'rover')} rocketTier={tierOf(meta, 'rocket')} laser={perksFor('rover', meta).weapon > 0} count={count} onEarn={onEarn} onPlay={onPlay} raceHud={raceHud} /></Suspense>
     </Canvas>
     <button className="w-btn w-exit" onClick={onExit} aria-label={L.quit}><X size={20} /></button>
     <Money n={meta.scrap} es={es} />
+    {unlock && <div className="adv-unlock" role="status">{unlock}</div>}
+    {showProg && <ProgressPanel es={es} runs={meta.runs} best={meta.best} scrap={meta.scrap} onClose={() => setShowProg(false)} />}
 
-    {phase === 'earth' && <>
+    {phase === 'earth' && !showProg && <>
       <div className="adv-quest"><span className="adv-step">{quest + 1}/2</span><b>{quest === 0 ? L.q0 : L.q1}</b>
         <button className="lvl-btn" style={{ background: lvl.color }} onClick={() => setPhase('intro')} title={es ? 'Cambiar dificultad' : 'Change difficulty'}><Star size={14} fill="currentColor" /> {es ? lvl.es : lvl.en}</button>
+        <button className="lvl-btn help" onClick={() => setShowProg(true)} aria-label={es ? 'Mi progreso y logros' : 'My progress and achievements'} title={es ? 'Progreso y logros' : 'Progress and achievements'}>🏆</button>
         <button className="lvl-btn help" onClick={() => setTut(true)} aria-label={es ? 'Ayuda' : 'Help'}><HelpCircle size={18} /></button></div>
       <div className="adv-arrow" aria-hidden="true"><i style={{ transform: `rotate(${snap.heading - snap.bearing + Math.PI}rad)` }} /><span>{Math.round(snap.dist)} m</span></div>
       {snap.near && <button className="adv-prompt" onClick={() => onAct(snap.near!)}><span className="w-key">E</span><span className="w-key pad">A</span>{snap.near === 'hangar' ? L.enterHangar : L.launchNow}</button>}
-      <div className="adv-play" aria-label={es ? 'Juegos de la Tierra' : 'Earth games'}><span>⚽ {es ? 'Canchita: empuja el balón a la portería' : 'Pitch: push the ball into the goal'}: {play.goals}</span><span>⭐ {es ? 'Monedas' : 'Coins'}: {play.left}/{COIN_POS.length}</span></div>
+      <div className="adv-play" aria-label={es ? 'Juegos de la Tierra' : 'Earth games'}><span>⚽ {es ? 'Goles' : 'Goals'}: {play.goals}</span><span>⭐ {es ? 'Monedas' : 'Coins'}: {play.left}/{COIN_POS.length}</span><span>🏁 {raceSnap.run ? `${raceSnap.t.toFixed(1)}s · ${raceSnap.next}/${RACE.cones.length}` : (es ? 'Conos: cruza la meta' : 'Cones: enter the gate')}</span><span>🛹 {es ? 'Rampa: ve rápido' : 'Ramp: go fast'}</span></div>
       {play.toast && <div className="adv-toast" role="status">{play.toast}</div>}
       <div className="w-help adv-help"><span>{L.help}</span><span>{L.helpPad}</span><span>{L.helpTouch}</span></div>
       <div className="w-touch"><Joystick input={inp} /><div className="w-btns"><button className="w-btn big" onPointerDown={() => { inp.current.collectPulse = true; }}>E</button></div></div>
@@ -302,7 +351,7 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
 
     {phase === 'intro' && !tut && <LevelPicker es={es} level={level} onPick={pickLevel} onHelp={() => setTut(true)} />}
     {tut && <Tutorial es={es} onClose={() => { markTutorialDone(); setTut(false); }} />}
-    {phase === 'hangar' && <HangarPanel es={es} level={level} design={design} setDesign={setDesign} bonus={bonus} contracts={contracts} contract={activeContract.id} setContract={setContractId} scrap={meta.scrap} onWorkshop={() => openWorkshop('hangar')} onClose={() => setPhase('earth')} onLevel={() => setPhase('intro')} onNext={() => { if (level === 'easy') { setQuest(1); setPhase('earth'); } else setPhase('tests'); }} />}
+    {phase === 'hangar' && <HangarPanel es={es} level={level} design={design} setDesign={setDesign} bonus={bonus} contracts={contracts} contract={activeContract.id} setContract={setContractId} scrap={meta.scrap} onWorkshop={() => openWorkshop('hangar')} boss={bossNext} onClose={() => setPhase('earth')} onLevel={() => setPhase('intro')} onNext={() => { if (level === 'easy') { setQuest(1); setPhase('earth'); } else setPhase('tests'); }} />}
     {phase === 'tests' && <Tests es={es} level={level} design={design} bonus={bonus} onBack={() => setPhase('hangar')} onGo={() => { setQuest(1); setPhase('earth'); }} />}
 
     {phase === 'workshop' && <Workshop es={es} meta={meta} setMeta={setMeta} initial={wsBack.current === 'hangar' ? ship : 'rover'} onClose={() => setPhase(wsBack.current)} />}

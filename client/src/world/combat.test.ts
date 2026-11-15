@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CombatSim, type CombatCfg } from './combat';
+import { CombatSim, setCombatListener, type CombatCfg, type CombatEvent } from './combat';
 
 const cfg = (o: Partial<CombatCfg> = {}): CombatCfg => ({ kind: 'crawler', max: 4, spawnEvery: 5, waveEvery: 0, hp: 3, speed: 4, damage: 10, aggro: 60, thiefChance: 0, place: (p, a, b) => ({ x: p.x + 20 + a * 10, y: 0, z: p.z + b * 10 }), constrain: () => {}, slow: 1, more: 1, seed: 1, ...o });
 const P = { x: 0, y: 0, z: 0 };
@@ -99,5 +99,18 @@ describe('pois and contracts', () => {
     for (let i = 0; i < 80; i++) { d.update(0.05, { x: 0, y: 0, z: 0 }, 0); best = Math.max(best, px - e.x); px = e.x; }
     expect(best / 0.05).toBeGreaterThan(3 * 2);
     void mk;
+  });
+  it('a boss mission brings exactly one boss after a while, and it counts as several kills', () => {
+    const seen: CombatEvent[] = []; setCombatListener(e => seen.push(e));
+    const s = new CombatSim(cfg({ boss: true, spawnEvery: 1e6, hp: 2, max: 4, aggro: 500, place: p => ({ x: p.x + 6, y: 0, z: p.z }) })); let bosses = 0;
+    for (let i = 0; i < 20 * 80; i++) for (const e of s.update(0.05, P, 0)) if (e.type === 'boss') bosses++;
+    expect(bosses).toBe(1); const b = s.enemies.find(e => e.kind === 'boss')!; expect(b.maxHp).toBeGreaterThan(2 * 8);
+    b.x = 2; b.z = 0; b.y = 0; for (let i = 0; i < 60 && b.alive; i++) { s.shoot(P, { x: 1, y: 0, z: 0 }, 50); s.update(0.05, { x: 0, y: 0, z: 0 }, 0); }
+    expect(b.alive).toBe(false); expect(s.kills).toBeGreaterThanOrEqual(5); expect(seen.some(e => e.type === 'kill' && e.enemy.kind === 'boss')).toBe(true);
+    setCombatListener(null);
+  });
+  it('no boss when it is not a boss mission', () => {
+    const s = new CombatSim(cfg({ spawnEvery: 1e6 })); for (let i = 0; i < 20 * 60; i++) s.update(0.05, { x: 500, y: 0, z: 0 }, 0);
+    expect(s.enemies.some(e => e.kind === 'boss')).toBe(false);
   });
 });
