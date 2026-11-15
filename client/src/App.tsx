@@ -3,7 +3,8 @@ import { nextQuality, setQuality, useQuality } from './world/quality';
 import { isMuted, setMuted, sfx, unlockAudio } from './world/audio';
 
 const Adventure = lazy(() => import('./world/Adventure'));
-const Science = lazy(() => import('./world/science').then(m => ({ default: m.Science })));
+const loadScience = () => import('./world/science').then(m => ({ default: m.Science }));
+const Science = lazy(loadScience);
 
 function initialLang(): 'es' | 'en' {
   try { const v = localStorage.getItem('frontier-lang'); if (v === 'es' || v === 'en') return v; } catch { /* private mode */ }
@@ -15,6 +16,7 @@ export function App() {
   const [lang, setLang] = useState<'es' | 'en'>(initialLang);
   const [run, setRun] = useState(0);
   const [sci, setSci] = useState(false);
+  useEffect(() => { const t = setTimeout(() => { void loadScience(); }, 4000); return () => clearTimeout(t); }, []);   // warm the chunk so the panel opens at once, even over the hangar
   const [muted, setMutedState] = useState(isMuted);
   const quality = useQuality();
   useEffect(() => { const f = () => setSci(true); window.addEventListener('frontier-open-science', f); return () => window.removeEventListener('frontier-open-science', f); }, []);
@@ -29,7 +31,7 @@ export function App() {
       <Adventure key={run} es={lang === 'es'} onExit={() => setRun(r => r + 1)} />
     </Suspense>
     <button className="sci-btn" onClick={() => setSci(true)}>{lang === 'es' ? 'Ciencia y fuentes' : 'Science & sources'}</button>
-    {sci && <Suspense fallback={null}><Science es={lang === 'es'} onClose={() => setSci(false)} /></Suspense>}
+    {sci && <Suspense fallback={<div className="sci-loading" role="status"><div>{lang === 'es' ? 'Cargando…' : 'Loading…'}</div></div>}><Science es={lang === 'es'} onClose={() => setSci(false)} /></Suspense>}
     <button className="mute-btn q-btn" onClick={() => setQuality(nextQuality(quality))} aria-label={lang === 'es' ? `Calidad gráfica: ${{ low: 'baja', medium: 'media', high: 'alta' }[quality]}` : `Graphics quality: ${quality}`} title={lang === 'es' ? 'Calidad gráfica (sombras)' : 'Graphics quality (shadows)'}>✨<small>{quality === 'low' ? 'B' : quality === 'medium' ? 'M' : 'A'}</small></button>
     <div className="vignette" aria-hidden="true" />
     <button className="mute-btn" onClick={() => { const m = !muted; setMuted(m); setMutedState(m); if (!m) { unlockAudio(); sfx('ui'); } }} aria-label={lang === 'es' ? (muted ? 'Activar sonido' : 'Silenciar') : (muted ? 'Turn sound on' : 'Mute')} aria-pressed={muted}>{muted ? '🔇' : '🔊'}</button>
