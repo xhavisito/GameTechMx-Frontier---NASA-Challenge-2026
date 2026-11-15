@@ -21,7 +21,7 @@ function useStyled(url: string) {
 }
 
 /** Bumped every time the player tries to grab something (hit or miss): the rover arm reaches out and closes its claw. */
-export const arm = { pulse: 0 };
+export const arm = { pulse: 0, shot: 0 };
 const GRAB = 1.35;
 const sm = (x: number) => { const c = Math.max(0, Math.min(1, x)); return c * c * (3 - 2 * c); };
 const mix = (a: number, b: number, k: number) => a + (b - a) * k;
@@ -37,12 +37,15 @@ function Wheel({ x, z }: { x: number; z: number }) {
 }
 
 /** Low-poly rover with a robotic arm. Origin at the wheels' base, forward = +z, ~2.2 m long. */
-export function Rover({ radar = false, spectrometer = false }: { radar?: boolean; spectrometer?: boolean }) {
+export function Rover({ radar = false, spectrometer = false, tier = 0, laser = false }: { radar?: boolean; spectrometer?: boolean; tier?: number; laser?: boolean }) {
+  const muzzle = useRef<THREE.Mesh>(null), shotSeen = useRef(arm.shot), flash = useRef(0);
   const turret = useRef<THREE.Group>(null), sh = useRef<THREE.Group>(null), el = useRef<THREE.Group>(null), wr = useRef<THREE.Group>(null);
   const c1 = useRef<THREE.Mesh>(null), c2 = useRef<THREE.Mesh>(null);
   const seen = useRef(arm.pulse), t = useRef(-1);
   useFrame((_, dt) => {
     if (arm.pulse !== seen.current) { seen.current = arm.pulse; t.current = 0; }
+    if (arm.shot !== shotSeen.current) { shotSeen.current = arm.shot; flash.current = 0.12; }
+    flash.current = Math.max(0, flash.current - dt); if (muzzle.current) muzzle.current.visible = flash.current > 0;
     if (t.current >= 0) { t.current += dt; if (t.current > GRAB) t.current = -1; }
     const k = t.current < 0 ? 0 : t.current / GRAB;
     // reach out (0-.3), open claw, hold, close (.55-.7), pull back (.72-1)
@@ -92,6 +95,11 @@ export function Rover({ radar = false, spectrometer = false }: { radar?: boolean
         </group>
       </group>
     </group>
+    {tier >= 1 && <group><mesh position={[-0.45, 2.1, -0.5]}><cylinderGeometry args={[0.03, 0.03, 1.1, 4]} /><M c={HUB} /></mesh><mesh position={[-0.45, 2.7, -0.5]}><sphereGeometry args={[0.09, 5, 4]} /><meshStandardMaterial color="#ff5d73" emissive="#ff5d73" emissiveIntensity={0.9} /></mesh></group>}
+    {tier >= 2 && [-1, 1].map(s => <mesh key={s} position={[s * 0.66, 1.3, -0.3]}><boxGeometry args={[0.08, 0.7, 0.9]} /><M c="#5b6ee1" /></mesh>)}
+    {tier >= 3 && [-1, 1].map(s => <group key={s} position={[s * 0.95, 1.9, -0.35]} rotation={[0, 0, s * 0.35]}><mesh position={[s * 0.5, 0, 0]}><boxGeometry args={[1, 0.05, 0.9]} /><meshStandardMaterial color="#2a4aa8" flatShading emissive="#5b6ee1" emissiveIntensity={0.25} /></mesh></group>)}
+    {tier >= 3 && <mesh position={[0, 1.78, 0.55]}><boxGeometry args={[1.25, 0.06, 0.06]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.6} /></mesh>}
+    {laser && <group position={[0, 1.88, 0.62]}><mesh><boxGeometry args={[0.34, 0.2, 0.4]} /><M c={DARK} /></mesh><mesh position={[0, 0.02, 0.5]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.06, 0.08, 0.8, 6]} /><M c="#ff7a59" /></mesh><mesh ref={muzzle} position={[0, 0.02, 1]} visible={false}><icosahedronGeometry args={[0.28, 0]} /><meshBasicMaterial color="#fff4b0" /></mesh></group>}
     {radar && <mesh position={[0, 1.95, -0.5]} rotation={[0.5, 0, 0]}><cylinderGeometry args={[0.4, 0.06, 0.3, 8]} /><meshStandardMaterial color="#7fdcff" flatShading /></mesh>}
     {spectrometer && <mesh position={[0, 0.95, 0.95]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.1, 0.1, 0.5, 6]} /><meshStandardMaterial color="#b39ddb" flatShading /></mesh>}
     <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}><circleGeometry args={[1.9, 8]} /><meshBasicMaterial color="#1b1230" transparent opacity={0.22} /></mesh>
@@ -99,16 +107,35 @@ export function Rover({ radar = false, spectrometer = false }: { radar?: boolean
 }
 
 /** The submarine from the team's CAD model. Origin at the hull axis, forward = +z, ~6 m long. */
-export function SubGLB() {
+export function SubGLB({ tier = 0, weapon = false }: { tier?: number; weapon?: boolean }) {
   const root = useStyled(SUB_URL());
-  return <primitive object={root} />;
+  return <group>
+    <primitive object={root} />
+    {tier >= 1 && [-1, 1].map(s => <mesh key={s} position={[s * 0.55, 0.1, 2.3]}><sphereGeometry args={[0.18, 6, 5]} /><meshStandardMaterial color="#fff4b0" emissive="#fff4b0" emissiveIntensity={1} /></mesh>)}
+    {tier >= 2 && <mesh position={[0, 0.95, 0.2]} rotation={[0.4, 0, 0]}><cylinderGeometry args={[0.5, 0.08, 0.2, 8]} /><meshStandardMaterial color="#7fdcff" flatShading /></mesh>}
+    {tier >= 3 && [-1, 1].map(s => <mesh key={s} position={[s * 0.9, -0.05, -0.8]} rotation={[0, 0, s * 0.3]}><boxGeometry args={[0.9, 0.06, 1.2]} /><meshStandardMaterial color="#ffc857" flatShading emissive="#ffc857" emissiveIntensity={0.25} /></mesh>)}
+    {weapon && [-1, 1].map(s => <mesh key={s} position={[s * 0.5, -0.45, 1.3]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.13, 0.13, 1.5, 6]} /><meshStandardMaterial color="#ff7a59" flatShading /></mesh>)}
+  </group>;
+}
+
+/** The orbital ship that flies over Jupiter. Grows wings, engines and a cannon as it is upgraded. */
+export function Orbiter({ tier = 0, weapon = false }: { tier?: number; weapon?: boolean }) {
+  return <group>
+    <mesh rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[0.8, 2.6, 6]} /><meshStandardMaterial color="#fff4e6" flatShading /></mesh>
+    <mesh position={[0, 0, -0.6]}><boxGeometry args={[3.6 + tier * 0.7, 0.1, 1]} /><meshStandardMaterial color="#5b6ee1" flatShading /></mesh>
+    <mesh position={[0, 0.5, -0.3]}><sphereGeometry args={[0.35, 6, 5]} /><meshStandardMaterial color="#ffc857" flatShading /></mesh>
+    {tier >= 1 && [-1, 1].map(s => <mesh key={s} position={[s * 0.5, -0.1, -1.3]}><cylinderGeometry args={[0.2, 0.3, 0.7, 6]} /><meshStandardMaterial color="#3b3b44" flatShading /></mesh>)}
+    {tier >= 2 && [-1, 1].map(s => <mesh key={s} position={[s * 1.9, 0.05, -0.6]}><boxGeometry args={[0.18, 0.3, 1.2]} /><meshStandardMaterial color="#ff7a59" flatShading /></mesh>)}
+    {tier >= 3 && <mesh position={[0, 0.25, 0.2]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.7, 0.07, 4, 10]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.7} flatShading /></mesh>}
+    {weapon && <mesh position={[0, -0.3, 1.1]} rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.1, 0.14, 1.2, 6]} /><meshStandardMaterial color="#ff7a59" flatShading /></mesh>}
+  </group>;
 }
 
 export const preloadModels = () => { useGLTF.preload(SUB_URL()); };
 
 
 /** The launch vehicle from the team's CAD (tank, two boosters, orbiter). Boosters and then the tank separate as it climbs. */
-export function Shuttle({ lift, flame }: { lift: React.MutableRefObject<number>; flame: boolean }) {
+export function Shuttle({ lift, flame, tier = 0 }: { lift: React.MutableRefObject<number>; flame: boolean; tier?: number }) {
   const root = useStyled(SHUTTLE_URL());
   const g = useRef<THREE.Group>(null);
   const parts = useMemo(() => {
@@ -134,5 +161,8 @@ export function Shuttle({ lift, flame }: { lift: React.MutableRefObject<number>;
     parts.fl.tank.position.set(parts.tank.position.x, 0.4 + parts.tank.position.y, parts.tank.position.z);
     f(parts.fl.srbL, s1 === 0 || s1 < 8); f(parts.fl.srbR, s1 === 0 || s1 < 8); f(parts.fl.tank, s2 < 6); f(parts.fl.orb, true);
   });
-  return <group ref={g}><primitive object={root} /></group>;
+  return <group ref={g}><primitive object={root} />
+    {tier >= 1 && [-1, 1].map(s => <mesh key={s} position={[s * 1.68, 0.5, 0]}><torusGeometry args={[0.55, 0.08, 4, 10]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.6} /></mesh>)}
+    {tier >= 2 && <mesh position={[0, 13.2, 0]}><sphereGeometry args={[0.28, 6, 5]} /><meshStandardMaterial color="#ffc857" emissive="#ffc857" emissiveIntensity={0.8} /></mesh>}
+  </group>;
 }

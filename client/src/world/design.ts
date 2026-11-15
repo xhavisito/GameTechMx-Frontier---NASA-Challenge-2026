@@ -55,13 +55,17 @@ export interface TestResult { id: string; ok: boolean; value: string; need: stri
 const f = (n: number, k = 0) => n.toFixed(k);
 
 /** Pre-flight checks. Medium runs 1, hard 4, expert 7: each one is a real engineering constraint. */
-export function runTests(raw: Design, level: Level): TestResult[] {
+/** Extra capacity the rocket got in the workshop. */
+export interface RocketBonus { dv: number; payload: number; budget: number }
+export const NO_BONUS: RocketBonus = { dv: 0, payload: 0, budget: 0 };
+export function runTests(raw: Design, level: Level, bonus: RocketBonus = NO_BONUS): TestResult[] {
   const d = normalize(raw, level), s = stats(d), r = ROCKETS[d.rocket], dest = DEST[d.dest];
+  s.dv += bonus.dv; const maxPay = r.maxPayload + bonus.payload, budget = BUDGET[level] + bonus.budget;
   const margin = s.dv / dest.dv - 1;
   const all: TestResult[] = [
     { id: 'dv', ok: margin >= (level === 'expert' ? 0.03 : 0), value: `${f(s.dv, 2)} km/s`, need: `≥ ${f(dest.dv * (level === 'expert' ? 1.03 : 1), 2)} km/s`, fixEs: 'Falta combustible: usa un cohete más grande o lleva menos carga.', fixEn: 'Not enough fuel: use a bigger rocket or carry less.' },
-    { id: 'mass', ok: s.payload <= r.maxPayload, value: `${f(s.payload)} kg`, need: `≤ ${r.maxPayload} kg`, fixEs: 'La carga pesa demasiado para este cohete.', fixEn: 'The payload is too heavy for this rocket.' },
-    { id: 'cost', ok: s.cost <= BUDGET[level], value: `${f(s.cost)} M$`, need: `≤ ${BUDGET[level]} M$`, fixEs: 'Te pasaste del presupuesto: quita instrumentos o usa un cohete más barato.', fixEn: 'Over budget: drop instruments or use a cheaper rocket.' },
+    { id: 'mass', ok: s.payload <= maxPay, value: `${f(s.payload)} kg`, need: `≤ ${maxPay} kg`, fixEs: 'La carga pesa demasiado para este cohete.', fixEn: 'The payload is too heavy for this rocket.' },
+    { id: 'cost', ok: s.cost <= budget, value: `${f(s.cost)} M$`, need: `≤ ${budget} M$`, fixEs: 'Te pasaste del presupuesto: quita instrumentos o usa un cohete más barato.', fixEn: 'Over budget: drop instruments or use a cheaper rocket.' },
     { id: 'power', ok: s.supplyW >= s.needW, value: `${f(s.supplyW)} W`, need: `≥ ${f(s.needW)} W`, fixEs: d.dest === 'jupiter' ? 'En Júpiter casi no hay sol: necesitas más batería.' : 'Poca energía: agrega paneles o batería.', fixEn: d.dest === 'jupiter' ? 'There is almost no sunlight at Jupiter: you need more battery.' : 'Not enough power: add panels or battery.' },
     { id: 'thermal', ok: d.shield >= dest.shield, value: `${d.shield}`, need: `≥ ${dest.shield}`, fixEs: 'El escudo térmico es muy delgado para este destino.', fixEn: 'The heat shield is too thin for this destination.' },
     { id: 'tool', ok: d.tools.includes(dest.needs), value: d.tools.join(', ') || '—', need: dest.needs, fixEs: `Este destino exige llevar: ${dest.needs === 'radar' ? 'radar' : dest.needs === 'camera' ? 'cámara' : 'analizador'}.`, fixEn: `This destination requires: ${dest.needs}.` },
@@ -100,8 +104,8 @@ export const eventsFor = (level: Level, seed: number): TravelEvent[] => {
   return Array.from({ length: n }, (_, i) => EVENTS[(seed + i * 2) % EVENTS.length]!);
 };
 /** Fold the chosen options into what the mission starts with. */
-export function applyEffects(mods: Mods, fx: Effects[]): { mods: Mods; energy: number; health: number } {
+export function applyEffects(mods: Mods, fx: Effects[], shield = 0): { mods: Mods; energy: number; health: number } {
   let energy = 1, health = 100, limit = mods.timeLimit;
-  for (const e of fx) { energy += e.energy ?? 0; health += e.health ?? 0; if (limit && e.time) limit = Math.max(60, limit + e.time); }
+  for (const e of fx) { energy += e.energy ?? 0; health += (e.health ?? 0) * (1 - Math.min(0.9, shield)); if (limit && e.time) limit = Math.max(60, limit + e.time); }
   return { mods: { ...mods, timeLimit: limit, startHealth: Math.max(30, health), startEnergy: Math.max(0.3, energy) }, energy: Math.max(0.3, energy), health: Math.max(30, health) };
 }
