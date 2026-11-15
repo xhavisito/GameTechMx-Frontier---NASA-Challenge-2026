@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { getCoop } from './coop';
 
 export interface WorldInput {
   throttle: number; steer: number; boost: boolean; camYaw: number; camPitch: number;
@@ -20,16 +21,18 @@ export function useWorldInput(opts: { sub?: boolean } = {}) {
   const sub = !!opts.sub;
   const inp = useRef<WorldInput>(blankInput());
   const keys = useRef(new Set<string>());
-  const prevPad = useRef({ a: false, x: false, b: false, lb: false });
+  const prevPad = useRef({ a: false, x: false, b: false, lb: false, p2: false });
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault();
       if (!keys.current.has(k)) {
-        if (k === 'e' || k === 'enter' || (!sub && k === ' ')) inp.current.collectPulse = true;
+        const co = getCoop();   // co-op: player 2 (gunner) owns Enter / 0 / / for firing
+        if (co && (k === 'enter' || k === '0' || k === '/')) inp.current.firePulse = true;
+        else if (k === 'e' || (!co && k === 'enter') || (!sub && k === ' ')) inp.current.collectPulse = true;
         if (k === 'f') inp.current.scanPulse = true;
-        if (k === 'r') inp.current.firePulse = true;
+        if (k === 'r' && !co) inp.current.firePulse = true;
         if (k === 'escape') inp.current.exitPulse = true;
       }
       keys.current.add(k);
@@ -43,13 +46,16 @@ export function useWorldInput(opts: { sub?: boolean } = {}) {
   /** Call once per frame before using the input. */
   const poll = (dt: number) => {
     const i = inp.current, k = keys.current;
-    let t = (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0);
-    let s = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
+    const co = getCoop();   // in co-op the arrows are free for player 2
+    let t = (k.has('w') || (!co && k.has('arrowup')) ? 1 : 0) - (k.has('s') || (!co && k.has('arrowdown')) ? 1 : 0);
+    let s = (k.has('d') || (!co && k.has('arrowright')) ? 1 : 0) - (k.has('a') || (!co && k.has('arrowleft')) ? 1 : 0);
     let boost = k.has('shift');
     let cy = (k.has('l') ? 1 : 0) - (k.has('j') ? 1 : 0);
     let vert = sub ? (k.has(' ') || k.has('q') ? 1 : 0) - (k.has('c') || k.has('z') ? 1 : 0) : 0;
     let padHeld = false;
-    const pad = (navigator.getGamepads?.() ?? []).find(p => p && p.connected);
+    const pads = (navigator.getGamepads?.() ?? []).filter((p): p is Gamepad => !!p && p.connected), pad = pads[0];
+    if (co && pads[1] && ((pads[1].buttons[0]?.pressed || pads[1].buttons[7]?.pressed || pads[1].buttons[5]?.pressed) && !prevPad.current.p2)) { i.firePulse = true; prevPad.current = { ...prevPad.current, p2: true }; }
+    else if (co && pads[1] && !(pads[1].buttons[0]?.pressed || pads[1].buttons[7]?.pressed || pads[1].buttons[5]?.pressed)) prevPad.current = { ...prevPad.current, p2: false };
     if (pad) {
       const ax = (n: number) => dead(pad.axes[n] ?? 0), bt = (n: number) => !!pad.buttons[n]?.pressed;
       const lx = ax(0), ly = ax(1);
@@ -62,13 +68,13 @@ export function useWorldInput(opts: { sub?: boolean } = {}) {
       i.camPitch = Math.max(0.1, Math.min(1.1, i.camPitch + ax(3) * dt * 1.2));
       const a = bt(0), x = bt(2), b = bt(9), lb = bt(4);
       if (a && !prevPad.current.a) i.collectPulse = true;
-      if (lb && !prevPad.current.lb) i.firePulse = true;
+      if (lb && !prevPad.current.lb && !co) i.firePulse = true;
       padHeld = a;
       if (x && !prevPad.current.x) i.scanPulse = true;
       if (b && !prevPad.current.b) i.exitPulse = true;
-      prevPad.current = { a, x, b, lb };
+      prevPad.current = { ...prevPad.current, a, x, b, lb };
     }
-    i.interactHeld = k.has('e') || k.has('enter') || (!sub && k.has(' ')) || padHeld || i.touchInteract;
+    i.interactHeld = k.has('e') || (!co && k.has('enter')) || (!sub && k.has(' ')) || padHeld || i.touchInteract;
     if (sub) vert += (i.touchUp ? 1 : 0) - (i.touchDown ? 1 : 0);
     i.vert = Math.max(-1, Math.min(1, vert));
     t += -i.joyY; s += i.joyX; boost = boost || i.touchBoost;

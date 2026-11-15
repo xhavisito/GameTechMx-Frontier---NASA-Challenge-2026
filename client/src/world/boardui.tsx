@@ -3,6 +3,7 @@ import { objShort, type Job, type JobRow } from './board';
 import { modById, slotsFor, tierFor, type RunState } from './runstate';
 import { optionNote, type TEvent, type TOption } from './tripevents';
 import type { Dest } from './design';
+import { GRID, visited, percent, nextMilestone } from './explore';
 import { MATES, isOpen, type CrewCtx } from './crew';
 import { isChapterJob, type Chapter } from './chapters';
 
@@ -31,6 +32,7 @@ export function Board({ es, dest, offers, rep, accepted, onToggle, onGo, mate, c
     <div className="rep" aria-label="reputation">{t(es, 'Reputación', 'Reputation')}: {'⭐'.repeat(rep) || '—'} <small>{t(es, `(nivel ${tierFor(rep)}: más rep = trabajos mejores y más pago)`, `(tier ${tierFor(rep)}: more rep = better jobs and pay)`)}</small></div>
     {next && !offers.some(j => isChapterJob(j.id)) && <p className="chap-hint">📖 {t(es, `Historia · capítulo ${next.n}: ${next.title.es} (en ${WORLD[next.world].es})`, `Story · chapter ${next.n}: ${next.title.en} (on ${WORLD[next.world].en})`)}</p>}
     {!next && <p className="chap-hint">📖 {t(es, 'Historia completa. ¡Gracias por explorar!', 'Story complete. Thanks for exploring!')}</p>}
+    <MiniMap es={es} dest={dest} />
     <div className="crew" role="radiogroup" aria-label={t(es, 'Tripulación', 'Crew')}>{MATES.map(m => { const open = isOpen(m, crew), on = mate === m.id; return <button key={m.id} role="radio" aria-checked={on} className={`chip crew-mate ${on ? 'on' : ''}`} disabled={!open} title={open ? (es ? m.desc.es : m.desc.en) : (es ? m.unlock.es : m.unlock.en)} onClick={() => onMate(m.id)}>{open ? m.icon : '🔒'} {es ? m.name.es : m.name.en}</button>; })}</div>
     <small className="crew-desc">{(() => { const m = MATES.find(x => x.id === mate)!; return `${m.icon} ${es ? m.role.es : m.role.en}: ${es ? m.desc.es : m.desc.en}`; })()}</small>
     <div className="adv-row">{offers.map(j => {
@@ -43,6 +45,18 @@ export function Board({ es, dest, offers, rep, accepted, onToggle, onGo, mate, c
     })}</div>
     <div className="adv-row tut-nav"><button className="button button-primary" onClick={onGo}>{accepted.length ? t(es, `¡A la misión! (${accepted.length} trabajo${accepted.length > 1 ? 's' : ''})`, `Go! (${accepted.length} job${accepted.length > 1 ? 's' : ''})`) : t(es, 'Salir sin trabajos', 'Go without jobs')}</button></div>
   </div></div>;
+}
+
+/** Fog-of-war map of the planet: lit cells are places you have driven through. */
+export function MiniMap({ es, dest }: { es: boolean; dest: Dest }) {
+  const g = GRID[dest], cells = visited(dest), pct = percent(dest), nm = nextMilestone(dest), c = 8;
+  return <div className="minimap" aria-label={t(es, `Mapa explorado ${pct} %`, `Map explored ${pct}%`)}>
+    <svg viewBox={`0 0 ${g.w * c} ${g.h * c}`} role="img" aria-hidden="true">
+      <rect width={g.w * c} height={g.h * c} fill="#1b1230" rx="6" />
+      {cells.map(([x, y]) => <rect key={`${x},${y}`} x={x * c} y={(g.h - 1 - y) * c} width={c - 1} height={c - 1} fill="#ffc857" rx="1.5" />)}
+    </svg>
+    <small>🗺️ {pct} %{nm ? t(es, ` · próximo premio a ${nm.pct} % (+${nm.scrap} 🪙)`, ` · next reward at ${nm.pct}% (+${nm.scrap} 🪙)`) : t(es, ' · ¡mapa completo!', ' · map complete!')}</small>
+  </div>;
 }
 
 /** Small always-visible reminders: the jobs you carry and the effects the run has given or taken. */

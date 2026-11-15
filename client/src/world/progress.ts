@@ -1,3 +1,4 @@
+import { resetMap } from './explore';
 /** Progress: stats, achievements and which "Science and sources" cards the player has discovered by playing.
  *  The rules are pure functions (easy to test); a tiny store keeps them in localStorage. */
 export type Ev =
@@ -114,7 +115,8 @@ export function track(e: Ev) {
 }
 export function resetAll() {
   cur = emptyProgress();
-  for (const k of ['frontier-progress-v1', 'frontier-meta-v1', 'frontier-level', 'frontier-tutorial-done', 'frontier-daily-v1', 'frontier-run-v1', 'frontier-review-v1', 'frontier-sciday-v1', 'frontier-cosmetics-v1', 'frontier-crew-v1']) { try { localStorage.removeItem(k); } catch { /* private mode */ } }
+  for (const k of ['frontier-progress-v1', 'frontier-meta-v1', 'frontier-level', 'frontier-tutorial-done', 'frontier-daily-v1', 'frontier-run-v1', 'frontier-review-v1', 'frontier-sciday-v1', 'frontier-cosmetics-v1', 'frontier-crew-v1', 'frontier-map-v1']) { try { localStorage.removeItem(k); } catch { /* private mode */ } }
+  resetMap();
   subs.forEach(f => f(cur!, { found: [], ach: [], beats: [] }));
 }
 export function subscribe(f: (p: Progress, n: { found: string[]; ach: string[]; beats: string[] }) => void) { subs.add(f); return () => { subs.delete(f); }; }

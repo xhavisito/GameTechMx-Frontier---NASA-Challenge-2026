@@ -26,6 +26,8 @@ import { solidAt, keepClear, ROCKET_POS } from './lobby';
 import { SkyLife, RaceProps, RampProp } from './skylife';
 import { Tutorial, LevelPicker, Hangar as HangarPanel, Tests } from './ui';
 import { Board, TripCard, RunChips } from './boardui';
+import { claim } from './explore';
+import { useCoop, withCoop } from './coop';
 import { MATES, applyMate, applyMateMods, safeMate, useMate, setMate, type CrewCtx } from './crew';
 import { nextChapter, chapterJob, isChapterJob, chapterOf } from './chapters';
 import { offersFor, applyJobs, settle, jobById, slotsFor, type Job, type JobRow } from './board';
@@ -321,7 +323,8 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
   const power = useMemo(() => powerOf(meta, shipOf), [meta, shipOf]);
   const bossNext = (meta.runs + 1) % 4 === 0;   // every 4th mission has a boss
   const mods0 = useMemo(() => applyMateMods(applyRunMods({ ...scaleForPower(mission.mods, power), boss: bossNext }, runSt), mate), [mission.mods, power, bossNext, runSt, mate]);   // stronger ship → tougher, more varied enemies (max 4); the run's effects stack on top
-  const jobbed = useMemo(() => applyJobs(mods0, perks0, accepted), [mods0, perks0, accepted]);   // accepted board jobs change this mission for real
+  const coop = useCoop(), perks1 = useMemo(() => withCoop(perks0, coop), [perks0, coop]);
+  const jobbed = useMemo(() => applyJobs(mods0, perks1, accepted), [mods0, perks1, accepted]);   // accepted board jobs change this mission for real
   const a11y = useA11y();
   const mods = useMemo(() => (a11y.noTimer ? { ...jobbed.mods, timeLimit: 0 } : jobbed.mods), [jobbed.mods, a11y.noTimer]), perks = jobbed.perks;
   const cfg: WorldConfig = useMemo(() => ({
@@ -372,7 +375,8 @@ export default function Adventure({ es, onExit }: { es: boolean; onExit: () => v
     const gain = scrapReward(r, mods, perks, activeContract), sp = scrapParts(r, mods, perks, activeContract), sub = sp.base.reduce((a, p) => a + p.pts, 0);
     const scrapWhy = [...sp.base, { es: 'Subtotal', en: 'Subtotal', pts: Math.round(sub * 10) / 10, max: -1 }, ...sp.mult.map(m => ({ es: m.es, en: m.en, pts: 0, k: Math.round(m.k * 100) / 100 }))];
     const sj = settle(runSt, d.dest, accepted, r, contractN(activeContract, mods.required)); setRunSt(sj.state); setJobRows(sj.rows); setAccepted([]); for (const row of sj.rows) { const c = row.ok ? chapterOf(row.job.id) : undefined; if (c) track({ t: 'chapter', n: c.n }); }
-    setReward(gain + sj.scrap); setMeta({ ...meta, scrap: Math.max(EMERGENCY_FUND, meta.scrap + gain + sj.scrap), runs: meta.runs + 1, best: Math.max(meta.best, r.score), kills: meta.kills + (r.kills ?? 0) });
+    const mp = claim(d.dest); if (mp.scrap) setTripNote(es ? `🗺️ ¡Mapa ${mp.got[mp.got.length - 1]} % explorado! +${mp.scrap} 🪙` : `🗺️ Map ${mp.got[mp.got.length - 1]}% explored! +${mp.scrap} 🪙`);
+    setReward(gain + sj.scrap + mp.scrap); setMeta({ ...meta, scrap: Math.max(EMERGENCY_FUND, meta.scrap + gain + sj.scrap + mp.scrap), runs: meta.runs + 1, best: Math.max(meta.best, r.score), kills: meta.kills + (r.kills ?? 0) });
     track({ t: 'mission', dest: d.dest, returned: r.returned, grade: r.grade, samples: r.samples, kills: r.kills ?? 0, scrap: gain } as Ev);
     setResult({ ...r, scrapWhy }); setPhase('end');
   };

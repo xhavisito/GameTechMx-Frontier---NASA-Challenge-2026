@@ -1,3 +1,4 @@
+import { useCoop, setCoop } from './coop';
 import { useEffect, useState } from 'react';
 import { A11Y_KEY, CAPTIONS, setA11y, useA11y, type A11y } from './a11y';
 import { ITEMS, isUnlocked, sanitize, setChoice, useChoice, type Slot } from './cosmetics';
@@ -12,6 +13,7 @@ export function SettingsPanel({ es, onClose }: { es: boolean; onClose: () => voi
   const a = useA11y(), choice = useChoice(), t = (x: string, y: string) => (es ? x : y);
   const [ach, setAch] = useState(getProgress().ach);
   useEffect(() => subscribe(p => setAch(p.ach)), []);
+  const coop = useCoop();
   const set = (patch: Partial<A11y>) => setA11y({ ...a, ...patch });
   const Toggle = ({ k, es: e, en, desc }: { k: 'contrast' | 'noTimer' | 'captions' | 'calm'; es: string; en: string; desc: string }) =>
     <button className={`adv-opt set-opt ${a[k] ? 'on' : ''}`} aria-pressed={a[k]} onClick={() => set({ [k]: !a[k] })}><b>{a[k] ? '✔ ' : ''}{t(e, en)}</b><small>{desc}</small></button>;
@@ -28,6 +30,8 @@ export function SettingsPanel({ es, onClose }: { es: boolean; onClose: () => voi
       <Toggle k="captions" es="Subtítulos de sonido" en="Sound captions" desc={t('Escribe en pantalla los sonidos importantes', 'Shows important sounds as text')} />
       <Toggle k="calm" es="Menos movimiento" en="Less motion" desc={t('Sin animaciones ni sacudidas de adorno', 'No decorative animations or shakes')} />
     </div>
+    <h3>🎮 {t('Dos jugadores', 'Two players')}</h3>
+    <div className="adv-row set-grid"><button className={`adv-opt set-opt ${coop ? 'on' : ''}`} aria-pressed={coop} onClick={() => setCoop(!coop)}><b>{coop ? '✔ ' : ''}{t('Cooperativo local', 'Local co-op')}</b><small>{t('Jugador 1 maneja (WASD o su control). Jugador 2 es artillero: Enter, 0 o / dispara con puntería automática, o el botón A de un segundo control.', 'Player 1 drives (WASD or their pad). Player 2 is the gunner: Enter, 0 or / fires with auto-aim, or button A on a second pad.')}</small></button></div>
     <h3>🎨 {t('Aspecto', 'Looks')}</h3>
     {SLOTS.map(s => <div key={s.id} className="look-row"><b>{t(s.es, s.en)}</b>
       <div className="adv-row">{ITEMS.filter(i => i.slot === s.id).map(it => {
