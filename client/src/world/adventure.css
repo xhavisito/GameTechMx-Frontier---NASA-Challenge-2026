@@ -175,3 +175,5 @@
 .arrival.jupiter{background:linear-gradient(#120c20,#2c1f4a)}.arrival.jupiter .arrival-sun{background:#ffd9a0;box-shadow:0 0 50px 14px #ffd9a055}.arrival.jupiter .arrival-ground{background:linear-gradient(#f2dfc0 0 25%,#d9a066 25% 50%,#b9703f 50% 75%,#efd2a0 75%);height:48%}
 .arrival.miller{background:linear-gradient(#5cc0f0,#2a86cf 60%)}.arrival.miller .arrival-ground{background:#145f9e;box-shadow:inset 0 14px 0 #2a86cf}
 .arrival~.adv-modal{background:#1b123033}
+
+.salvage{z-index:520;background:#120a22e6}.salv-list{list-style:none;padding:0;margin:.4rem 0 .8rem;display:flex;flex-direction:column;gap:.3rem;font-weight:800}.salv-note{display:block;margin:.4rem 0}.salv-warn{background:#ff5d7333;border:2px solid #ff5d73;border-radius:12px;padding:.5rem}.salv-no{margin-top:.5rem;opacity:.85}

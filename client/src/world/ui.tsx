@@ -1,3 +1,4 @@
+import { FrontierLogo, GameTechLogo } from './logos';
 import { useEffect, useState } from 'react';
 import { Camera, FlaskConical, Radar, Rocket, Orbit, Waves, Sun, BatteryFull, Check, X as XIcon, Star, Keyboard, Gamepad2, Hand } from 'lucide-react';
 import { BUDGET, DEST, ROCKETS, TOOLS, NO_BONUS, TOOL_PRICE, ROCKET_PRICE, supplyCost, normalize, runTests, passed, stats, type RocketBonus, type Design, type Dest, type RocketId, type Tool, type TestResult, type TravelEvent, type EventOption } from './design';
@@ -62,6 +63,7 @@ const LEVEL_POINTS: Record<Level, [string[], string[]]> = {
 export function LevelPicker({ es, level, onPick, onHelp }: Es & { level: Level; onPick: (l: Level) => void; onHelp: () => void }) {
   const [sel, setSel] = useState<Level>(level);
   return <div className="adv-modal" role="dialog" aria-label="difficulty"><div className="adv-card wide">
+    <div className="logo-row"><FrontierLogo height={62} /></div>
     <h2>{t(es, 'Elige tu dificultad', 'Choose your difficulty')}</h2>
     <p>{t(es, 'Mientras más difícil, más decisiones tomas, más pruebas pasas y más técnico se vuelve. En Experto diseñas la nave como un ingeniero.', 'The harder it is, the more decisions you make, the more tests you pass and the more technical it gets. On Expert you design the ship like an engineer.')}</p>
     <div className="lvl-grid">{LEVELS.map(l => <button key={l} className={`lvl ${sel === l ? 'on' : ''}`} style={{ ['--c' as string]: LEVEL_INFO[l].color }} onClick={() => setSel(l)} aria-pressed={sel === l}>
@@ -70,6 +72,7 @@ export function LevelPicker({ es, level, onPick, onHelp }: Es & { level: Level; 
       <ul>{LEVEL_POINTS[l][es ? 0 : 1].map((p, i) => <li key={i}>{p}</li>)}</ul></button>)}</div>
     <div className="adv-row tut-nav"><button className="button button-secondary" onClick={onHelp}>{t(es, 'Ver tutorial', 'Show tutorial')}</button>
       <button className="button button-primary" autoFocus onClick={() => onPick(sel)}>{t(es, 'Jugar', 'Play')} · {es ? LEVEL_INFO[sel].es : LEVEL_INFO[sel].en}</button></div>
+    <div className="logo-row made-by"><small>{t(es, 'Hecho por', 'Made by')}</small><GameTechLogo height={30} /></div>
   </div></div>;
 }
 
